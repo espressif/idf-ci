@@ -13,4 +13,14 @@ component_mapping_regexes = [
     "/common_components/(.+)/",
 ]
 extend_component_mapping_regexes = []
+
+# these files would be ignored when mapping the modified files into modified components
+component_ignored_file_extensions = [
+    ".md",
+    ".rst",
+    ".yaml",
+    ".yml",
+    ".py",
+]
+extend_component_ignored_file_extensions = []
 ```
