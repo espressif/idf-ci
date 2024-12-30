@@ -1,0 +1,40 @@
+[project]
+name = "idf-ci"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "idf-build-apps~=2.5",
+    "pyparsing~=3.0",
+    "pydantic~=2.7",
+    "pyyaml>=5.3",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
+[tool.isort]
+profile = 'black'
+force_grid_wrap = 1
+
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+
+[tool.ruff.lint]
+select = [
+    'F', # Pyflakes
+    'E', # pycodestyle
+    'W', # pycodestyle
+]
+
+[tool.ruff.format]
+quote-style = "single"
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.8"
