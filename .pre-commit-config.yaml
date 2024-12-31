@@ -29,3 +29,4 @@ repos:
         additional_dependencies:
           - pydantic-settings
           - click
+          - pytest
