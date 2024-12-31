@@ -30,6 +30,8 @@ class CiSettings(BaseSettings):
     ]
     extend_component_ignored_file_extensions: t.List[str] = []  # noqa
 
+    build_profile: str = 'default'  # or your custom profile path
+
     model_config = SettingsConfigDict(
         toml_file='.idf_ci.toml',
     )
