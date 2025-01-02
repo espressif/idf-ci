@@ -3,17 +3,24 @@
 
 import os
 import shutil
+
 import click
 
 
 @click.group()
 def build_profile():
+    """
+    Group of commands for managing build profiles for idf-build-apps
+    """
     pass
 
 
 @build_profile.command()
-@click.option('--path', default=os.getcwd(), help='Path to the build profile')
+@click.option('--path', default=os.getcwd(), help='Path to create the build profile')
 def init(path: str):
+    """
+    Create a build profile at the given folder
+    """
     if os.path.isdir(path):
         # here don't use idf_build_apps.constants.IDF_BUILD_APPS_TOML_FN
         # since idf_build_apps requires idf_path

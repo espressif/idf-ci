@@ -10,10 +10,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = [
-    "pytest",
-    "pytest-cov",
-]
+test = ["pytest", "pytest-cov"]
 
 [project.scripts]
 idf-ci = "idf_ci.cli:cli"
@@ -31,9 +28,15 @@ target-version = "py38"
 
 [tool.ruff.lint]
 select = [
-    'F', # Pyflakes
-    'E', # pycodestyle
-    'W', # pycodestyle
+    'F',   # Pyflakes
+    'E',   # pycodestyle
+    'W',   # pycodestyle
+    'I',   # isort
+    'UP',  # pyupgrade
+    'YTT', # flake8-2020
+    'A',   # flake8-builtins
+    'ARG', # flake8-unused-arguments
+    'RUF', # ruff
 ]
 
 [tool.ruff.format]

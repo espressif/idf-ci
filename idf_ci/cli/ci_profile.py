@@ -9,12 +9,18 @@ import click
 
 @click.group()
 def ci_profile():
+    """
+    Group of commands for managing CI profiles for idf-ci
+    """
     pass
 
 
 @ci_profile.command()
-@click.option('--path', default=os.getcwd(), help='Path to the CI profile')
+@click.option('--path', default=os.getcwd(), help='Path to create the CI profile')
 def init(path: str):
+    """
+    Create a CI profile at the given folder
+    """
     if os.path.isdir(path):
         filepath = os.path.join(path, '.idf_ci.toml')
     else:

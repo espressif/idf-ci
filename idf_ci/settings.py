@@ -1,34 +1,33 @@
-# SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import os.path
 import re
+import typing as t
 from pathlib import Path
 
 from pydantic_settings import (
     BaseSettings,
+    PydanticBaseSettingsSource,
     SettingsConfigDict,
     TomlConfigSettingsSource,
-    PydanticBaseSettingsSource,
 )
-
-import typing as t
 
 
 class CiSettings(BaseSettings):
-    component_mapping_regexes: t.List[str] = [  # noqa
+    component_mapping_regexes: t.List[str] = [
         '/components/(.+)/',
         '/common_components/(.+)/',
     ]
-    extend_component_mapping_regexes: t.List[str] = []  # noqa
+    extend_component_mapping_regexes: t.List[str] = []
 
-    component_ignored_file_extensions: t.List[str] = [  # noqa
+    component_ignored_file_extensions: t.List[str] = [
         '.md',
         '.rst',
         '.yaml',
         '.yml',
         '.py',
     ]
-    extend_component_ignored_file_extensions: t.List[str] = []  # noqa
+    extend_component_ignored_file_extensions: t.List[str] = []
 
     build_profile: str = 'default'  # or your custom profile path
 
@@ -41,9 +40,9 @@ class CiSettings(BaseSettings):
         cls,
         settings_cls: t.Type[BaseSettings],
         init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,  # noqa: ARG003
+        dotenv_settings: PydanticBaseSettingsSource,  # noqa: ARG003
+        file_secret_settings: PydanticBaseSettingsSource,  # noqa: ARG003
     ) -> t.Tuple[PydanticBaseSettingsSource, ...]:
         return TomlConfigSettingsSource(settings_cls), init_settings
 
