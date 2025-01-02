@@ -1,0 +1,12 @@
+component_mapping_regexes = [
+    "/components/(.+)/",
+    "/common_components/(.+)/",
+]
+
+component_ignored_file_extensions = [
+    ".md",
+    ".rst",
+    ".yaml",
+    ".yml",
+    ".py",
+]
