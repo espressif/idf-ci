@@ -1,13 +1,35 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "idf-ci"
 version = "0.1.0"
-description = "Add your description here"
+description = "The python library for CI/CD of ESP-IDF projects"
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = [
-    "idf-build-apps~=2.5",
-    "click",
+authors = [{ name = "Fu Hanxi", email = "fuhanxi@espressif.com" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
 ]
+dependencies = ["idf-build-apps~=2.5", "click"]
+
+[project.urls]
+Homepage = "https://github.com/espressif/idf-ci"
+Documentation = "https://docs.espressif.com/projects/idf-ci"
+Repository = "https://github.com/espressif/idf-ci.git"
+Changelog = "https://github.com/espressif/idf-ci/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov"]
