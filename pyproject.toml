@@ -28,6 +28,8 @@ dependencies = [
     "tomlkit",  # we need both read and write
     # build related
     "idf-build-apps~=2.6",
+    # test related
+    "pytest-embedded-idf[serial]~=1.12",
 ]
 
 [project.urls]
@@ -66,12 +68,18 @@ select = [
     'RUF', # ruff
 ]
 
+[tool.ruff.lint.flake8-unused-arguments]
+ignore-variadic-names = true
+
 [tool.ruff.format]
 quote-style = "single"
 docstring-code-format = true
 
 [tool.mypy]
 python_version = "3.8"
+[[tool.mypy.overrides]]
+module = ["pytest_embedded.plugin.*"]
+follow_untyped_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

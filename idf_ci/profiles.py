@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 from tomlkit import dump, load
 
-from .compat import PathLike
+from ._compat import PathLike
 
 
 def _merge_dicts(source: t.Dict, target: t.Dict) -> t.Dict:
@@ -51,7 +51,9 @@ class ProfileManager:
 
     @contextmanager
     def _merged_profile_writer(self) -> t.Generator[t.IO[str], None, None]:
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as fw:
+        # seems like .ini suffix is required to let pytest recognize that this is a config file
+        # otherwise -c won't work
+        with tempfile.NamedTemporaryFile(suffix='.ini', mode='w', delete=False) as fw:
             yield fw
 
             self._merged_profile_path = fw.name

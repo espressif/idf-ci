@@ -5,3 +5,11 @@ import os
 import typing as t
 
 PathLike = t.Union[str, os.PathLike]
+
+
+class Undefined(str):
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(cls, 'undefined')
+
+
+UNDEF = Undefined()
