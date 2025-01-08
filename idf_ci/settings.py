@@ -13,6 +13,7 @@ from pydantic_settings import (
 )
 
 
+# noinspection PyDataclass
 class CiSettings(BaseSettings):
     component_mapping_regexes: t.List[str] = [
         '/components/(.+)/',
