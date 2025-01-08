@@ -23,7 +23,12 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Testing",
 ]
-dependencies = ["idf-build-apps~=2.5", "click"]
+dependencies = [
+    "click",
+    "tomlkit",  # we need both read and write
+    # build related
+    "idf-build-apps~=2.6",
+]
 
 [project.urls]
 Homepage = "https://github.com/espressif/idf-ci"
@@ -67,3 +72,6 @@ docstring-code-format = true
 
 [tool.mypy]
 python_version = "3.8"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

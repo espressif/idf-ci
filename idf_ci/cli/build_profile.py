@@ -29,5 +29,5 @@ def init(path: str):
     else:
         filepath = path
 
-    shutil.copyfile(os.path.join(os.path.dirname(__file__), '..', 'profiles', 'default_build_profile.toml'), filepath)
+    shutil.copyfile(os.path.join(os.path.dirname(__file__), '..', 'templates', 'default_build_profile.toml'), filepath)
     click.echo(f'Created build profile at {filepath}')

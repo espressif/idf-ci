@@ -1,120 +1,147 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 
-import os
+import textwrap
 
-import pytest
-
-from idf_ci.settings import CiSettings
+from idf_ci.profiles import IniProfileManager, TomlProfileManager
 
 
-@pytest.fixture
-def default_settings():
-    return CiSettings()
+class TestIniProfile:
+    def test_read_valid_profile(self, tmp_path):
+        profile_path = tmp_path / 'valid_profile.ini'
+        profile_path.write_text(
+            textwrap.dedent("""
+            [section]
+            key=value
+        """)
+        )
+
+        manager = IniProfileManager([profile_path], profile_path)
+        profile = manager.read(profile_path)
+        assert profile['section']['key'] == 'value'
+
+    def test_read_nonexistent_profile(self, tmp_path):
+        profile_path = tmp_path / 'nonexistent_profile.ini'
+        manager = IniProfileManager([profile_path], profile_path)
+        profile = manager.read(profile_path)
+        assert profile == {}
+
+    def test_merge_multiple_profiles(self, tmp_path):
+        profile1_path = tmp_path / 'profile1.ini'
+        profile2_path = tmp_path / 'profile2.ini'
+        profile1_path.write_text(
+            textwrap.dedent("""
+            [section1]
+            key1=value1
+        """)
+        )
+        profile2_path.write_text(
+            textwrap.dedent("""
+            [section1]
+            key2=value2
+        """)
+        )
+
+        manager = IniProfileManager([profile1_path, profile2_path], profile1_path)
+        merged_profile = manager.read(manager.merged_profile_path)
+        assert merged_profile['section1']['key1'] == 'value1'
+        assert merged_profile['section1']['key2'] == 'value2'
+
+    def test_merge_with_default_profile(self, tmp_path):
+        default_profile_path = tmp_path / 'default_profile.ini'
+        profile_path = tmp_path / 'profile.ini'
+        default_profile_path.write_text(
+            textwrap.dedent("""
+            [default_section]
+            default_key=default_value
+        """)
+        )
+        profile_path.write_text(
+            textwrap.dedent("""
+            [section]
+            key=value
+        """)
+        )
+
+        manager = IniProfileManager(['default', profile_path], default_profile_path)
+        merged_profile = manager.read(manager.merged_profile_path)
+        assert merged_profile['default_section']['default_key'] == 'default_value'
+        assert merged_profile['section']['key'] == 'value'
 
 
-def test_default_component_mapping_regexes(default_settings):
-    expected_regexes = [
-        '/components/(.+)/',
-        '/common_components/(.+)/',
-    ]
-    assert default_settings.component_mapping_regexes == expected_regexes
+class TestTomlProfile:
+    def test_read_valid_profile(self, tmp_path):
+        profile_path = tmp_path / 'valid_profile.toml'
+        profile_path.write_text(
+            textwrap.dedent("""
+            [section]
+            key = 'value'
+        """)
+        )
 
+        manager = TomlProfileManager([profile_path], profile_path)
+        profile = manager.read(profile_path)
+        assert profile['section']['key'] == 'value'
 
-def test_default_component_ignored_file_extensions(default_settings):
-    expected_extensions = [
-        '.md',
-        '.rst',
-        '.yaml',
-        '.yml',
-        '.py',
-    ]
-    assert default_settings.component_ignored_file_extensions == expected_extensions
+    def test_read_nonexistent_profile(self, tmp_path):
+        profile_path = tmp_path / 'nonexistent_profile.toml'
+        manager = TomlProfileManager([profile_path], profile_path)
+        profile = manager.read(profile_path)
+        assert profile == {}
 
+    def test_merge_multiple_profiles(self, tmp_path):
+        profile1_path = tmp_path / 'profile1.toml'
+        profile2_path = tmp_path / 'profile2.toml'
+        profile1_path.write_text(
+            textwrap.dedent("""
+            [section1]
+            key1 = 'value1'
 
-def test_get_modified_components(default_settings):
-    test_files = [
-        'components/wifi/wifi.c',
-        'components/bt/bt_main.c',
-        'common_components/esp_common/test.c',
-        'docs/example.md',  # should be ignored
-        'random/file.txt',  # should not match any component
-    ]
+            [section1.key3]
+            k3 = 'v3'
+            k5 = 'v5'
+        """)
+        )
+        profile2_path.write_text(
+            textwrap.dedent("""
+            non_section_key = 'non_section_value'
+            [section1]
+            key2 = 'value2'
 
-    expected_components = {'wifi', 'bt', 'esp_common'}
-    assert default_settings.get_modified_components(test_files) == expected_components
+            [section1.key3]
+            k4 = 'v4'
+            k5 = 'v55'
+        """)
+        )
 
+        manager = TomlProfileManager([profile1_path, profile2_path], profile1_path)
+        merged_profile = manager.read(manager.merged_profile_path)
+        assert merged_profile['section1']['key1'] == 'value1'
+        assert merged_profile['section1']['key2'] == 'value2'
+        assert merged_profile['section1']['key3'] == {
+            'k3': 'v3',
+            'k4': 'v4',
+            'k5': 'v55',
+        }
+        assert merged_profile['non_section_key'] == 'non_section_value'
 
-def test_ignored_file_extensions(default_settings):
-    test_files = [
-        'components/wifi/README.md',
-        'components/bt/docs.rst',
-        'components/esp_common/config.yaml',
-        'components/test/test.yml',
-        'components/utils/util.py',
-    ]
+    def test_merge_with_default_profile(self, tmp_path):
+        default_profile_path = tmp_path / 'default_profile.toml'
+        profile_path = tmp_path / 'profile.toml'
+        default_profile_path.write_text(
+            textwrap.dedent("""
+            [default_section]
+            default_key = 'default_value'
+        """)
+        )
+        profile_path.write_text(
+            textwrap.dedent("""
+            [section]
+            key = 'value'
+        """)
+        )
 
-    assert default_settings.get_modified_components(test_files) == set()
-
-
-def test_extended_component_mapping_regexes():
-    settings = CiSettings(
-        extend_component_mapping_regexes=[
-            '/custom/path/(.+)/',
-        ]
-    )
-
-    test_files = [
-        'custom/path/my_component/test.c',
-        'components/wifi/wifi.c',
-    ]
-
-    expected_components = {'my_component', 'wifi'}
-    assert settings.get_modified_components(test_files) == expected_components
-
-
-def test_extended_ignored_extensions():
-    settings = CiSettings(
-        extend_component_ignored_file_extensions=[
-            '.txt',
-            '.json',
-        ]
-    )
-
-    test_files = [
-        'components/wifi/test.txt',
-        'components/bt/config.json',
-        'components/esp_common/main.c',
-    ]
-
-    expected_components = {'esp_common'}
-    assert settings.get_modified_components(test_files) == expected_components
-
-
-def test_build_profile_default():
-    settings = CiSettings()
-    assert settings.build_profile == 'default'
-
-
-def test_build_profile_custom():
-    custom_profile = 'custom_profile'
-    settings = CiSettings(build_profile=custom_profile)
-    assert settings.build_profile == custom_profile
-
-
-def test_all_component_mapping_regexes(default_settings):
-    patterns = default_settings.all_component_mapping_regexes
-    assert len(patterns) == 2
-
-    test_path = '/components/test_component/test.c'
-    for pattern in patterns:
-        match = pattern.search(test_path)
-        if '/components/(.+)/' in pattern.pattern:
-            assert match is not None
-            assert match.group(1) == 'test_component'
-
-
-def test_component_mapping_with_absolute_paths(default_settings):
-    abs_path = os.path.abspath('components/wifi/wifi.c')
-    components = default_settings.get_modified_components([abs_path])
-    assert components == {'wifi'}
+        manager = TomlProfileManager(['default', profile_path], default_profile_path)
+        merged_profile = manager.read(manager.merged_profile_path)
+        assert merged_profile['default_section']['default_key'] == 'default_value'
+        assert merged_profile['section']['key'] == 'value'

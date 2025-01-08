@@ -30,3 +30,4 @@ repos:
           - pydantic-settings
           - click
           - pytest
+          - tomlkit
