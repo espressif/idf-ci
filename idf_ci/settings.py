@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
-import os.path
+
+import os
 import re
 import typing as t
 from pathlib import Path
@@ -58,11 +59,12 @@ class CiSettings(BaseSettings):
             if p.suffix in self.component_ignored_file_extensions + self.extend_component_ignored_file_extensions:
                 continue
 
-            # always use posix str
-            modified_file = Path(modified_file).as_posix()
+            # always use absolute path as posix string
+            # Path.resolve return relative path when file does not exist. so use os.path.abspath
+            modified_file = Path(os.path.abspath(modified_file)).as_posix()
 
             for regex in self.all_component_mapping_regexes:
-                match = regex.search(os.path.abspath(modified_file))
+                match = regex.search(modified_file)
                 if match:
                     modified_components.add(match.group(1))
                     break

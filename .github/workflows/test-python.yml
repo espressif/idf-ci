@@ -19,10 +19,14 @@ permissions:
 
 jobs:
   test-python:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.13"]
+        include:
+          - os: windows-latest
+            python-version: "3.8"
+          - os: ubuntu-latest
+            python-version: "3.13"
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
