@@ -6,6 +6,10 @@ import shutil
 
 import click
 
+from idf_ci import build as build_cmd
+
+from ._options import option_paths, option_profiles
+
 
 @click.group()
 def build():
@@ -13,6 +17,18 @@ def build():
     Group of build related commands
     """
     pass
+
+
+@build.command()
+@option_paths
+@click.option('--target', '-t', default='all', help='Target to be built. Or "all" to build all targets.')
+@option_profiles
+def run(paths, target, profiles):
+    """
+    Run build according to the given profiles
+    """
+    click.echo(f'Building {target} with profiles {profiles} at {paths}')
+    build_cmd(paths, target, profiles=profiles)
 
 
 @build.command()
