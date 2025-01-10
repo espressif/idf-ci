@@ -8,18 +8,18 @@ import click
 
 
 @click.group()
-def test_profile():
+def test():
     """
-    Group of commands for managing CI templates for idf-ci
+    Group of test related commands
     """
     pass
 
 
-@test_profile.command()
+@test.command()
 @click.option('--path', default=os.getcwd(), help='Path to create the CI profile')
-def init(path: str):
+def init_profile(path: str):
     """
-    Create a CI profile at the given folder
+    Create pytest.ini with default values at the given folder
     """
     if os.path.isdir(path):
         filepath = os.path.join(path, 'pytest.ini')

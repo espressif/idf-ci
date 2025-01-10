@@ -25,6 +25,8 @@ def _merge_dicts(source: t.Dict, target: t.Dict) -> t.Dict:
 
 
 class ProfileManager:
+    suffix: t.ClassVar[t.Literal['.ini', '.toml']] = '.toml'
+
     def __init__(self, profiles: t.List[PathLike], default_profile_path: PathLike):
         self.profiles = profiles
         self.default_profile_path = default_profile_path
@@ -51,15 +53,15 @@ class ProfileManager:
 
     @contextmanager
     def _merged_profile_writer(self) -> t.Generator[t.IO[str], None, None]:
-        # seems like .ini suffix is required to let pytest recognize that this is a config file
-        # otherwise -c won't work
-        with tempfile.NamedTemporaryFile(suffix='.ini', mode='w', delete=False) as fw:
+        with tempfile.NamedTemporaryFile(suffix=self.suffix, mode='w', delete=False) as fw:
             yield fw
 
             self._merged_profile_path = fw.name
 
 
 class IniProfileManager(ProfileManager):
+    suffix: t.ClassVar[t.Literal['.ini', '.toml']] = '.ini'
+
     def read(self, profile: PathLike) -> t.Dict:
         config = configparser.ConfigParser()
 

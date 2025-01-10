@@ -6,20 +6,36 @@ import shutil
 
 import click
 
+from idf_ci import build as build_cmd
+
+from ._options import option_paths, option_profiles
+
 
 @click.group()
-def build_profile():
+def build():
     """
-    Group of commands for managing build profiles for idf-build-apps
+    Group of build related commands
     """
     pass
 
 
-@build_profile.command()
-@click.option('--path', default=os.getcwd(), help='Path to create the build profile')
-def init(path: str):
+@build.command()
+@option_paths
+@click.option('--target', '-t', default='all', help='Target to be built. Or "all" to build all targets.')
+@option_profiles
+def run(paths, target, profiles):
     """
-    Create a build profile at the given folder
+    Run build according to the given profiles
+    """
+    click.echo(f'Building {target} with profiles {profiles} at {paths}')
+    build_cmd(paths, target, profiles=profiles)
+
+
+@build.command()
+@click.option('--path', default=os.getcwd(), help='Path to create the build profile')
+def init_profile(path: str):
+    """
+    Create .idf_build_apps.toml with default values at the given folder
     """
     if os.path.isdir(path):
         # here don't use idf_build_apps.constants.IDF_BUILD_APPS_TOML_FN

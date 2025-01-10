@@ -3,8 +3,9 @@
 
 from .idf_pytest.models import PytestApp, PytestCase
 from .idf_pytest.plugin import IdfPytestPlugin
-from .idf_pytest.script import get_pytest_cases
+from .idf_pytest.scripts import get_pytest_cases
 from .profiles import IniProfileManager, TomlProfileManager
+from .scripts import build
 from .settings import CiSettings
 
 __all__ = [
@@ -14,5 +15,6 @@ __all__ = [
     'PytestApp',
     'PytestCase',
     'TomlProfileManager',
+    'build',
     'get_pytest_cases',
 ]

@@ -7,8 +7,9 @@ import typing as t
 from functools import cached_property
 
 from _pytest.python import Function
-from idf_build_apps.utils import to_list
 from pytest_embedded.plugin import parse_multi_dut_args
+
+from idf_ci.utils import to_list
 
 LOGGER = logging.getLogger(__name__)
 
