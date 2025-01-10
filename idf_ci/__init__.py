@@ -3,7 +3,7 @@
 
 from .idf_pytest.models import PytestApp, PytestCase
 from .idf_pytest.plugin import IdfPytestPlugin
-from .idf_pytest.script import get_pytest_cases
+from .idf_pytest.scripts import get_pytest_cases
 from .profiles import IniProfileManager, TomlProfileManager
 from .settings import CiSettings
 

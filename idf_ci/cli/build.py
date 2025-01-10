@@ -8,18 +8,18 @@ import click
 
 
 @click.group()
-def build_profile():
+def build():
     """
-    Group of commands for managing build profiles for idf-build-apps
+    Group of build related commands
     """
     pass
 
 
-@build_profile.command()
+@build.command()
 @click.option('--path', default=os.getcwd(), help='Path to create the build profile')
-def init(path: str):
+def init_profile(path: str):
     """
-    Create a build profile at the given folder
+    Create .idf_build_apps.toml with default values at the given folder
     """
     if os.path.isdir(path):
         # here don't use idf_build_apps.constants.IDF_BUILD_APPS_TOML_FN
