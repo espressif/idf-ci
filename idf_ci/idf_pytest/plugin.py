@@ -114,8 +114,7 @@ class IdfPytestPlugin:
                     # redirect_stderr somehow breaks the sys.stderr.write() method
                     # fix it when implement proper logging
                     pkg = res.group(1)
-                    if sys.__stderr__:
-                        sys.__stderr__.write(f'WARNING:Mocking missed package while collecting: {pkg}\n')
+                    logging.warning(f'WARNING:Mocking missed package while collecting: {pkg}\n')
                     sys.modules[pkg] = MagicMock()
                     continue
             else:
