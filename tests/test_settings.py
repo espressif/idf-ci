@@ -2,26 +2,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import re
 
-import pytest
-
+from idf_ci.cli import cli
 from idf_ci.settings import CiSettings
 
 
-@pytest.fixture
-def default_settings():
-    return CiSettings()
-
-
-def test_default_component_mapping_regexes(default_settings):
+def test_default_component_mapping_regexes():
     expected_regexes = [
         '/components/(.+)/',
         '/common_components/(.+)/',
     ]
-    assert default_settings.component_mapping_regexes == expected_regexes
+    assert CiSettings().component_mapping_regexes == expected_regexes
 
 
-def test_default_component_ignored_file_extensions(default_settings):
+def test_default_component_ignored_file_extensions():
     expected_extensions = [
         '.md',
         '.rst',
@@ -29,10 +24,10 @@ def test_default_component_ignored_file_extensions(default_settings):
         '.yml',
         '.py',
     ]
-    assert default_settings.component_ignored_file_extensions == expected_extensions
+    assert CiSettings().component_ignored_file_extensions == expected_extensions
 
 
-def test_get_modified_components(default_settings):
+def test_get_modified_components():
     test_files = [
         'components/wifi/wifi.c',
         'components/bt/bt_main.c',
@@ -42,10 +37,10 @@ def test_get_modified_components(default_settings):
     ]
 
     expected_components = {'wifi', 'bt', 'esp_common'}
-    assert default_settings.get_modified_components(test_files) == expected_components
+    assert CiSettings().get_modified_components(test_files) == expected_components
 
 
-def test_ignored_file_extensions(default_settings):
+def test_ignored_file_extensions():
     test_files = [
         'components/wifi/README.md',
         'components/bt/docs.rst',
@@ -54,7 +49,7 @@ def test_ignored_file_extensions(default_settings):
         'components/utils/util.py',
     ]
 
-    assert default_settings.get_modified_components(test_files) == set()
+    assert CiSettings().get_modified_components(test_files) == set()
 
 
 def test_extended_component_mapping_regexes():
@@ -91,19 +86,8 @@ def test_extended_ignored_extensions():
     assert settings.get_modified_components(test_files) == expected_components
 
 
-def test_build_profile_default():
-    settings = CiSettings()
-    assert settings.build_profile == 'default'
-
-
-def test_build_profile_custom():
-    custom_profile = 'custom_profile'
-    settings = CiSettings(build_profile=custom_profile)
-    assert settings.build_profile == custom_profile
-
-
-def test_all_component_mapping_regexes(default_settings):
-    patterns = default_settings.all_component_mapping_regexes
+def test_all_component_mapping_regexes():
+    patterns = CiSettings().all_component_mapping_regexes
     assert len(patterns) == 2
 
     test_path = '/components/test_component/test.c'
@@ -114,7 +98,45 @@ def test_all_component_mapping_regexes(default_settings):
             assert match.group(1) == 'test_component'
 
 
-def test_component_mapping_with_absolute_paths(default_settings):
+def test_component_mapping_with_absolute_paths():
     abs_path = os.path.abspath('components/wifi/wifi.c')
-    components = default_settings.get_modified_components([abs_path])
+    components = CiSettings().get_modified_components([abs_path])
     assert components == {'wifi'}
+
+
+def test_ci_profile_option(temp_dir, runner):
+    # Create a custom CI profile file
+    custom_profile = os.path.join(temp_dir, 'custom_ci_profile.toml')
+    with open(custom_profile, 'w') as f:
+        f.write("""
+extend_component_mapping_regexes = [
+    '/custom/path/(.+)/'
+]
+
+component_ignored_file_extensions = [
+    '.custom'
+]
+""")
+
+    result = runner.invoke(cli, ['--ci-profile', custom_profile, 'build', 'run', '--paths', temp_dir])
+    assert result.exit_code == 0
+    assert f'Using CI profile: {custom_profile}' in result.output
+    assert CiSettings.CONFIG_FILE_PATH == custom_profile
+    assert len(CiSettings().all_component_mapping_regexes) == 3  # default got 2
+
+    CiSettings.CONFIG_FILE_PATH = None  # reset
+
+    # Test with non-existent profile
+    non_existent = os.path.join(temp_dir, 'non_existent.toml')
+    result = runner.invoke(cli, ['--ci-profile', non_existent])
+    assert result.exit_code == 2  # Click returns 2 for parameter validation errors
+    assert re.search(r"Error: Invalid value for '--ci-profile': File .* does not exist.", result.output)
+    assert len(CiSettings().all_component_mapping_regexes) == 2  # default got 2
+
+
+def test_ci_profile_not_specified(runner):
+    # Test default behavior when no profile is specified
+    original_config_path = CiSettings.CONFIG_FILE_PATH
+    result = runner.invoke(cli, ['build', 'init-profile'])
+    assert result.exit_code == 0
+    assert CiSettings.CONFIG_FILE_PATH == original_config_path

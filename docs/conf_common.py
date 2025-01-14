@@ -41,10 +41,6 @@ html_css_files = ['theme_overrides.css']
 html_logo = '../_static/espressif-logo.svg'
 html_static_path = ['../_static']
 html_theme = 'sphinx_rtd_theme'
-#
-# # mermaid 10.2.0 will show syntax error
-# # use fixed version instead
-# mermaid_version = '10.6.1'
 
 
 def generate_api_docs(language):

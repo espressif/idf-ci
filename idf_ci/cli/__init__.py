@@ -5,6 +5,8 @@ import shutil
 
 import click
 
+from idf_ci.settings import CiSettings
+
 from .build import build
 from .test import test
 
@@ -15,8 +17,15 @@ _CLI_SETTINGS = {
 
 
 @click.group(context_settings=_CLI_SETTINGS)
-def cli():
-    pass
+@click.option(
+    '--ci-profile',
+    type=click.Path(dir_okay=False, file_okay=True, exists=True),
+    help='Path to the CI profile file',
+)
+def cli(ci_profile):
+    if ci_profile:
+        print('Using CI profile:', ci_profile)
+        CiSettings.CONFIG_FILE_PATH = ci_profile
 
 
 @cli.command()

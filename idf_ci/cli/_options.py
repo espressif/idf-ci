@@ -3,6 +3,25 @@
 
 import click
 
+from idf_ci._compat import UNDEF
+
+
+########################
+# Validation Functions #
+########################
+def _semicolon_separated_list(ctx, param, value):  # noqa: ARG001
+    if value is None:
+        return UNDEF
+
+    if not isinstance(value, str):
+        raise click.BadParameter('Value must be a string')
+
+    return [v.strip() for v in value.split(';') if v.strip()]
+
+
+###########
+# Options #
+###########
 _OPTION_PATHS_HELP = """
 List of directories to process. Support passing multiple times.
 
@@ -31,15 +50,14 @@ Support passing multiple times. The later profiles will override the previous on
 
 \b
 Example:
-  --profiles default --profiles custom.toml
+  --profiles default;custom.toml  # To apply default and custom profiles
+  --profiles ';'  # To unset the default profile
 """
 
 
 def option_profiles(func):
     return click.option(
         '--profiles',
-        multiple=True,
-        default=['default'],
-        show_default=False,
         help=_OPTION_PROFILES_HELP,
+        callback=_semicolon_separated_list,
     )(func)
