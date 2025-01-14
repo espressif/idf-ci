@@ -9,13 +9,14 @@ from pathlib import Path
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
-    SettingsConfigDict,
     TomlConfigSettingsSource,
 )
 
 
 # noinspection PyDataclass
 class CiSettings(BaseSettings):
+    CONFIG_FILE_PATH: t.ClassVar[t.Optional[Path]] = None
+
     component_mapping_regexes: t.List[str] = [
         '/components/(.+)/',
         '/common_components/(.+)/',
@@ -31,11 +32,8 @@ class CiSettings(BaseSettings):
     ]
     extend_component_ignored_file_extensions: t.List[str] = []
 
-    build_profile: str = 'default'  # or your custom profile path
-
-    model_config = SettingsConfigDict(
-        toml_file='.idf_ci.toml',
-    )
+    build_profiles: t.List[str] = ['default']
+    test_profiles: t.List[str] = ['default']
 
     @classmethod
     def settings_customise_sources(
@@ -46,7 +44,13 @@ class CiSettings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,  # noqa: ARG003
         file_secret_settings: PydanticBaseSettingsSource,  # noqa: ARG003
     ) -> t.Tuple[PydanticBaseSettingsSource, ...]:
-        return TomlConfigSettingsSource(settings_cls), init_settings
+        sources: t.Tuple[PydanticBaseSettingsSource, ...] = (init_settings,)
+        if cls.CONFIG_FILE_PATH is None:
+            sources += (TomlConfigSettingsSource(settings_cls, '.idf_ci.toml'),)
+        else:
+            sources += (TomlConfigSettingsSource(settings_cls, cls.CONFIG_FILE_PATH),)
+
+        return sources
 
     @property
     def all_component_mapping_regexes(self) -> t.Set[re.Pattern]:

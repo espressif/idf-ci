@@ -14,6 +14,8 @@ def build(
     target: str,
     *,
     profiles: t.List[PathLike] = UNDEF,  # type: ignore
+    parallel_count: int = 1,
+    parallel_index: int = 1,
 ):
     if isinstance(profiles, Undefined):
         profiles = ['default']
@@ -23,19 +25,23 @@ def build(
         default_profile_path=os.path.join(os.path.dirname(__file__), 'templates', 'default_build_profile.toml'),
     )
 
-    print(profile_o.merged_profile_path)
+    args = [
+        'idf-build-apps',
+        'build',
+        '-p',
+        *paths,
+        '-t',
+        target,
+        '--config-file',
+        profile_o.merged_profile_path,
+        '-v',
+        '--parallel-count',
+        str(parallel_count),
+        '--parallel-index',
+        str(parallel_index),
+    ]
 
     subprocess.run(
-        [
-            'idf-build-apps',
-            'build',
-            '-p',
-            *paths,
-            '-t',
-            target,
-            '--config-file',
-            profile_o.merged_profile_path,
-            '-vvv',
-        ],
+        args,
         check=True,
     )

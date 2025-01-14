@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from idf_ci import CiSettings
+
 
 @pytest.fixture
 def runner():
@@ -15,3 +17,10 @@ def runner():
 @pytest.fixture
 def temp_dir(tmp_path: Path) -> str:
     return str(tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def reset_settings():
+    CiSettings.CONFIG_FILE_PATH = None
+
+    yield

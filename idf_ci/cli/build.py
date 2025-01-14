@@ -6,6 +6,7 @@ import shutil
 
 import click
 
+from idf_ci import CiSettings
 from idf_ci import build as build_cmd
 
 from ._options import option_paths, option_profiles
@@ -22,13 +23,20 @@ def build():
 @build.command()
 @option_paths
 @click.option('--target', '-t', default='all', help='Target to be built. Or "all" to build all targets.')
+@click.option('--parallel-count', default=1, help='Number of parallel builds')
+@click.option('--parallel-index', default=1, help='Index of the parallel build')
 @option_profiles
-def run(paths, target, profiles):
+def run(paths, target, profiles, parallel_count, parallel_index):
     """
     Run build according to the given profiles
     """
+    if profiles is not None:
+        pass
+    else:
+        profiles = CiSettings().build_profiles
+
     click.echo(f'Building {target} with profiles {profiles} at {paths}')
-    build_cmd(paths, target, profiles=profiles)
+    build_cmd(paths, target, profiles=profiles, parallel_count=parallel_count, parallel_index=parallel_index)
 
 
 @build.command()
