@@ -39,7 +39,7 @@ jobs:
           pip install -e '.[test]'
       - name: Run tests with pytest and coverage
         run: |
-          pytest --junitxml pytest.xml --cov-report term-missing:skip-covered --cov idf_ci tests/ | tee pytest-coverage.txt
+          pytest --junitxml pytest.xml --cov-report term-missing --cov idf_ci tests/ | tee pytest-coverage.txt
       - name: Upload coverage report to PR (Python 3.13 only)
         if: matrix.python-version == '3.13' && github.event_name == 'pull_request'
         uses: MishaKav/pytest-coverage-comment@v1
