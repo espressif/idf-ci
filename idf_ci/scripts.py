@@ -7,6 +7,7 @@ import typing as t
 
 from ._compat import UNDEF, PathLike, Undefined
 from .profiles import TomlProfileManager
+from .settings import CiSettings
 
 
 def build(
@@ -16,6 +17,7 @@ def build(
     profiles: t.List[PathLike] = UNDEF,  # type: ignore
     parallel_count: int = 1,
     parallel_index: int = 1,
+    modified_files: t.Optional[t.List[str]] = None,
 ):
     if isinstance(profiles, Undefined):
         profiles = ['default']
@@ -40,6 +42,17 @@ def build(
         '--parallel-index',
         str(parallel_index),
     ]
+
+    if modified_files is not None:
+        modified_components = CiSettings().get_modified_components(modified_files)
+        args.extend(
+            [
+                '--modified-files',
+                *modified_files,
+                '--modified-components',
+                *modified_components,
+            ]
+        )
 
     subprocess.run(
         args,
