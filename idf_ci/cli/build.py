@@ -6,10 +6,11 @@ import shutil
 
 import click
 
+from idf_ci._compat import Undefined
 from idf_ci.scripts import build as build_cmd
 from idf_ci.settings import CiSettings
 
-from ._options import option_parallel, option_paths, option_profiles, option_target
+from ._options import option_modified_files, option_parallel, option_paths, option_profiles, option_target
 
 
 @click.group()
@@ -25,17 +26,33 @@ def build():
 @option_target
 @option_profiles
 @option_parallel
-def run(*, paths, target, profiles, parallel_count, parallel_index):
+@option_modified_files
+@click.option('--test-related', is_flag=True, help='Run build only for test-related apps')
+@click.option('--non-test-related', is_flag=True, help='Run build only for non-test-related apps')
+@click.option('--dry-run', is_flag=True, help='Run build in dry-run mode')
+def run(
+    *, paths, target, profiles, parallel_count, parallel_index, modified_files, test_related, non_test_related, dry_run
+):
     """
     Run build according to the given profiles
     """
-    if profiles is not None:
+    if not isinstance(profiles, Undefined):
         pass
     else:
         profiles = CiSettings().build_profiles
 
     click.echo(f'Building {target} with profiles {profiles} at {paths}')
-    build_cmd(paths, target, profiles=profiles, parallel_count=parallel_count, parallel_index=parallel_index)
+    build_cmd(
+        paths,
+        target,
+        profiles=profiles,
+        parallel_count=parallel_count,
+        parallel_index=parallel_index,
+        modified_files=modified_files,
+        test_related=test_related,
+        non_test_related=non_test_related,
+        dry_run=dry_run,
+    )
 
 
 @build.command()

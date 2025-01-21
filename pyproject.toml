@@ -60,6 +60,9 @@ doc = [
 [project.scripts]
 idf-ci = "idf_ci.cli:cli"
 
+[project.entry-points."pytest11"]
+idf-ci = "idf_ci.idf_pytest.plugin"
+
 [tool.setuptools]
 packages = ["idf_ci"]
 

@@ -54,7 +54,8 @@ def option_target(func):
 _OPTION_PROFILES_HELP = """
 \b
 List of profiles to apply. Could be "default" or file path to a custom profile.
-Support passing multiple times. The later profiles will override the previous ones.
+Support passing multiple ones separated by a semicolon (;).
+The later profiles will override the previous ones.
 
 \b
 Example:
@@ -79,3 +80,11 @@ def option_parallel(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def option_modified_files(func):
+    return click.option(
+        '--modified-files',
+        help='Semicolon separated list of files that have been modified',
+        callback=_semicolon_separated_list,
+    )(func)

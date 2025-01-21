@@ -1,15 +1,81 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
-
-import os.path
+import fnmatch
+import logging
+import os
 import subprocess
 import typing as t
 
 import pytest
+from idf_build_apps import build_apps, find_apps
+from idf_build_apps.constants import BuildStatus
 
-from ._compat import UNDEF, PathLike, Undefined
-from .profiles import IniProfileManager, TomlProfileManager
+from . import get_pytest_cases
+from ._compat import UNDEF, PathLike
+from .profiles import get_build_profile, get_test_profile
 from .settings import CiSettings
+
+LOGGER = logging.getLogger(__name__)
+
+
+def get_all_apps(
+    paths: t.List[str],
+    target: str = 'all',
+    *,
+    profiles: t.List[PathLike] = UNDEF,  # type: ignore
+    modified_files: t.Optional[t.List[str]] = None,
+    modified_components: t.Optional[t.List[str]] = None,
+):
+    build_profile = get_build_profile(profiles)
+
+    apps = find_apps(
+        paths,
+        target,
+        config_file=build_profile.merged_profile_path,
+        modified_files=modified_files,
+        modified_components=modified_components,
+    )
+    cases = get_pytest_cases(paths, target, profiles=CiSettings().test_profiles)
+
+    # Get modified pytest cases if any
+    modified_pytest_cases = []
+    if modified_files:
+        modified_pytest_scripts = [
+            os.path.dirname(f) for f in modified_files if fnmatch.fnmatch(os.path.basename(f), 'pytest_*.py')
+        ]
+        if modified_pytest_scripts:
+            modified_pytest_cases = get_pytest_cases(modified_pytest_scripts, target)
+
+    # Create dictionaries mapping app info to test cases
+    def get_app_dict(cases):
+        return {(case_app.path, case_app.target, case_app.config): case for case in cases for case_app in case.apps}
+
+    pytest_dict = get_app_dict(cases)
+    modified_pytest_dict = get_app_dict(modified_pytest_cases)
+
+    test_related_apps = set()
+    non_test_related_apps = set()
+
+    for app in apps:
+        app_key = (os.path.abspath(app.app_dir), app.target, app.config_name or 'default')
+        # override build_status if test script got modified
+        if _case := modified_pytest_dict.get(app_key):
+            test_related_apps.add(app)
+            app.build_status = BuildStatus.SHOULD_BE_BUILT
+            LOGGER.debug('Found app: %s - required by modified test case %s', app, _case.path)
+        elif app.build_status != BuildStatus.SKIPPED:
+            if _case := pytest_dict.get(app_key):
+                test_related_apps.add(app)
+                # build or not should be decided by the build stage
+                LOGGER.debug('Found test-related app: %s - required by %s', app, _case.path)
+            else:
+                non_test_related_apps.add(app)
+                LOGGER.debug('Found non-test-related app: %s', app)
+
+    print(f'Found {len(test_related_apps)} test-related apps')
+    print(f'Found {len(non_test_related_apps)} non-test-related apps')
+
+    return test_related_apps, non_test_related_apps
 
 
 def build(
@@ -20,46 +86,82 @@ def build(
     parallel_count: int = 1,
     parallel_index: int = 1,
     modified_files: t.Optional[t.List[str]] = None,
+    test_related: bool = False,
+    non_test_related: bool = False,
+    dry_run: bool = False,
 ):
-    if isinstance(profiles, Undefined):
-        profiles = ['default']
+    build_profile = get_build_profile(profiles)
 
-    profile_o = TomlProfileManager(
+    modified_components = None
+    if modified_files is not None:
+        modified_components = sorted(CiSettings().get_modified_components(modified_files))
+
+    if test_related is False and non_test_related is False:
+        # call idf-build-apps build directly
+        args = [
+            'idf-build-apps',
+            'build',
+            '-p',
+            *paths,
+            '-t',
+            target,
+            '--config-file',
+            build_profile.merged_profile_path,
+            '--parallel-count',
+            str(parallel_count),
+            '--parallel-index',
+            str(parallel_index),
+        ]
+
+        if modified_files is not None:
+            args.extend(
+                [
+                    '--modified-files',
+                    ';'.join(modified_files) if modified_files else ';',
+                ]
+            )
+
+        if modified_components is not None:
+            args.extend(
+                [
+                    '--modified-components',
+                    ';'.join(modified_components) if modified_components else ';',
+                ]
+            )
+
+        if dry_run:
+            args.append('--dry-run')
+
+        subprocess.run(
+            args,
+            check=True,
+        )
+        return
+
+    # we have to call get_all_apps first, then call build_apps(apps)
+    test_related_apps, non_test_related_apps = get_all_apps(
+        paths,
+        target,
         profiles=profiles,
-        default_profile_path=os.path.join(os.path.dirname(__file__), 'templates', 'default_build_profile.toml'),
+        modified_files=modified_files,
+        modified_components=modified_components,
     )
 
-    args = [
-        'idf-build-apps',
-        'build',
-        '-p',
-        *paths,
-        '-t',
-        target,
-        '--config-file',
-        profile_o.merged_profile_path,
-        '-v',
-        '--parallel-count',
-        str(parallel_count),
-        '--parallel-index',
-        str(parallel_index),
-    ]
-
-    if modified_files is not None:
-        modified_components = CiSettings().get_modified_components(modified_files)
-        args.extend(
-            [
-                '--modified-files',
-                *modified_files,
-                '--modified-components',
-                *modified_components,
-            ]
+    if test_related:
+        return build_apps(
+            sorted(test_related_apps),
+            parallel_count=parallel_count,
+            parallel_index=parallel_index,
+            dry_run=dry_run,
         )
 
-    subprocess.run(
-        args,
-        check=True,
-    )
+    if non_test_related:
+        return build_apps(
+            sorted(non_test_related_apps),
+            parallel_count=parallel_count,
+            parallel_index=parallel_index,
+            dry_run=dry_run,
+        )
 
 
 def test(
@@ -71,16 +173,13 @@ def test(
     parallel_index: int = 1,
     collected_app_info_filepath: t.Optional[PathLike] = None,  # noqa # FIXME
 ):
-    profile_o = IniProfileManager(
-        profiles=profiles,
-        default_profile_path=os.path.join(os.path.dirname(__file__), 'templates', 'default_test_profile.ini'),
-    )
+    test_profile = get_test_profile(profiles)
 
     pytest.main(
         [
             *paths,
             '-c',
-            profile_o.merged_profile_path,
+            test_profile.merged_profile_path,
             '--target',
             target,
             '--parallel-count',

@@ -6,9 +6,11 @@ import shutil
 
 import click
 
-from idf_ci.cli._options import option_parallel, option_paths, option_profiles, option_target
+from idf_ci._compat import Undefined
 from idf_ci.scripts import test as test_cmd
 from idf_ci.settings import CiSettings
+
+from ._options import option_parallel, option_paths, option_profiles, option_target
 
 
 @click.group()
@@ -33,10 +35,10 @@ def run(*, paths, target, profiles, parallel_count, parallel_index, collected_ap
     """
     Run tests according to the given profiles
     """
-    if profiles is not None:
+    if not isinstance(profiles, Undefined):
         pass
     else:
-        profiles = CiSettings().build_profiles
+        profiles = CiSettings().test_profiles
 
     click.echo(f'Building {target} with profiles {profiles} at {paths}')
     test_cmd(

@@ -11,7 +11,8 @@ from contextlib import contextmanager
 
 from tomlkit import dump, load
 
-from ._compat import PathLike
+from ._compat import UNDEF, PathLike, Undefined
+from .settings import CiSettings
 
 
 def _merge_dicts(source: t.Dict, target: t.Dict) -> t.Dict:
@@ -41,7 +42,7 @@ class ProfileManager:
 
     def _resolve_profile_path(self, profile: PathLike) -> PathLike:
         """Resolve 'default' to actual path."""
-        return self.default_profile_path if profile == 'default' else profile
+        return self.default_profile_path if profile == 'default' else os.path.expandvars(profile)
 
     @abstractmethod
     def read(self, profile: PathLike) -> t.Dict:
@@ -105,3 +106,23 @@ class TomlProfileManager(ProfileManager):
 
         with self._merged_profile_writer() as fw:
             dump(merged_dict, fw)
+
+
+def get_build_profile(profiles: t.List[PathLike] = UNDEF) -> TomlProfileManager:  # type: ignore
+    if isinstance(profiles, Undefined):
+        profiles = CiSettings().build_profiles
+
+    return TomlProfileManager(
+        profiles=profiles,
+        default_profile_path=os.path.join(os.path.dirname(__file__), 'templates', 'default_build_profile.toml'),
+    )
+
+
+def get_test_profile(profiles: t.List[PathLike] = UNDEF) -> IniProfileManager:  # type: ignore
+    if isinstance(profiles, Undefined):
+        profiles = CiSettings().test_profiles
+
+    return IniProfileManager(
+        profiles=profiles,
+        default_profile_path=os.path.join(os.path.dirname(__file__), 'templates', 'default_test_profile.ini'),
+    )

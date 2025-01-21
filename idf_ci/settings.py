@@ -12,6 +12,8 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
+from idf_ci._compat import PathLike
+
 
 # noinspection PyDataclass
 class CiSettings(BaseSettings):
@@ -32,8 +34,8 @@ class CiSettings(BaseSettings):
     ]
     extend_component_ignored_file_extensions: t.List[str] = []
 
-    build_profiles: t.List[str] = ['default']
-    test_profiles: t.List[str] = ['default']
+    build_profiles: t.List[PathLike] = ['default']
+    test_profiles: t.List[PathLike] = ['default']
 
     @classmethod
     def settings_customise_sources(

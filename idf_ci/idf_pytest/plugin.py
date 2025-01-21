@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from _pytest.fixtures import FixtureRequest
+from idf_build_apps import App
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
 from .models import PytestCase
@@ -45,8 +46,7 @@ class IdfPytestPlugin:
         _t = getattr(request, 'param', None) or request.config.getoption('target', None)
         if not _t:
             raise ValueError(
-                '"target" shall either be defined in pytest.mark.parametrize '
-                'or be passed in command line by --target'
+                '"target" shall either be defined in pytest.mark.parametrize or be passed in command line by --target'
             )
         return _t
 
@@ -132,6 +132,15 @@ class IdfPytestPlugin:
                 if case.target_selector == self.cli_target:
                     res.append(item)
             items[:] = res
+
+        # filter by manifest
+        if App.MANIFEST:
+            res = []
+            for item, case in self._all_items_to_cases_d.items():
+                for _app in case.apps:
+                    # check if test is enabled for the app...
+                    # TODO
+                    pass
 
         # add them to self._testing_items
         for item in items:
