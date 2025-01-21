@@ -63,7 +63,7 @@ class IniProfileManager(ProfileManager):
     suffix: t.ClassVar[t.Literal['.ini', '.toml']] = '.ini'
 
     def read(self, profile: PathLike) -> t.Dict:
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(interpolation=None)
 
         config.read(profile)
 
@@ -80,7 +80,7 @@ class IniProfileManager(ProfileManager):
                 merged_dict[section].update(options)
 
         with self._merged_profile_writer() as fw:
-            config = configparser.ConfigParser()
+            config = configparser.ConfigParser(interpolation=None)
             for section, options in merged_dict.items():
                 config[section] = options
             config.write(fw)
