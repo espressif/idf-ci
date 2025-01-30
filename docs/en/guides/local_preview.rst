@@ -32,3 +32,26 @@ Or pass ``--non-test-related`` to preview the behavior of the non-test-related b
 .. code:: bash
 
    idf-ci build run --dry-run --non-test-related
+
+Test Stage
+==========
+
+The test stage is the second stage of the CI system. It is responsible for running the tests.
+
+To preview the behavior of the test stage locally, you can run the following command:
+
+.. code:: bash
+
+   idf-ci test run --target <target> --collect-only
+
+For example, to preview the behavior of the test stage for the ``esp32`` target, you can run the following command:
+
+.. code:: bash
+
+   idf-ci test run --target esp32 --collect-only
+
+For multi-dut tests, you can pass with comma separated values:
+
+.. code:: bash
+
+   idf-ci test run --target esp32,esp32s2 --collect-only

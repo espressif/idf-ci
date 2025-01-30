@@ -10,7 +10,7 @@ import pytest
 from idf_build_apps import build_apps, find_apps
 from idf_build_apps.constants import BuildStatus
 
-from . import get_pytest_cases
+from . import IdfPytestPlugin, get_pytest_cases
 from ._compat import UNDEF, PathLike
 from .profiles import get_build_profile, get_test_profile
 from .settings import CiSettings
@@ -172,20 +172,23 @@ def test(
     parallel_count: int = 1,
     parallel_index: int = 1,
     collected_app_info_filepath: t.Optional[PathLike] = None,  # noqa # FIXME
+    collect_only: bool = False,
 ):
     test_profile = get_test_profile(profiles)
 
-    pytest.main(
-        [
-            *paths,
-            '-c',
-            test_profile.merged_profile_path,
-            '--target',
-            target,
-            '--parallel-count',
-            str(parallel_count),
-            '--parallel-index',
-            str(parallel_index),
-        ],
-        plugins=['idf_ci.idf_pytest.plugin'],
-    )
+    args = [
+        *paths,
+        '-c',
+        test_profile.merged_profile_path,
+        '--target',
+        target,
+        '--parallel-count',
+        str(parallel_count),
+        '--parallel-index',
+        str(parallel_index),
+    ]
+
+    if collect_only:
+        args.append('--collect-only')
+
+    pytest.main(args, plugins=[IdfPytestPlugin(cli_target=target)])
