@@ -24,12 +24,14 @@ def get_pytest_cases(
     target: str = 'all',
     *,
     profiles: t.List[PathLike] = UNDEF,  # type: ignore
+    sdkconfig_name: t.Optional[str] = None,
 ) -> t.List[PytestCase]:
     test_profile = get_test_profile(profiles)
 
+    plugin = IdfPytestPlugin(cli_target=target, sdkconfig_name=sdkconfig_name)
+
     with io.StringIO() as out_b, io.StringIO() as err_b:
         with redirect_stdout(out_b), redirect_stderr(err_b):
-            plugin = IdfPytestPlugin(cli_target=target)
             res = pytest.main(
                 [
                     *paths,

@@ -28,13 +28,18 @@ def get_all_apps(
 ):
     build_profile = get_build_profile(profiles)
 
-    apps = find_apps(
-        paths,
-        target,
-        config_file=build_profile.merged_profile_path,
-        modified_files=modified_files,
-        modified_components=modified_components,
-    )
+    apps = []
+    for _t in target.split(','):
+        apps.extend(
+            find_apps(
+                paths,
+                _t,
+                config_file=build_profile.merged_profile_path,
+                modified_files=modified_files,
+                modified_components=modified_components,
+                include_skipped_apps=True,
+            )
+        )
     cases = get_pytest_cases(paths, target, profiles=CiSettings().test_profiles)
 
     # Get modified pytest cases if any
@@ -44,7 +49,9 @@ def get_all_apps(
             os.path.dirname(f) for f in modified_files if fnmatch.fnmatch(os.path.basename(f), 'pytest_*.py')
         ]
         if modified_pytest_scripts:
-            modified_pytest_cases = get_pytest_cases(modified_pytest_scripts, target)
+            modified_pytest_cases = get_pytest_cases(
+                modified_pytest_scripts, target, profiles=CiSettings().test_profiles
+            )
 
     # Create dictionaries mapping app info to test cases
     def get_app_dict(cases):

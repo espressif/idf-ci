@@ -14,12 +14,13 @@ import pytest
 from _pytest.config import Config
 from _pytest.fixtures import FixtureRequest
 from _pytest.python import Function
-from idf_build_apps import App
+from _pytest.stash import StashKey
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
 from .models import PytestCase
 
 _MODULE_NOT_FOUND_REGEX = re.compile(r"No module named '(.+?)'")
+CASE_STASH_KEY = StashKey[t.Optional[PytestCase]]()
 
 
 def _try_import(path: Path):
@@ -32,15 +33,19 @@ def _try_import(path: Path):
 
 
 class IdfPytestPlugin:
-    def __init__(self, *, cli_target: str) -> None:
+    def __init__(self, *, cli_target: str, sdkconfig_name: t.Optional[str] = None) -> None:
         self.cli_target = cli_target
+        self.sdkconfig_name = sdkconfig_name
 
-        self._all_items_to_cases_d: t.Dict[pytest.Function, PytestCase] = {}
         self._testing_items: t.Set[pytest.Item] = set()
 
     @property
     def cases(self) -> t.List[PytestCase]:
-        return [c for i, c in self._all_items_to_cases_d.items() if i in self._testing_items]
+        return sorted([c for i in self._testing_items if (c := self.get_case_by_item(i))], key=lambda x: x.caseid)
+
+    @staticmethod
+    def get_case_by_item(item: pytest.Item) -> t.Optional[PytestCase]:
+        return item.stash.get(CASE_STASH_KEY, None)
 
     @pytest.fixture
     @multi_dut_argument
@@ -122,32 +127,44 @@ class IdfPytestPlugin:
             else:
                 break
 
+    @pytest.hookimpl(tryfirst=True)
     def pytest_collection_modifyitems(self, config: Config, items: t.List[Function]):
         for item in items:
-            if case := PytestCase.from_item(item, cli_target=self.cli_target):
-                self._all_items_to_cases_d[item] = case
+            item.stash[CASE_STASH_KEY] = PytestCase.from_item(item, cli_target=self.cli_target)
 
         deselected_items: t.List[Function] = []
 
         # filter by target
         if self.cli_target != 'all':
             res = []
-            for item, _c in self._all_items_to_cases_d.items():
-                if _c.target_selector == self.cli_target:
-                    res.append(item)
-                else:
+            for item in items:
+                _c = self.get_case_by_item(item)
+                if _c is None:
+                    continue
+
+                if _c.target_selector != self.cli_target:
+                    item.add_marker(pytest.mark.skip(reason=f'target mismatch: {self.cli_target}'))
                     deselected_items.append(item)
+                else:
+                    res.append(item)
             items[:] = res
 
-        # filter by manifest
-        if App.MANIFEST:
+        # filter by sdkconfig_name
+        if self.sdkconfig_name:
             res = []
-            for item, _c in self._all_items_to_cases_d.items():
-                for _app in _c.apps:
-                    # check if test is enabled for the app...
-                    # TODO
-                    pass
+            for item in items:
+                _c = self.get_case_by_item(item)
+                if _c is None:
+                    continue
 
+                if self.sdkconfig_name not in set(app.config for app in _c.apps):
+                    item.add_marker(pytest.mark.skip(reason=f'sdkconfig name mismatch: {self.sdkconfig_name}'))
+                    deselected_items.append(item)
+                else:
+                    res.append(item)
+            items[:] = res
+
+        # deselected items should be added to config.hook.pytest_deselected
         config.hook.pytest_deselected(items=deselected_items)
 
         # add them to self._testing_items
