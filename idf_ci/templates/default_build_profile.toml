@@ -15,3 +15,9 @@ size_json_filename = "size.json"
 collect_size_info = "size_info_@p.txt"
 collect_app_info = "app_info_@p.txt"
 junitxml = "build_summary_@p.xml"
+
+verbose = 1
+
+manifest_filepatterns = [
+    '**/.build-test-rules.yml',
+]

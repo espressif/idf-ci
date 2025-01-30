@@ -11,7 +11,10 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.config import Config
 from _pytest.fixtures import FixtureRequest
+from _pytest.python import Function
+from idf_build_apps import App
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
 from .models import PytestCase
@@ -32,7 +35,7 @@ class IdfPytestPlugin:
     def __init__(self, *, cli_target: str) -> None:
         self.cli_target = cli_target
 
-        self._all_items_to_cases_d: t.Dict[pytest.Item, PytestCase] = {}
+        self._all_items_to_cases_d: t.Dict[pytest.Function, PytestCase] = {}
         self._testing_items: t.Set[pytest.Item] = set()
 
     @property
@@ -45,8 +48,7 @@ class IdfPytestPlugin:
         _t = getattr(request, 'param', None) or request.config.getoption('target', None)
         if not _t:
             raise ValueError(
-                '"target" shall either be defined in pytest.mark.parametrize '
-                'or be passed in command line by --target'
+                '"target" shall either be defined in pytest.mark.parametrize or be passed in command line by --target'
             )
         return _t
 
@@ -120,19 +122,33 @@ class IdfPytestPlugin:
             else:
                 break
 
-    def pytest_collection_modifyitems(self, items):
+    def pytest_collection_modifyitems(self, config: Config, items: t.List[Function]):
         for item in items:
             if case := PytestCase.from_item(item, cli_target=self.cli_target):
                 self._all_items_to_cases_d[item] = case
 
+        deselected_items: t.List[Function] = []
+
         # filter by target
         if self.cli_target != 'all':
             res = []
-            for item, case in self._all_items_to_cases_d.items():
-                if case.target_selector == self.cli_target:
+            for item, _c in self._all_items_to_cases_d.items():
+                if _c.target_selector == self.cli_target:
                     res.append(item)
+                else:
+                    deselected_items.append(item)
             items[:] = res
 
+        # filter by manifest
+        if App.MANIFEST:
+            res = []
+            for item, _c in self._all_items_to_cases_d.items():
+                for _app in _c.apps:
+                    # check if test is enabled for the app...
+                    # TODO
+                    pass
+
+        config.hook.pytest_deselected(items=deselected_items)
+
         # add them to self._testing_items
-        for item in items:
-            self._testing_items.add(item)
+        self._testing_items.update(items)
