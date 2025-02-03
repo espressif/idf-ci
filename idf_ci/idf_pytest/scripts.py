@@ -10,7 +10,7 @@ from contextlib import redirect_stderr, redirect_stdout
 import pytest
 from _pytest.config import ExitCode
 
-from idf_ci._compat import UNDEF, PathLike
+from idf_ci._compat import UNDEF, PathLike, Undefined
 from idf_ci.profiles import get_test_profile
 
 from .models import PytestCase
@@ -25,26 +25,35 @@ def get_pytest_cases(
     *,
     profiles: t.List[PathLike] = UNDEF,  # type: ignore
     sdkconfig_name: t.Optional[str] = None,
+    marker_expr: str = UNDEF,
 ) -> t.List[PytestCase]:
     test_profile = get_test_profile(profiles)
+    if isinstance(marker_expr, Undefined):
+        if 'linux' in target:
+            marker_expr = 'host_test'
+        else:
+            marker_expr = 'not host_test'
 
-    plugin = IdfPytestPlugin(cli_target=target, sdkconfig_name=sdkconfig_name)
+    plugin = IdfPytestPlugin(
+        cli_target=target,
+        sdkconfig_name=sdkconfig_name,
+    )
+    args = [
+        *paths,
+        '--collect-only',
+        '-c',
+        test_profile.merged_profile_path,
+        '--rootdir',
+        os.getcwd(),
+        '--target',
+        target,
+    ]
+    if marker_expr:
+        args.extend(['-m', f'{marker_expr}'])
 
     with io.StringIO() as out_b, io.StringIO() as err_b:
         with redirect_stdout(out_b), redirect_stderr(err_b):
-            res = pytest.main(
-                [
-                    *paths,
-                    '--collect-only',
-                    '-c',
-                    test_profile.merged_profile_path,
-                    '--rootdir',
-                    os.getcwd(),
-                    '--target',
-                    'all',
-                ],
-                plugins=[plugin],
-            )
+            res = pytest.main(args, plugins=[plugin])
         stdout_msg = out_b.getvalue()
         stderr_msg = err_b.getvalue()
 

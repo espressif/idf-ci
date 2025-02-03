@@ -14,17 +14,28 @@ class TestGetPytestCases:
         @pytest.mark.parametrize('target', [
             'esp32',
             'esp32c3',
-        ])
+        ], indirect=True)
         def test_foo_single(dut):
             pass
 
-        @pytest.mark.parametrize(
-            'count, target', [
-                (2, 'esp32|esp32s2'),
-                (3, 'esp32s2|esp32s2|esp32s3'),
-            ], indirect=True
-        )
+        @pytest.mark.parametrize('count,target', [
+            (2, 'esp32|esp32s2'),
+            (3, 'esp32s2|esp32s2|esp32s3'),
+        ], indirect=True)
         def test_foo_multi(dut):
+            pass
+
+        @pytest.mark.parametrize('target', [
+            'linux',
+        ], indirect=True)
+        def test_foo_host(dut):
+            pass
+
+        @pytest.mark.parametrize('target', [
+            'esp32',
+        ], indirect=True)
+        @pytest.mark.qemu
+        def test_foo_qemu(dut):
             pass
         """)
 
@@ -98,3 +109,16 @@ class TestGetPytestCases:
 
         cases = get_pytest_cases([str(tmp_path)], 'esp32,esp32', sdkconfig_name='bar')
         assert len(cases) == 2
+
+    def test_host_test(self, tmp_path: Path) -> None:
+        script = tmp_path / 'pytest_host_test.py'
+        script.write_text(self.TEMPLATE_SCRIPT)
+
+        cases = get_pytest_cases([str(tmp_path)], 'linux')
+        assert len(cases) == 1
+        assert cases[0].name == 'test_foo_host'
+
+        cases = get_pytest_cases([str(tmp_path)], 'all', marker_expr='host_test')
+        assert len(cases) == 2
+        assert cases[0].name == 'test_foo_qemu'
+        assert cases[1].name == 'test_foo_host'

@@ -22,6 +22,8 @@ from .models import PytestCase
 _MODULE_NOT_FOUND_REGEX = re.compile(r"No module named '(.+?)'")
 CASE_STASH_KEY = StashKey[t.Optional[PytestCase]]()
 
+LOGGER = logging.getLogger(__name__)
+
 
 def _try_import(path: Path):
     spec = importlib.util.spec_from_file_location('', path)
@@ -33,7 +35,16 @@ def _try_import(path: Path):
 
 
 class IdfPytestPlugin:
-    def __init__(self, *, cli_target: str, sdkconfig_name: t.Optional[str] = None) -> None:
+    def __init__(
+        self,
+        *,
+        cli_target: str,
+        sdkconfig_name: t.Optional[str] = None,
+    ) -> None:
+        """
+        :param cli_target: target passed from command line, could be single target, comma separated targets, or 'all'
+        :param sdkconfig_name: run only tests whose apps are built with this sdkconfig name
+        """
         self.cli_target = cli_target
         self.sdkconfig_name = sdkconfig_name
 
@@ -127,12 +138,26 @@ class IdfPytestPlugin:
             else:
                 break
 
-    @pytest.hookimpl(tryfirst=True)
+    @pytest.hookimpl(wrapper=True)
     def pytest_collection_modifyitems(self, config: Config, items: t.List[Function]):
+        # add markers definitions
+        config.addinivalue_line('markers', 'host_test: this test case runs on host machines')
+
         for item in items:
             item.stash[CASE_STASH_KEY] = PytestCase.from_item(item, cli_target=self.cli_target)
 
         deselected_items: t.List[Function] = []
+
+        # add markers to items
+        for item in items:
+            _c = self.get_case_by_item(item)
+            if _c is None:
+                continue
+
+            if 'qemu' in _c.all_markers or 'linux' in _c.targets:
+                item.add_marker(pytest.mark.host_test)
+
+        yield
 
         # filter by target
         if self.cli_target != 'all':
