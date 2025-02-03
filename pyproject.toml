@@ -60,8 +60,16 @@ doc = [
 [project.scripts]
 idf-ci = "idf_ci.cli:cli"
 
-[tool.setuptools]
-packages = ["idf_ci"]
+[tool.setuptools.packages.find]
+include = [
+    "idf_ci*",
+]
+
+[tool.setuptools.package-data]
+idf_ci = [
+    "py.typed",
+    "templates/*",
+]
 
 [tool.isort]
 profile = 'black'
