@@ -7,11 +7,11 @@ import subprocess
 import typing as t
 
 import pytest
-from idf_build_apps import build_apps, find_apps
-from idf_build_apps.constants import BuildStatus
+from idf_build_apps import App, build_apps, find_apps
+from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
 
 from . import IdfPytestPlugin, get_pytest_cases
-from ._compat import UNDEF, PathLike
+from ._compat import UNDEF, PathLike, Undefined
 from .profiles import get_build_profile, get_test_profile
 from .settings import CiSettings
 
@@ -25,11 +25,21 @@ def get_all_apps(
     profiles: t.List[PathLike] = UNDEF,  # type: ignore
     modified_files: t.Optional[t.List[str]] = None,
     modified_components: t.Optional[t.List[str]] = None,
-):
+    marker_expr: str = UNDEF,
+    default_build_targets: t.List[str] = UNDEF,  # type: ignore
+) -> t.Tuple[t.Set[App], t.Set[App]]:
     build_profile = get_build_profile(profiles)
 
     apps = []
     for _t in target.split(','):
+        if isinstance(default_build_targets, Undefined):
+            if _t != 'all' and _t not in SUPPORTED_TARGETS:
+                default_targets = list({*SUPPORTED_TARGETS, _t})
+            else:
+                default_targets = SUPPORTED_TARGETS
+        else:
+            default_targets = default_build_targets
+
         apps.extend(
             find_apps(
                 paths,
@@ -38,9 +48,11 @@ def get_all_apps(
                 modified_files=modified_files,
                 modified_components=modified_components,
                 include_skipped_apps=True,
+                default_build_targets=default_targets,
             )
         )
-    cases = get_pytest_cases(paths, target, profiles=CiSettings().test_profiles)
+
+    cases = get_pytest_cases(paths, target, profiles=CiSettings().test_profiles, marker_expr=marker_expr)
 
     # Get modified pytest cases if any
     modified_pytest_cases = []
@@ -50,7 +62,7 @@ def get_all_apps(
         ]
         if modified_pytest_scripts:
             modified_pytest_cases = get_pytest_cases(
-                modified_pytest_scripts, target, profiles=CiSettings().test_profiles
+                modified_pytest_scripts, target, profiles=CiSettings().test_profiles, marker_expr=marker_expr
             )
 
     # Create dictionaries mapping app info to test cases

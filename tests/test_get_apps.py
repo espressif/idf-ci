@@ -35,7 +35,7 @@ class TestGetAllApps:
 
     def test_single_dut_test_script(self, tmp_path: Path) -> None:
         create_project('foo', tmp_path)
-        with open(tmp_path / 'foo' / 'pytest_get_all_apps_single_dut_test_script.py', 'w') as fw:
+        with open(tmp_path / 'foo' / 'pytest_single_dut_test_script.py', 'w') as fw:
             fw.write(
                 textwrap.dedent("""
                     import pytest
@@ -57,7 +57,7 @@ class TestGetAllApps:
 
     def test_multi_dut_test_script(self, tmp_path: Path) -> None:
         create_project('foo', tmp_path)
-        with open(tmp_path / 'foo' / 'pytest_get_all_apps_multi_dut_test_script.py', 'w') as fw:
+        with open(tmp_path / 'foo' / 'pytest_multi_dut_test_script.py', 'w') as fw:
             fw.write(
                 textwrap.dedent("""
                     import pytest
@@ -89,11 +89,11 @@ class TestGetAllApps:
         assert len(test_related_apps) == 0
         assert len(non_test_related_apps) == 0
 
-    def test_get_all_apps_modified_pytest_script(self, tmp_path: Path) -> None:
+    def test_modified_pytest_script(self, tmp_path: Path) -> None:
         create_project('foo', tmp_path)
         create_project('bar', tmp_path)
 
-        (tmp_path / 'pytest_get_all_apps_modified_pytest_script.py').write_text(
+        (tmp_path / 'pytest_modified_pytest_script.py').write_text(
             textwrap.dedent("""
                 import pytest
                 import os
@@ -110,21 +110,64 @@ class TestGetAllApps:
             encoding='utf-8',
         )
 
-        # test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
-        # assert len(test_related_apps) == 2  # foo-esp32, bar-esp32
-        # assert len(non_test_related_apps) == 2 * len(SUPPORTED_TARGETS) - 2
-        #
-        # test_related_apps, non_test_related_apps = get_all_apps(
-        #     [str(tmp_path)], target='all', modified_files=[], modified_components=[]
-        # )
-        # assert len(test_related_apps) == 0
-        # assert len(non_test_related_apps) == 0
+        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
+        assert len(test_related_apps) == 2  # foo-esp32, bar-esp32
+        assert len(non_test_related_apps) == 2 * len(SUPPORTED_TARGETS) - 2
+
+        test_related_apps, non_test_related_apps = get_all_apps(
+            [str(tmp_path)], target='all', modified_files=[], modified_components=[]
+        )
+        assert len(test_related_apps) == 0
+        assert len(non_test_related_apps) == 0
 
         test_related_apps, non_test_related_apps = get_all_apps(
             [str(tmp_path)],
             target='all',
-            modified_files=[str(tmp_path / 'pytest_get_all_apps_modified_pytest_script.py')],
+            modified_files=[str(tmp_path / 'pytest_modified_pytest_script.py')],
             modified_components=[],
         )
         assert len(test_related_apps) == 2
+        assert len(non_test_related_apps) == 0
+
+    def test_host_test_script(self, tmp_path: Path) -> None:
+        create_project('foo', tmp_path)
+        (tmp_path / 'foo' / 'sdkconfig.ci').touch()
+        (tmp_path / 'foo' / 'sdkconfig.ci.linux').write_text('CONFIG_IDF_TARGET="linux"\n', encoding='utf-8')
+
+        with open(tmp_path / 'foo' / 'pytest_host_test_script.py', 'w') as fw:
+            fw.write(
+                textwrap.dedent("""
+                    import pytest
+
+                    @pytest.mark.parametrize('target', [
+                        'linux',
+                    ], indirect=True)
+                    def test_foo(dut):
+                        pass
+
+                    @pytest.mark.parametrize('target', [
+                        'esp32',
+                    ], indirect=True)
+                    @pytest.mark.qemu
+                    def test_foo_qemu(dut):
+                        pass
+                    """)
+            )
+
+        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
+
+        assert len(test_related_apps) == 0
+        assert len(non_test_related_apps) == len(SUPPORTED_TARGETS)
+
+        # by default, linux is not built
+        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all', marker_expr='host_test')
+        assert len(test_related_apps) == 1
+        assert len(non_test_related_apps) == len(SUPPORTED_TARGETS) - 1
+
+        # specify linux
+        test_related_apps, non_test_related_apps = get_all_apps(
+            [str(tmp_path)],
+            target='linux',
+        )
+        assert len(test_related_apps) == 1
         assert len(non_test_related_apps) == 0
