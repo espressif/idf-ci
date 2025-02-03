@@ -27,12 +27,12 @@ dependencies = [
     "click",
     "tomlkit",  # we need both read and write
     # build related
-    "idf-build-apps~=2.6",
+    "idf-build-apps>=2.6.2,<3",
     # test related
     "pytest-embedded-idf[serial]~=1.13",
     "pytest-embedded-jtag~=1.13",
     "pytest-embedded-qemu~=1.13",
-    "pytest-ignore-test-results",
+    "pytest-ignore-test-results>=0.3.0,<1",
     "pytest-timeout",
 ]
 
@@ -60,8 +60,16 @@ doc = [
 [project.scripts]
 idf-ci = "idf_ci.cli:cli"
 
-[tool.setuptools]
-packages = ["idf_ci"]
+[tool.setuptools.packages.find]
+include = [
+    "idf_ci*",
+]
+
+[tool.setuptools.package-data]
+idf_ci = [
+    "py.typed",
+    "templates/*",
+]
 
 [tool.isort]
 profile = 'black'

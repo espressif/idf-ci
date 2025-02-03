@@ -22,7 +22,7 @@ class PytestApp:
     def __init__(self, path: str, target: str, config: str) -> None:
         self.path = os.path.abspath(path)
         self.target = target
-        self.config = config
+        self.config = config or 'default'
 
     def __hash__(self) -> int:
         return hash((self.path, self.target, self.config))
