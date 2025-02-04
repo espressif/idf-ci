@@ -114,6 +114,8 @@ def build(
     modified_components = None
     if modified_files is not None:
         modified_components = sorted(CiSettings().get_modified_components(modified_files))
+        LOGGER.debug('Modified files: %s', modified_files)
+        LOGGER.debug('Modified components: %s', modified_components)
 
     if test_related is False and non_test_related is False:
         # call idf-build-apps build directly
@@ -132,17 +134,11 @@ def build(
             str(parallel_index),
         ]
 
-        if modified_files is not None:
+        if modified_files:
             args.extend(
                 [
                     '--modified-files',
                     ';'.join(modified_files) if modified_files else ';',
-                ]
-            )
-
-        if modified_components is not None:
-            args.extend(
-                [
                     '--modified-components',
                     ';'.join(modified_components) if modified_components else ';',
                 ]
@@ -151,6 +147,7 @@ def build(
         if dry_run:
             args.append('--dry-run')
 
+        LOGGER.debug('Running command: %s', args)
         subprocess.run(
             args,
             check=True,

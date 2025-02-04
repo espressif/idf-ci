@@ -36,10 +36,11 @@ def run(
     """
     Run build according to the given profiles
     """
-    if not isinstance(profiles, Undefined):
-        pass
-    else:
+    if isinstance(profiles, Undefined):
         profiles = CiSettings().build_profiles
+
+    if isinstance(modified_files, Undefined):
+        modified_files = None
 
     click.echo(f'Building {target} with profiles {profiles} at {paths}')
     build_cmd(
