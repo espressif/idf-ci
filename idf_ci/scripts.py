@@ -148,10 +148,19 @@ def build(
             args.append('--dry-run')
 
         LOGGER.debug('Running command: %s', args)
-        subprocess.run(
-            args,
-            check=True,
-        )
+        try:
+            subprocess.run(
+                args,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            LOGGER.error(
+                'Command `%s` failed with return code %s',
+                ' '.join(args),
+                e.returncode,
+            )
+            raise SystemExit(e.returncode)
+
         return
 
     # we have to call get_all_apps first, then call build_apps(apps)
