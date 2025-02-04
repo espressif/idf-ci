@@ -196,8 +196,7 @@ def test(
     profiles: t.List[PathLike] = UNDEF,  # type: ignore
     parallel_count: int = 1,
     parallel_index: int = 1,
-    collected_app_info_filepath: t.Optional[PathLike] = None,  # noqa # FIXME
-    collect_only: bool = False,
+    dry_run: bool = False,
 ):
     test_profile = get_test_profile(profiles)
 
@@ -213,7 +212,15 @@ def test(
         str(parallel_index),
     ]
 
-    if collect_only:
+    if dry_run:
         args.append('--collect-only')
 
-    pytest.main(args, plugins=[IdfPytestPlugin(cli_target=target)])
+    pytest.main(
+        args,
+        plugins=[
+            IdfPytestPlugin(
+                cli_target=target,
+                apps=CiSettings().get_apps_list(),
+            )
+        ],
+    )

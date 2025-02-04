@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
-
+import logging
 import os
 import re
 import typing as t
 from pathlib import Path
 
+from idf_build_apps import App, CMakeApp, json_to_app
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -13,6 +14,8 @@ from pydantic_settings import (
 )
 
 from idf_ci._compat import PathLike
+
+LOGGER = logging.getLogger(__name__)
 
 
 # noinspection PyDataclass
@@ -36,6 +39,8 @@ class CiSettings(BaseSettings):
 
     build_profiles: t.List[PathLike] = ['default']
     test_profiles: t.List[PathLike] = ['default']
+
+    built_app_list_filepatterns: t.List[str] = ['app_info_*.txt']
 
     @classmethod
     def settings_customise_sources(
@@ -76,3 +81,20 @@ class CiSettings(BaseSettings):
                     break
 
         return modified_components
+
+    def get_apps_list(self) -> t.Optional[t.List[App]]:
+        found_files = Path('.').glob('app_info_*.txt')
+        if not found_files:
+            return None
+
+        LOGGER.debug('Found built app list files: %s', found_files)
+
+        apps: t.List[App] = []
+        for filepattern in self.built_app_list_filepatterns:
+            for filepath in Path('.').glob(filepattern):
+                with open(filepath) as fr:
+                    for line in fr:
+                        if line := line.strip():
+                            apps.append(json_to_app(line, extra_classes=[CMakeApp]))
+
+        return apps

@@ -42,16 +42,16 @@ To preview the behavior of the test stage locally, you can run the following com
 
 .. code:: bash
 
-   idf-ci test run --target <target> --collect-only
+   idf-ci test run --target <target> --dry-run
 
 For example, to preview the behavior of the test stage for the ``esp32`` target, you can run the following command:
 
 .. code:: bash
 
-   idf-ci test run --target esp32 --collect-only
+   idf-ci test run --target esp32 --dry-run
 
 For multi-dut tests, you can pass with comma separated values:
 
 .. code:: bash
 
-   idf-ci test run --target esp32,esp32s2 --collect-only
+   idf-ci test run --target esp32,esp32s2 --dry-run
