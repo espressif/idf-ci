@@ -83,8 +83,9 @@ class CiSettings(BaseSettings):
         return modified_components
 
     def get_apps_list(self) -> t.Optional[t.List[App]]:
-        found_files = Path('.').glob('app_info_*.txt')
+        found_files = [p for p in Path('.').glob('app_info_*.txt')]
         if not found_files:
+            LOGGER.debug('No built app list files found')
             return None
 
         LOGGER.debug('Found built app list files: %s', found_files)
@@ -96,5 +97,8 @@ class CiSettings(BaseSettings):
                     for line in fr:
                         if line := line.strip():
                             apps.append(json_to_app(line, extra_classes=[CMakeApp]))
+
+        if not apps:
+            LOGGER.warning(f'No apps found in the built app list files: {found_files}')
 
         return apps

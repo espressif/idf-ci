@@ -6,12 +6,6 @@ import shutil
 
 import click
 
-from idf_ci._compat import Undefined
-from idf_ci.scripts import test as test_cmd
-from idf_ci.settings import CiSettings
-
-from ._options import option_parallel, option_paths, option_profiles, option_target
-
 
 @click.group()
 def test():
@@ -19,36 +13,6 @@ def test():
     Group of test related commands
     """
     pass
-
-
-@test.command()
-@option_paths
-@option_target
-@option_profiles
-@option_parallel
-@click.option(
-    '--dry-run',
-    is_flag=True,
-    help='Show the test cases instead of running them',
-)
-def run(*, paths, target, profiles, parallel_count, parallel_index, dry_run):
-    """
-    Run tests according to the given profiles
-    """
-    if not isinstance(profiles, Undefined):
-        pass
-    else:
-        profiles = CiSettings().test_profiles
-
-    click.echo(f'Building {target} with profiles {profiles} at {paths}')
-    test_cmd(
-        paths,
-        target,
-        profiles=profiles,
-        parallel_count=parallel_count,
-        parallel_index=parallel_index,
-        dry_run=dry_run,
-    )
 
 
 @test.command()

@@ -82,27 +82,29 @@ class TestGetPytestCases:
         script = tmp_path / 'pytest_filter_with_sdkconfig_name.py'
         script.write_text(
             textwrap.dedent("""
-                import pytest
+            import pytest
 
-                @pytest.mark.parametrize('config,target', [
-                    ('foo', 'esp32'),
-                    ('bar', 'esp32'),
-                ], indirect=True)
-                def test_filter_with_sdkconfig_name_single_dut(dut, config):
-                    pass
+            @pytest.mark.parametrize('config,target', [
+                ('foo', 'esp32'),
+                ('bar', 'esp32'),
+            ], indirect=True)
+            def test_filter_with_sdkconfig_name_single_dut(dut, config):
+                pass
 
-                @pytest.mark.parametrize('count', [2], indirect=True)
-                @pytest.mark.parametrize('config,target', [
-                    ('foo|bar', 'esp32'),
-                    ('bar|baz', 'esp32'),
-                ], indirect=True)
-                def test_filter_with_sdkconfig_name_multi_dut(dut, config):
-                    pass
-                """)
+            @pytest.mark.parametrize('count', [2], indirect=True)
+            @pytest.mark.parametrize('config,target', [
+                ('foo|bar', 'esp32'),
+                ('bar|baz', 'esp32'),
+            ], indirect=True)
+            def test_filter_with_sdkconfig_name_multi_dut(dut, config):
+                pass
+            """)
         )
 
         cases = get_pytest_cases([str(tmp_path)], 'esp32', sdkconfig_name='foo')
         assert len(cases) == 1
+        assert cases[0].caseid == 'esp32.foo.test_filter_with_sdkconfig_name_single_dut'
+        assert cases[0].apps[0].build_dir == str(tmp_path / 'build_esp32_foo')
 
         cases = get_pytest_cases([str(tmp_path)], 'esp32,esp32', sdkconfig_name='foo')
         assert len(cases) == 1
@@ -122,3 +124,37 @@ class TestGetPytestCases:
         assert len(cases) == 2
         assert cases[0].name == 'test_foo_qemu'
         assert cases[1].name == 'test_foo_host'
+
+    def test_custom_app_path(self, tmp_path: Path) -> None:
+        script = tmp_path / 'pytest_custom_app_path.py'
+        script.write_text(
+            textwrap.dedent("""
+            import pytest
+
+            @pytest.mark.parametrize('count, app_path, target, config', [
+                (3, None, 'esp32s2', None),
+                (2, 'subdir', 'esp32s3', 'foo'),
+            ], indirect=True)
+            def test_multi_dut_with_custom_app_path(dut, config):
+                pass
+            """)
+        )
+
+        cases = get_pytest_cases([str(tmp_path)], 'esp32s3,esp32s3')
+        assert len(cases) == 1
+        assert cases[0].caseid == "('esp32s3', 'esp32s3').('foo', 'foo').test_multi_dut_with_custom_app_path"
+        assert cases[0].apps[0].build_dir == str(tmp_path / 'subdir' / 'build_esp32s3_foo')
+        assert cases[0].apps[1].build_dir == str(tmp_path / 'subdir' / 'build_esp32s3_foo')
+
+    def test_no_params(self, tmp_path: Path) -> None:
+        script = tmp_path / 'pytest_no_params.py'
+        script.write_text(
+            textwrap.dedent("""
+            def test_no_param():
+                pass
+            """)
+        )
+
+        cases = get_pytest_cases([str(tmp_path)], 'esp32')
+        assert len(cases) == 1
+        assert cases[0].caseid == 'esp32.default.test_no_param'
