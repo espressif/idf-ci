@@ -38,15 +38,15 @@ class TestGetAllApps:
         with open(tmp_path / 'foo' / 'pytest_single_dut_test_script.py', 'w') as fw:
             fw.write(
                 textwrap.dedent("""
-                    import pytest
+                import pytest
 
-                    @pytest.mark.parametrize('target', [
-                        'esp32',
-                        'esp32s2',
-                    ], indirect=True)
-                    def test_foo(dut):
-                        pass
-                    """)
+                @pytest.mark.parametrize('target', [
+                    'esp32',
+                    'esp32s2',
+                ], indirect=True)
+                def test_foo(dut):
+                    pass
+                """)
             )
         create_project('bar', tmp_path)
 
@@ -60,17 +60,17 @@ class TestGetAllApps:
         with open(tmp_path / 'foo' / 'pytest_multi_dut_test_script.py', 'w') as fw:
             fw.write(
                 textwrap.dedent("""
-                    import pytest
+                import pytest
 
-                    @pytest.mark.parametrize(
-                        'count, target', [
-                            (2, 'esp32s2|esp32s3'),
-                            (3, 'esp32|esp32s3|esp32'),
-                        ], indirect=True
-                    )
-                    def test_foo(dut):
-                        pass
-                    """)
+                @pytest.mark.parametrize(
+                    'count, target', [
+                        (2, 'esp32s2|esp32s3'),
+                        (3, 'esp32|esp32s3|esp32'),
+                    ], indirect=True
+                )
+                def test_foo(dut):
+                    pass
+                """)
             )
 
         test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='esp32s2,esp32s3')
@@ -95,18 +95,18 @@ class TestGetAllApps:
 
         (tmp_path / 'pytest_modified_pytest_script.py').write_text(
             textwrap.dedent("""
-                import pytest
-                import os
+            import pytest
+            import os
 
-                @pytest.mark.parametrize('count, target', [(2, 'esp32')], indirect=True)
-                @pytest.mark.parametrize('app_path', [
-                        '{}|{}'.format(os.path.join(os.path.dirname(__file__), 'foo'),
-                                       os.path.join(os.path.dirname(__file__), 'bar')),
-                    ], indirect=True
-                )
-                def test_multi_foo_bar(dut):
-                    pass
-                """),
+            @pytest.mark.parametrize('count, target', [(2, 'esp32')], indirect=True)
+            @pytest.mark.parametrize('app_path', [
+                    '{}|{}'.format(os.path.join(os.path.dirname(__file__), 'foo'),
+                                   os.path.join(os.path.dirname(__file__), 'bar')),
+                ], indirect=True
+            )
+            def test_multi_foo_bar(dut):
+                pass
+            """),
             encoding='utf-8',
         )
 
@@ -137,21 +137,21 @@ class TestGetAllApps:
         with open(tmp_path / 'foo' / 'pytest_host_test_script.py', 'w') as fw:
             fw.write(
                 textwrap.dedent("""
-                    import pytest
+                import pytest
 
-                    @pytest.mark.parametrize('target', [
-                        'linux',
-                    ], indirect=True)
-                    def test_foo(dut):
-                        pass
+                @pytest.mark.parametrize('target', [
+                    'linux',
+                ], indirect=True)
+                def test_foo(dut):
+                    pass
 
-                    @pytest.mark.parametrize('target', [
-                        'esp32',
-                    ], indirect=True)
-                    @pytest.mark.qemu
-                    def test_foo_qemu(dut):
-                        pass
-                    """)
+                @pytest.mark.parametrize('target', [
+                    'esp32',
+                ], indirect=True)
+                @pytest.mark.qemu
+                def test_foo_qemu(dut):
+                    pass
+                """)
             )
 
         test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
