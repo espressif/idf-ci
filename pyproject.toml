@@ -25,7 +25,7 @@ classifiers = [
 ]
 dependencies = [
     "click",
-    "tomlkit",  # we need both read and write
+    "tomlkit", # we need both read and write
     # build related
     "idf-build-apps>=2.6.2,<3",
     # test related
@@ -34,6 +34,8 @@ dependencies = [
     "pytest-embedded-qemu~=1.13",
     "pytest-ignore-test-results>=0.3.0,<1",
     "pytest-timeout",
+    # logging / printing
+    "rich",
 ]
 
 [project.urls]

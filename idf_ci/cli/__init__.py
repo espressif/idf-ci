@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
+import logging
 import os
 import shutil
 
@@ -7,6 +8,7 @@ import click
 
 from idf_ci.settings import CiSettings
 
+from ..utils import setup_logging
 from .build import build
 from .test import test
 
@@ -22,10 +24,24 @@ _CLI_SETTINGS = {
     type=click.Path(dir_okay=False, file_okay=True, exists=True),
     help='Path to the CI profile file',
 )
-def cli(ci_profile):
+@click.option(
+    '--verbose',
+    '-v',
+    default=0,
+    count=True,
+    help='Increase verbosity, can be used multiple times. -v for info, -vv for debug, not set for warning',
+)
+def cli(ci_profile, verbose):
     if ci_profile:
         print('Using CI profile:', ci_profile)
         CiSettings.CONFIG_FILE_PATH = ci_profile
+
+    if verbose == 0:
+        setup_logging(logging.WARNING)
+    elif verbose == 1:
+        setup_logging(logging.INFO)
+    else:
+        setup_logging(logging.DEBUG)
 
 
 @cli.command()

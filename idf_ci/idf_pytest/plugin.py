@@ -20,6 +20,7 @@ from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
 from ..profiles import get_test_profile
 from ..settings import CiSettings
+from ..utils import setup_logging
 from .models import PytestCase
 
 _MODULE_NOT_FOUND_REGEX = re.compile(r"No module named '(.+?)'")
@@ -228,6 +229,8 @@ class IdfPytestPlugin:
 ##################
 def pytest_load_initial_conftests(parser: pytest.Parser, args: t.List[str]):
     cli_args = parser.parse(args)
+    setup_logging(cli_args.log_cli_level)
+
     if 'ci_profile' in cli_args and cli_args.ci_profile:
         LOGGER.debug('loading ci profile: %s', cli_args.ci_profile)
         CiSettings.CONFIG_FILE_PATH = cli_args.ci_profile
