@@ -15,6 +15,7 @@ from _pytest.config import Config
 from _pytest.fixtures import FixtureRequest
 from _pytest.python import Function
 from _pytest.stash import StashKey
+from idf_build_apps import App
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
 from .models import PytestCase
@@ -40,6 +41,7 @@ class IdfPytestPlugin:
         *,
         cli_target: str,
         sdkconfig_name: t.Optional[str] = None,
+        apps: t.Optional[t.List[App]] = None,
     ) -> None:
         """
         :param cli_target: target passed from command line, could be single target, comma separated targets, or 'all'
@@ -47,6 +49,7 @@ class IdfPytestPlugin:
         """
         self.cli_target = cli_target
         self.sdkconfig_name = sdkconfig_name
+        self.apps = apps
 
         self._testing_items: t.Set[pytest.Item] = set()
 
@@ -184,6 +187,22 @@ class IdfPytestPlugin:
 
                 if self.sdkconfig_name not in set(app.config for app in _c.apps):
                     item.add_marker(pytest.mark.skip(reason=f'sdkconfig name mismatch: {self.sdkconfig_name}'))
+                    deselected_items.append(item)
+                else:
+                    res.append(item)
+            items[:] = res
+
+        # filter by app list
+        if self.apps is not None:
+            app_dirs = [os.path.abspath(app.build_path) for app in self.apps]
+            res = []
+            for item in items:
+                _c = self.get_case_by_item(item)
+                if _c is None:
+                    continue
+
+                if skip_reason := _c.get_skip_reason_if_not_built(app_dirs):
+                    item.add_marker(pytest.mark.skip(reason=skip_reason))
                     deselected_items.append(item)
                 else:
                     res.append(item)

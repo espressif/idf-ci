@@ -114,6 +114,8 @@ def build(
     modified_components = None
     if modified_files is not None:
         modified_components = sorted(CiSettings().get_modified_components(modified_files))
+        LOGGER.debug('Modified files: %s', modified_files)
+        LOGGER.debug('Modified components: %s', modified_components)
 
     if test_related is False and non_test_related is False:
         # call idf-build-apps build directly
@@ -132,17 +134,11 @@ def build(
             str(parallel_index),
         ]
 
-        if modified_files is not None:
+        if modified_files:
             args.extend(
                 [
                     '--modified-files',
                     ';'.join(modified_files) if modified_files else ';',
-                ]
-            )
-
-        if modified_components is not None:
-            args.extend(
-                [
                     '--modified-components',
                     ';'.join(modified_components) if modified_components else ';',
                 ]
@@ -151,10 +147,20 @@ def build(
         if dry_run:
             args.append('--dry-run')
 
-        subprocess.run(
-            args,
-            check=True,
-        )
+        LOGGER.debug('Running command: %s', args)
+        try:
+            subprocess.run(
+                args,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            LOGGER.error(
+                'Command `%s` failed with return code %s',
+                ' '.join(args),
+                e.returncode,
+            )
+            raise SystemExit(e.returncode)
+
         return
 
     # we have to call get_all_apps first, then call build_apps(apps)
@@ -190,8 +196,7 @@ def test(
     profiles: t.List[PathLike] = UNDEF,  # type: ignore
     parallel_count: int = 1,
     parallel_index: int = 1,
-    collected_app_info_filepath: t.Optional[PathLike] = None,  # noqa # FIXME
-    collect_only: bool = False,
+    dry_run: bool = False,
 ):
     test_profile = get_test_profile(profiles)
 
@@ -207,7 +212,15 @@ def test(
         str(parallel_index),
     ]
 
-    if collect_only:
+    if dry_run:
         args.append('--collect-only')
 
-    pytest.main(args, plugins=[IdfPytestPlugin(cli_target=target)])
+    pytest.main(
+        args,
+        plugins=[
+            IdfPytestPlugin(
+                cli_target=target,
+                apps=CiSettings().get_apps_list(),
+            )
+        ],
+    )

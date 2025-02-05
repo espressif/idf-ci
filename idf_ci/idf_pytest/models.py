@@ -140,20 +140,20 @@ class PytestCase:
     def all_markers(self) -> t.Set[str]:
         return {marker.name for marker in self.item.iter_markers()}
 
-    def all_built_in_app_lists(self, app_lists: t.Optional[t.List[str]] = None) -> t.Optional[str]:
+    def get_skip_reason_if_not_built(self, app_dirs: t.Optional[t.List[str]] = None) -> t.Optional[str]:
         """
         Check if all binaries of the test case are built in the app lists.
 
-        :param app_lists: app lists to check
+        :param app_dirs: app folder paths to check
         :return: debug string if not all binaries are built in the app lists, None otherwise
         """
-        if app_lists is None:
+        if app_dirs is None:
             # ignore this feature
             return None
 
         bin_found = [0] * len(self.apps)
         for i, app in enumerate(self.apps):
-            if app.build_dir in app_lists:
+            if app.build_dir in app_dirs:
                 bin_found[i] = 1
 
         if sum(bin_found) == 0:
@@ -161,7 +161,6 @@ class PytestCase:
             for app in self.apps:
                 msg += f'\n - {app.build_dir}'
 
-            print(msg)
             return msg
 
         if sum(bin_found) == len(self.apps):
@@ -174,5 +173,4 @@ class PytestCase:
                 msg += f'\n - {app.build_dir}'
 
         msg += '\nMight be a issue of .build-test-rules.yml files'
-        print(msg)
         return msg
