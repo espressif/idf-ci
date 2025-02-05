@@ -10,6 +10,7 @@ import typing as t
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import iniconfig
 import pytest
 from _pytest.config import Config
 from _pytest.fixtures import FixtureRequest
@@ -17,6 +18,7 @@ from _pytest.python import Function
 from _pytest.stash import StashKey
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
+from ..profiles import get_test_profile
 from ..settings import CiSettings
 from .models import PytestCase
 
@@ -224,11 +226,34 @@ class IdfPytestPlugin:
 ##################
 # Hook Functions #
 ##################
+def pytest_load_initial_conftests(parser: pytest.Parser, args: t.List[str]):
+    cli_args = parser.parse(args)
+    if 'ci_profile' in cli_args and cli_args.ci_profile:
+        LOGGER.debug('loading ci profile: %s', cli_args.ci_profile)
+        CiSettings.CONFIG_FILE_PATH = cli_args.ci_profile
+
+    # add default test profiles into args
+    new_args = []
+    test_config_path = get_test_profile(CiSettings().test_profiles).merged_profile_path
+    ini = iniconfig.IniConfig(test_config_path)
+    for k, v in ini['pytest'].items():
+        if k not in args:  # cli args have higher priority
+            new_args.extend(['-o', f'{k}={v}'])
+        else:
+            LOGGER.debug('%s is defined in cli args, skip loading from test profile', k)
+
+    if new_args:
+        LOGGER.debug('new args loaded from test profile "%s":', test_config_path)
+        for arg in new_args:
+            LOGGER.debug('  %r', arg)
+        args.extend(new_args)
+
+
 def pytest_addoption(parser: pytest.Parser):
     idf_ci_group = parser.getgroup('idf_ci')
     idf_ci_group.addoption(
         '--ci-profile',
-        help='path to the .idf_ci.toml file',
+        help='path to the .idf_ci.toml file, by default it is preset "default"',
     )
     idf_ci_group.addoption(
         '--sdkconfig',
@@ -239,10 +264,6 @@ def pytest_addoption(parser: pytest.Parser):
 def pytest_configure(config: Config):
     cli_target = config.getoption('target') or 'all'
     sdkconfig_name = config.getoption('sdkconfig', None)
-
-    if ci_profile := config.getoption('ci_profile'):
-        print('Using CI profile:', ci_profile)
-        CiSettings.CONFIG_FILE_PATH = ci_profile
 
     plugin = IdfPytestPlugin(cli_target=cli_target, sdkconfig_name=sdkconfig_name)
     config.stash[IDF_CI_PLUGIN_KEY] = plugin
