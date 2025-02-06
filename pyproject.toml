@@ -7,7 +7,7 @@ name = "idf-ci"
 version = "0.1.0"
 description = "The python library for CI/CD of ESP-IDF projects"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.7"
 authors = [{ name = "Fu Hanxi", email = "fuhanxi@espressif.com" }]
 license = { file = "LICENSE" }
 classifiers = [
@@ -15,6 +15,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -82,7 +83,7 @@ force_grid_wrap = 1
 
 [tool.ruff]
 line-length = 120
-target-version = "py38"
+target-version = "py37"
 
 [tool.ruff.lint]
 select = [

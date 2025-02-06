@@ -123,7 +123,13 @@ class IdfPytestPlugin:
 
     @property
     def cases(self) -> t.List[PytestCase]:
-        return sorted([c for i in self._testing_items if (c := self.get_case_by_item(i))], key=lambda x: x.caseid)
+        res = []
+        for item in self._testing_items:
+            c = self.get_case_by_item(item)
+            if c:
+                res.append(c)
+
+        return sorted(res, key=lambda x: x.caseid)
 
     @staticmethod
     def get_case_by_item(item: pytest.Item) -> t.Optional[PytestCase]:
@@ -140,7 +146,8 @@ class IdfPytestPlugin:
             try:
                 _try_import(module_path)
             except ModuleNotFoundError as e:
-                if res := _MODULE_NOT_FOUND_REGEX.search(e.msg):
+                res = _MODULE_NOT_FOUND_REGEX.search(e.msg)
+                if res:
                     # redirect_stderr somehow breaks the sys.stderr.write() method
                     # fix it when implement proper logging
                     pkg = res.group(1)
@@ -210,7 +217,8 @@ class IdfPytestPlugin:
                 if _c is None:
                     continue
 
-                if skip_reason := _c.get_skip_reason_if_not_built(app_dirs):
+                skip_reason = _c.get_skip_reason_if_not_built(app_dirs)
+                if skip_reason:
                     LOGGER.debug(skip_reason)
                     deselected_items.append(item)
                 else:
@@ -220,7 +228,6 @@ class IdfPytestPlugin:
         # deselected items should be added to config.hook.pytest_deselected
         config.hook.pytest_deselected(items=deselected_items)
 
-        # add them to self._testing_items
         self._testing_items.update(items)
 
 

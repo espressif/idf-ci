@@ -26,7 +26,7 @@ def _merge_dicts(source: t.Dict, target: t.Dict) -> t.Dict:
 
 
 class ProfileManager:
-    suffix: t.ClassVar[t.Literal['.ini', '.toml']] = '.toml'
+    suffix: t.ClassVar[str] = '.toml'
 
     def __init__(self, profiles: t.List[PathLike], default_profile_path: PathLike):
         self.profiles = profiles
@@ -61,7 +61,7 @@ class ProfileManager:
 
 
 class IniProfileManager(ProfileManager):
-    suffix: t.ClassVar[t.Literal['.ini', '.toml']] = '.ini'
+    suffix: t.ClassVar[str] = '.ini'
 
     def read(self, profile: PathLike) -> t.Dict:
         config = configparser.ConfigParser(interpolation=None)
