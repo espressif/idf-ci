@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
-
+import logging
 import typing as t
+
+import rich.logging
 
 _T = t.TypeVar('_T')
 
@@ -40,3 +42,26 @@ def to_list(s):
         return list(s)
 
     return [s]
+
+
+def setup_logging(level: t.Optional[int] = logging.WARNING) -> None:
+    """
+    Setup logging
+
+    :param level: logging level
+    """
+    package_logger = logging.getLogger(__package__)
+
+    if level is None:
+        level = logging.WARNING
+
+    package_logger.setLevel(level)
+    package_logger.addHandler(
+        rich.logging.RichHandler(
+            level=level,
+            show_path=False,
+            log_time_format='[%Y-%m-%d %H:%M:%S]',
+            tracebacks_word_wrap=False,
+        )
+    )
+    package_logger.propagate = False
