@@ -60,7 +60,7 @@ class PytestCase:
         return item.callspec.params.get(key, default) or default
 
     @classmethod
-    def from_item(cls, item: Function, *, cli_target: str) -> t.Optional['PytestCase']:
+    def from_item(cls, item: Function) -> t.Optional['PytestCase']:
         """
         Turn pytest item to PytestCase
         """
@@ -69,24 +69,15 @@ class PytestCase:
         # default app_path is where the test script locates
         app_paths = to_list(parse_multi_dut_args(count, cls.get_param(item, 'app_path', os.path.dirname(item.path))))
         configs = to_list(parse_multi_dut_args(count, cls.get_param(item, 'config', 'default')))
-        targets = to_list(parse_multi_dut_args(count, cls.get_param(item, 'target')))  # defined fixture
+        targets = to_list(parse_multi_dut_args(count, cls.get_param(item, 'target', None)))  # defined fixture
 
-        cli_targets = cli_target.split(',')
-        if count > 1 and targets == [None] * count:
-            targets = cli_targets
-        elif targets is None:
-            if count == len(cli_targets):
-                LOGGER.debug('No param "target" for test case "%s", use CLI target "%s"', item.name, cli_target)
-                targets = cli_targets
-            else:
-                LOGGER.warning(
-                    'No param "target" for test case "%s". '
-                    'current DUT count is %d, while CLI target count is %d. Skipping the test.',
-                    item.name,
-                    count,
-                    len(cli_targets),
-                )
-                return None
+        if targets is None or targets == [None] * count:
+            LOGGER.critical(
+                'No "target" defined in `@pytest.mark.parametrize` for test function "%s" in file "%s. Skipping...',
+                item.name,
+                item.path,
+            )
+            return None
 
         return PytestCase(
             apps=[PytestApp(app_paths[i], targets[i], configs[i]) for i in range(count)],

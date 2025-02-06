@@ -155,7 +155,7 @@ class IdfPytestPlugin:
         config.addinivalue_line('markers', 'host_test: this test case runs on host machines')
 
         for item in items:
-            item.stash[IDF_CI_PYTEST_CASE_KEY] = PytestCase.from_item(item, cli_target=self.cli_target)
+            item.stash[IDF_CI_PYTEST_CASE_KEY] = PytestCase.from_item(item)
 
         deselected_items: t.List[Function] = []
 

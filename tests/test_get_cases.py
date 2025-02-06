@@ -155,6 +155,5 @@ class TestGetPytestCases:
             """)
         )
 
-        cases = get_pytest_cases([str(tmp_path)], 'esp32')
-        assert len(cases) == 1
-        assert cases[0].caseid == 'esp32.default.test_no_param'
+        cases = get_pytest_cases([str(tmp_path)])
+        assert len(cases) == 0  # since target is required
