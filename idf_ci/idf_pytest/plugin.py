@@ -194,7 +194,7 @@ class IdfPytestPlugin:
                     continue
 
                 if self.sdkconfig_name not in set(app.config for app in _c.apps):
-                    item.add_marker(pytest.mark.skip(reason=f'sdkconfig name mismatch: {self.sdkconfig_name}'))
+                    LOGGER.debug('skip test case %s due to sdkconfig name mismatch', _c.caseid)
                     deselected_items.append(item)
                 else:
                     res.append(item)
@@ -210,7 +210,7 @@ class IdfPytestPlugin:
                     continue
 
                 if skip_reason := _c.get_skip_reason_if_not_built(app_dirs):
-                    item.add_marker(pytest.mark.skip(reason=skip_reason))
+                    LOGGER.debug(skip_reason)
                     deselected_items.append(item)
                 else:
                     res.append(item)
