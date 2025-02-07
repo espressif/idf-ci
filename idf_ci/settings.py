@@ -98,10 +98,14 @@ class CiSettings(BaseSettings):
     ]
     extend_component_ignored_file_extensions: t.List[str] = []
 
+    # profiles
     build_profiles: t.List[PathLike] = ['default']
     test_profiles: t.List[PathLike] = ['default']
 
+    # build related settings
     built_app_list_filepatterns: t.List[str] = ['app_info_*.txt']
+    preserve_test_related_apps: bool = True
+    preserve_non_test_related_apps: bool = False
 
     @classmethod
     def settings_customise_sources(

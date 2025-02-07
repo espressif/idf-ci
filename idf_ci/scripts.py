@@ -126,6 +126,12 @@ def build(
         modified_components=modified_components,
     )
 
+    for _app in test_related_apps:
+        _app.preserve = CiSettings().preserve_test_related_apps
+
+    for _app in non_test_related_apps:
+        _app.preserve = CiSettings().preserve_non_test_related_apps
+
     if not only_test_related and not only_non_test_related:
         apps = sorted(test_related_apps.union(non_test_related_apps))
     elif only_test_related:
