@@ -27,11 +27,20 @@ def build():
 @option_profiles
 @option_parallel
 @option_modified_files
-@click.option('--test-related', is_flag=True, help='Run build only for test-related apps')
-@click.option('--non-test-related', is_flag=True, help='Run build only for non-test-related apps')
+@click.option('--only-test-related', is_flag=True, help='Run build only for test-related apps')
+@click.option('--only-non-test-related', is_flag=True, help='Run build only for non-test-related apps')
 @click.option('--dry-run', is_flag=True, help='Run build in dry-run mode')
 def run(
-    *, paths, target, profiles, parallel_count, parallel_index, modified_files, test_related, non_test_related, dry_run
+    *,
+    paths,
+    target,
+    profiles,
+    parallel_count,
+    parallel_index,
+    modified_files,
+    only_test_related,
+    only_non_test_related,
+    dry_run,
 ):
     """
     Run build according to the given profiles
@@ -50,8 +59,8 @@ def run(
         parallel_count=parallel_count,
         parallel_index=parallel_index,
         modified_files=modified_files,
-        test_related=test_related,
-        non_test_related=non_test_related,
+        only_test_related=only_test_related,
+        only_non_test_related=only_non_test_related,
         dry_run=dry_run,
     )
 

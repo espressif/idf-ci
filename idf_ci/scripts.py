@@ -3,7 +3,6 @@
 import fnmatch
 import logging
 import os
-import subprocess
 import typing as t
 
 from idf_build_apps import App, build_apps, find_apps
@@ -106,8 +105,8 @@ def build(
     parallel_count: int = 1,
     parallel_index: int = 1,
     modified_files: t.Optional[t.List[str]] = None,
-    test_related: bool = False,
-    non_test_related: bool = False,
+    only_test_related: bool = False,
+    only_non_test_related: bool = False,
     dry_run: bool = False,
 ):
     build_profile = get_build_profile(profiles)
@@ -118,52 +117,6 @@ def build(
         LOGGER.debug('Modified files: %s', modified_files)
         LOGGER.debug('Modified components: %s', modified_components)
 
-    if test_related is False and non_test_related is False:
-        # call idf-build-apps build directly
-        args = [
-            'idf-build-apps',
-            'build',
-            '-p',
-            *paths,
-            '-t',
-            target,
-            '--config-file',
-            build_profile.merged_profile_path,
-            '--parallel-count',
-            str(parallel_count),
-            '--parallel-index',
-            str(parallel_index),
-        ]
-
-        if modified_files:
-            args.extend(
-                [
-                    '--modified-files',
-                    ';'.join(modified_files) if modified_files else ';',
-                    '--modified-components',
-                    ';'.join(modified_components) if modified_components else ';',
-                ]
-            )
-
-        if dry_run:
-            args.append('--dry-run')
-
-        LOGGER.debug('Running command: %s', args)
-        try:
-            subprocess.run(
-                args,
-                check=True,
-            )
-        except subprocess.CalledProcessError as e:
-            LOGGER.error(
-                'Command `%s` failed with return code %s',
-                ' '.join(args),
-                e.returncode,
-            )
-            raise SystemExit(e.returncode)
-
-        return
-
     # we have to call get_all_apps first, then call build_apps(apps)
     test_related_apps, non_test_related_apps = get_all_apps(
         paths,
@@ -173,18 +126,17 @@ def build(
         modified_components=modified_components,
     )
 
-    if test_related:
-        return build_apps(
-            sorted(test_related_apps),
-            parallel_count=parallel_count,
-            parallel_index=parallel_index,
-            dry_run=dry_run,
-        )
+    if not only_test_related and not only_non_test_related:
+        apps = sorted(test_related_apps.union(non_test_related_apps))
+    elif only_test_related:
+        apps = sorted(test_related_apps)
+    else:
+        apps = sorted(non_test_related_apps)
 
-    if non_test_related:
-        return build_apps(
-            sorted(non_test_related_apps),
-            parallel_count=parallel_count,
-            parallel_index=parallel_index,
-            dry_run=dry_run,
-        )
+    return build_apps(
+        apps,
+        parallel_count=parallel_count,
+        parallel_index=parallel_index,
+        dry_run=dry_run,
+        config_file=build_profile.merged_profile_path,
+    )
