@@ -1,5 +1,7 @@
 # idf-ci
 
+![Python 3.7+](https://img.shields.io/pypi/pyversions/idf-ci)
+
 This repo contains the tools for CI/CD of ESP-IDF projects.
 
 ## Configurations

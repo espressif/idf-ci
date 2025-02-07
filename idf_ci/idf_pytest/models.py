@@ -4,7 +4,6 @@
 import logging
 import os
 import typing as t
-from functools import cached_property
 
 from _pytest.python import Function
 from pytest_embedded.plugin import parse_multi_dut_args
@@ -87,46 +86,45 @@ class PytestCase:
     def __hash__(self) -> int:
         return hash((self.path, self.name, self.apps, self.all_markers))
 
-    @cached_property
+    @property
     def path(self) -> str:
         return str(self.item.path)
 
-    @cached_property
+    @property
     def name(self) -> str:
         return self.item.originalname
 
-    @cached_property
+    @property
     def targets(self) -> t.List[str]:
         return [app.target for app in self.apps]
 
-    @cached_property
+    @property
     def configs(self) -> t.List[str]:
         return [app.config for app in self.apps]
 
-    @cached_property
+    @property
     def caseid(self) -> str:
         if self.is_single_dut:
             return f'{self.targets[0]}.{self.configs[0]}.{self.name}'
         else:
             return f'{tuple(self.targets)}.{tuple(self.configs)}.{self.name}'
 
-    @cached_property
+    @property
     def is_single_dut(self) -> bool:
         return True if len(self.apps) == 1 else False
 
-    @cached_property
+    @property
     def is_host_test(self) -> bool:
         return 'host_test' in self.all_markers or 'linux' in self.targets
 
-    @cached_property
+    @property
     def is_in_ci(self) -> bool:
         return 'CI_JOB_ID' in os.environ or 'GITHUB_ACTIONS' in os.environ
 
-    @cached_property
+    @property
     def target_selector(self) -> str:
         return ','.join(app.target for app in self.apps)
 
-    # the following markers could be changed dynamically, don't use cached_property
     @property
     def all_markers(self) -> t.Set[str]:
         return {marker.name for marker in self.item.iter_markers()}

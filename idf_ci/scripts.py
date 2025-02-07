@@ -76,13 +76,15 @@ def get_all_apps(
 
     for app in apps:
         app_key = (os.path.abspath(app.app_dir), app.target, app.config_name or 'default')
-        # override build_status if test script got modified
-        if _case := modified_pytest_dict.get(app_key):
+        # override build_status if test script got modified\
+        _case = modified_pytest_dict.get(app_key)
+        if _case:
             test_related_apps.add(app)
             app.build_status = BuildStatus.SHOULD_BE_BUILT
             LOGGER.debug('Found app: %s - required by modified test case %s', app, _case.path)
         elif app.build_status != BuildStatus.SKIPPED:
-            if _case := pytest_dict.get(app_key):
+            _case = pytest_dict.get(app_key)
+            if _case:
                 test_related_apps.add(app)
                 # build or not should be decided by the build stage
                 LOGGER.debug('Found test-related app: %s - required by %s', app, _case.path)

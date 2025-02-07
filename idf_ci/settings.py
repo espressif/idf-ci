@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+import sys
 import typing as t
 from pathlib import Path
 
@@ -10,8 +11,8 @@ from idf_build_apps import App, CMakeApp, json_to_app
 from idf_build_apps.constants import BuildStatus
 from pydantic_settings import (
     BaseSettings,
+    InitSettingsSource,
     PydanticBaseSettingsSource,
-    TomlConfigSettingsSource,
 )
 
 from idf_ci._compat import PathLike
@@ -19,7 +20,66 @@ from idf_ci._compat import PathLike
 LOGGER = logging.getLogger(__name__)
 
 
-# noinspection PyDataclass
+class TomlConfigSettingsSource(InitSettingsSource):
+    """
+    A source class that loads variables from a TOML file
+    """
+
+    def __init__(
+        self,
+        settings_cls: t.Type[BaseSettings],
+        toml_file: t.Optional[PathLike] = Path(''),
+    ):
+        self.toml_file_path = self._pick_toml_file(
+            toml_file,
+            '.idf_ci.toml',
+        )
+        self.toml_data = self._read_file(self.toml_file_path)
+        super().__init__(settings_cls, self.toml_data)
+
+    def _read_file(self, path: t.Optional[Path]) -> t.Dict[str, t.Any]:
+        if not path or not path.is_file():
+            return {}
+
+        if sys.version_info < (3, 11):
+            from tomlkit import load
+
+            with open(path) as f:
+                return load(f)
+        else:
+            import tomllib
+
+            with open(path, 'rb') as f:
+                return tomllib.load(f)
+
+    @staticmethod
+    def _pick_toml_file(provided: t.Optional[PathLike], filename: str) -> t.Optional[Path]:
+        """
+        Pick a file path to use. If a file path is provided, use it. Otherwise, search up the directory tree for a
+        file with the given name.
+
+        :param provided: Explicit path provided when instantiating this class.
+        :param filename: Name of the file to search for.
+        """
+        if provided:
+            provided_p = Path(provided)
+            if provided_p.is_file():
+                fp = provided_p.resolve()
+                LOGGER.debug(f'Loading config file: {fp}')
+                return fp
+
+        rv = Path.cwd()
+        while len(rv.parts) > 1:
+            fp = rv / filename
+            if fp.is_file():
+                LOGGER.debug(f'Loading config file: {fp}')
+                return fp
+
+            rv = rv.parent
+
+        return None
+
+
 class CiSettings(BaseSettings):
     CONFIG_FILE_PATH: t.ClassVar[t.Optional[Path]] = None
 
@@ -96,7 +156,8 @@ class CiSettings(BaseSettings):
             for filepath in Path('.').glob(filepattern):
                 with open(filepath) as fr:
                     for line in fr:
-                        if line := line.strip():
+                        line = line.strip()
+                        if line:
                             apps.append(json_to_app(line, extra_classes=[CMakeApp]))
                             LOGGER.debug('App found: %s', apps[-1].build_path)
 
