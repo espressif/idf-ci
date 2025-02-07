@@ -60,4 +60,4 @@ def get_pytest_cases(
     if res == ExitCode.OK:
         return plugin.cases
 
-    raise RuntimeError(f'pytest collection failed at {", ".join(paths)}.\nstdout: {stdout_msg}\nstderr: {stderr_msg}')
+    raise RuntimeError(f'pytest collection failed.\nArgs: {args}\nStdout: {stdout_msg}\nStderr: {stderr_msg}')
