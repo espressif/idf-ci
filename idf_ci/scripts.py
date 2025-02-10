@@ -51,6 +51,8 @@ def get_all_apps(
         )
 
     cases = get_pytest_cases(paths, target, profiles=CiSettings().test_profiles, marker_expr=marker_expr)
+    if not cases:
+        return set(), set(apps)
 
     # Get modified pytest cases if any
     modified_pytest_cases = []
