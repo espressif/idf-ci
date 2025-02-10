@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.2 (2025-02-10)
+
+### Fix
+
+- return all apps as non-test-related apps when no pytest case found
+
 ## v0.1.1 (2025-02-10)
 
 ### Fix
