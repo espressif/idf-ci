@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "idf-ci"
-version = "0.1.0"
+version = "0.1.1"
 description = "The python library for CI/CD of ESP-IDF projects"
 readme = "README.md"
 requires-python = ">=3.7"
@@ -117,7 +117,7 @@ addopts = "-p no:idf-ci"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-tag_format = "$version"
+tag_format = "v$version"
 version_scheme = "pep440"
 version_provider = "pep621"
 update_changelog_on_bump = true
