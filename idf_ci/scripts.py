@@ -145,4 +145,6 @@ def build(
         parallel_index=parallel_index,
         dry_run=dry_run,
         config_file=build_profile.merged_profile_path,
+        modified_files=modified_files,
+        modified_components=modified_components,
     )
