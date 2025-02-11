@@ -7,14 +7,21 @@ This documentation is for idf-ci. idf-ci is a python library for CI/CD of ESP-ID
 .. toctree::
    :maxdepth: 1
    :caption: Explanations
+   :glob:
 
-   explanations/profiles
+   explanations/*
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Guides
+   :glob:
+
+   guides/*
 
 .. toctree::
    :maxdepth: 1
    :caption: References
+   :glob:
 
-   references/ci-profile
-   references/build-profile
-   references/test-profile
+   references/*
    references/api/modules.rst
