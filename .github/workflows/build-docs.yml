@@ -1,0 +1,19 @@
+name: Build Docs 📚
+
+on:
+  pull_request:
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.7"
+      - name: Install dependencies
+        run: |
+          pip install '.[doc]'
+      - name: Build Docs
+        run: sphinx-build docs/en html_output
