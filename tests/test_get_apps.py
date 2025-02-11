@@ -19,7 +19,6 @@ class TestGetAllApps:
 
         test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)])
 
-        assert test_related_apps == set()
         assert len(test_related_apps) == 0
         assert len(non_test_related_apps) == 2 * len(SUPPORTED_TARGETS)
         assert SUPPORTED_TARGETS == [
