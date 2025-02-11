@@ -42,16 +42,30 @@ To preview the behavior of the test stage locally, you can run the following com
 
 .. code:: bash
 
-   idf-ci test run --target <target> --dry-run
+   pytest --collect-only
 
-For example, to preview the behavior of the test stage for the ``esp32`` target, you can run the following command:
+Since it's implemented as a pytest plugin, you can use all the pytest options to run the tests. For example, use -k to narrow down the tests to run:
 
 .. code:: bash
 
-   idf-ci test run --target esp32 --dry-run
+   pytest --collect-only -k test_func_name
+
+Or use -m to run tests with specific markers:
+
+.. code:: bash
+
+   pytest --collect-only -m "not host_test"
 
 For multi-dut tests, you can pass with comma separated values:
 
 .. code:: bash
 
-   idf-ci test run --target esp32,esp32s2 --dry-run
+   pytest --collect-only --target esp32,esp32s2
+
+To enable the verbose mode, you can pass:
+
+.. code:: bash
+
+   pytest --collect-only --log-cli-level DEBUG
+
+By default the log level is WARNING. In python logging, the log levels are DEBUG < INFO < WARNING < ERROR < CRITICAL. Only the logs with the level greater than or equal to the passed log level will be displayed.
