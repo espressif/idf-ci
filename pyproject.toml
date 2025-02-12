@@ -28,7 +28,7 @@ dependencies = [
     "click",
     "tomlkit", # we need both read and write
     # build related
-    "idf-build-apps>=2.6.2,<3",
+    "idf-build-apps>=2.6.3,<3",
     # test related
     "pytest-embedded-idf[serial]~=1.13",
     "pytest-embedded-jtag~=1.13",
