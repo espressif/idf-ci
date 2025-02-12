@@ -66,11 +66,14 @@ def run(
 
 
 @build.command()
-@click.option('--path', default=os.getcwd(), help='Path to create the build profile')
+@click.option('--path', help='Path to create the build profile. By default, it creates at the current directory')
 def init_profile(path: str):
     """
     Create .idf_build_apps.toml with default values at the given folder
     """
+    if path is None:
+        path = os.getcwd()
+
     if os.path.isdir(path):
         # here don't use idf_build_apps.constants.IDF_BUILD_APPS_TOML_FN
         # since idf_build_apps requires idf_path

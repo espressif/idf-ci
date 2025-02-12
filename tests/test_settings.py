@@ -135,8 +135,9 @@ component_ignored_file_extensions = [
 
 
 def test_ci_profile_not_specified(runner):
-    # Test default behavior when no profile is specified
     original_config_path = CiSettings.CONFIG_FILE_PATH
-    result = runner.invoke(cli, ['build', 'init-profile'])
-    assert result.exit_code == 0
-    assert CiSettings.CONFIG_FILE_PATH == original_config_path
+    with runner.isolated_filesystem() as tmp_d:
+        result = runner.invoke(cli, ['build', 'init-profile'])
+        assert result.exit_code == 0
+        assert CiSettings.CONFIG_FILE_PATH == original_config_path
+        assert os.path.exists(tmp_d + os.sep + '.idf_build_apps.toml')
