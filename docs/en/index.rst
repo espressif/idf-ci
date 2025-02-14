@@ -2,7 +2,7 @@
  idf-ci |version| Documentation
 ################################
 
-This documentation is for idf-ci. idf-ci is a python library for CI/CD of ESP-IDF projects
+This documentation is for idf-ci. idf-ci is a Python library for the CI/CD of ESP-IDF projects.
 
 .. toctree::
    :maxdepth: 1

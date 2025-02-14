@@ -10,7 +10,7 @@ This guide will show you how to preview the behavior of the CI system locally.
 
 The build stage is the first stage of the CI system. It is responsible for building the project and running the tests.
 
-Usually we split the build stage into two parts:
+We typically split the build stage into two parts:
 
 -  Test-Related Build: This part of the build stage is responsible for building the test binaries that will be run later in the test stage.
 -  Non-Test-Related Build: This part of the build stage is responsible for building the project binaries that will only be compiled as a compilation check.
@@ -68,4 +68,4 @@ To enable the verbose mode, you can pass:
 
    pytest --collect-only --log-cli-level DEBUG
 
-By default the log level is WARNING. In python logging, the log levels are DEBUG < INFO < WARNING < ERROR < CRITICAL. Only the logs with the level greater than or equal to the passed log level will be displayed.
+By default the log level is WARNING. In python logging, the log levels are DEBUG < INFO < WARNING < ERROR < CRITICAL. Only logs with levels equal to or higher than the specified level will be displayed.
