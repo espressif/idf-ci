@@ -60,8 +60,6 @@ def setup_logging(level: t.Optional[int] = logging.WARNING) -> None:
         rich.logging.RichHandler(
             level=level,
             show_path=False,
-            log_time_format='[%Y-%m-%d %H:%M:%S]',
-            tracebacks_word_wrap=False,
         )
     )
     package_logger.propagate = False
