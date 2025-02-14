@@ -93,9 +93,6 @@ def get_all_apps(
                 non_test_related_apps.add(app)
                 LOGGER.debug('Found non-test-related app: %s', app)
 
-    print(f'Found {len(test_related_apps)} test-related apps')
-    print(f'Found {len(non_test_related_apps)} non-test-related apps')
-
     return test_related_apps, non_test_related_apps
 
 
