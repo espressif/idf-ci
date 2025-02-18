@@ -82,10 +82,10 @@ def build_dir(
     for check_dir in check_dirs:
         binary_path = os.path.join(app_path, check_dir)
         if os.path.isdir(binary_path):
-            logging.info(f'found valid binary path: {binary_path}')
+            LOGGER.info(f'found valid binary path: {binary_path}')
             return check_dir
 
-        logging.warning('checking binary path: %s... missing... try another place', binary_path)
+        LOGGER.warning('checking binary path: %s... missing... try another place', binary_path)
 
     raise ValueError(
         f'no build dir valid. Please build the binary via "idf.py -B {check_dirs[0]} build" and run pytest again'
@@ -151,7 +151,7 @@ class IdfPytestPlugin:
                     # redirect_stderr somehow breaks the sys.stderr.write() method
                     # fix it when implement proper logging
                     pkg = res.group(1)
-                    logging.warning(f'WARNING:Mocking missed package while collecting: {pkg}\n')
+                    LOGGER.warning(f'WARNING:Mocking missed package while collecting: {pkg}\n')
                     sys.modules[pkg] = MagicMock()
                     continue
             else:
