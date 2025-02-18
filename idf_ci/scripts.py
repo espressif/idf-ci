@@ -107,7 +107,8 @@ def build(
     only_test_related: bool = False,
     only_non_test_related: bool = False,
     dry_run: bool = False,
-):
+    verbose: t.Optional[int] = None,
+) -> t.Tuple[t.List[App], int]:
     build_profile = get_build_profile(profiles)
 
     modified_components = None
@@ -138,7 +139,7 @@ def build(
     else:
         apps = sorted(non_test_related_apps)
 
-    return build_apps(
+    ret = build_apps(
         apps,
         parallel_count=parallel_count,
         parallel_index=parallel_index,
@@ -146,4 +147,6 @@ def build(
         config_file=build_profile.merged_profile_path,
         modified_files=modified_files,
         modified_components=modified_components,
+        verbose=verbose,
     )
+    return apps, ret
