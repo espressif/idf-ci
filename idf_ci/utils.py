@@ -3,7 +3,7 @@
 import logging
 import typing as t
 
-import rich.logging
+from idf_build_apps.log import get_rich_log_handler
 
 _T = t.TypeVar('_T')
 
@@ -50,18 +50,14 @@ def setup_logging(level: t.Optional[int] = logging.WARNING) -> None:
 
     :param level: logging level
     """
-    package_logger = logging.getLogger(__package__)
-
     if level is None:
         level = logging.WARNING
 
+    package_logger = logging.getLogger(__package__)
     package_logger.setLevel(level)
-    package_logger.addHandler(
-        rich.logging.RichHandler(
-            level=level,
-            show_path=False,
-            log_time_format='[%Y-%m-%d %H:%M:%S]',
-            tracebacks_word_wrap=False,
-        )
-    )
+
+    if package_logger.hasHandlers():
+        package_logger.handlers.clear()
+    package_logger.addHandler(get_rich_log_handler(level))
+
     package_logger.propagate = False

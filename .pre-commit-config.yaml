@@ -31,7 +31,7 @@ repos:
           - click
           - pytest
           - tomlkit
-          - idf-build-apps~=2.6
+          - idf-build-apps~=2.7
           - pytest-embedded~=1.13
           - rich
   - repo: https://github.com/hfudev/rstfmt

@@ -153,7 +153,7 @@ class CiSettings(BaseSettings):
             LOGGER.debug('No built app list files found')
             return None
 
-        LOGGER.debug('Found built app list files: %s', found_files)
+        LOGGER.debug('Found built app list files: %s', [str(p) for p in found_files])
 
         apps: t.List[App] = []
         for filepattern in self.built_app_list_filepatterns:
