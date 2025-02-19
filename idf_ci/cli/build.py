@@ -3,6 +3,7 @@
 
 import os
 import shutil
+import time
 
 import click
 
@@ -30,7 +31,9 @@ def build():
 @click.option('--only-test-related', is_flag=True, help='Run build only for test-related apps')
 @click.option('--only-non-test-related', is_flag=True, help='Run build only for non-test-related apps')
 @click.option('--dry-run', is_flag=True, help='Run build in dry-run mode')
+@click.pass_context
 def run(
+    ctx,
     *,
     paths,
     target,
@@ -51,8 +54,9 @@ def run(
     if isinstance(modified_files, Undefined):
         modified_files = None
 
-    click.echo(f'Building {target} with profiles {profiles} at {paths}')
-    build_cmd(
+    click.echo(f'Building projects under {sorted(paths)} for target {target} with profiles {profiles}')
+    _start = time.time()
+    apps, ret = build_cmd(
         paths,
         target,
         profiles=profiles,
@@ -62,7 +66,16 @@ def run(
         only_test_related=only_test_related,
         only_non_test_related=only_non_test_related,
         dry_run=dry_run,
+        verbose=ctx.parent.parent.params['verbose'],
     )
+    click.echo(f'Built the following apps in {time.time() - _start:.2f} seconds:')
+    for app in apps:
+        line = f'\t{app.build_path} [{app.build_status.value}]'
+        if app.build_comment:
+            line += f' ({app.build_comment})'
+        click.echo(line)
+
+    ctx.exit(ret)
 
 
 @build.command()
