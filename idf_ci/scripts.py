@@ -9,8 +9,7 @@ from idf_build_apps import App, build_apps, find_apps
 from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
 
 from . import get_pytest_cases
-from ._compat import UNDEF, PathLike, Undefined
-from .profiles import get_build_profile
+from ._compat import UNDEF, Undefined
 from .settings import CiSettings
 
 LOGGER = logging.getLogger(__name__)
@@ -20,14 +19,11 @@ def get_all_apps(
     paths: t.List[str],
     target: str = 'all',
     *,
-    profiles: t.List[PathLike] = UNDEF,  # type: ignore
     modified_files: t.Optional[t.List[str]] = None,
     modified_components: t.Optional[t.List[str]] = None,
     marker_expr: str = UNDEF,
     default_build_targets: t.List[str] = UNDEF,  # type: ignore
 ) -> t.Tuple[t.Set[App], t.Set[App]]:
-    build_profile = get_build_profile(profiles)
-
     apps = []
     for _t in target.split(','):
         if isinstance(default_build_targets, Undefined):
@@ -42,7 +38,6 @@ def get_all_apps(
             find_apps(
                 paths,
                 _t,
-                config_file=build_profile.merged_profile_path,
                 modified_files=modified_files,
                 modified_components=modified_components,
                 include_skipped_apps=True,
@@ -50,7 +45,7 @@ def get_all_apps(
             )
         )
 
-    cases = get_pytest_cases(paths, target, profiles=CiSettings().test_profiles, marker_expr=marker_expr)
+    cases = get_pytest_cases(paths, target, marker_expr=marker_expr)
     if not cases:
         return set(), set(apps)
 
@@ -61,9 +56,7 @@ def get_all_apps(
             os.path.dirname(f) for f in modified_files if fnmatch.fnmatch(os.path.basename(f), 'pytest_*.py')
         ]
         if modified_pytest_scripts:
-            modified_pytest_cases = get_pytest_cases(
-                modified_pytest_scripts, target, profiles=CiSettings().test_profiles, marker_expr=marker_expr
-            )
+            modified_pytest_cases = get_pytest_cases(modified_pytest_scripts, target, marker_expr=marker_expr)
 
     # Create dictionaries mapping app info to test cases
     def get_app_dict(cases):
@@ -100,7 +93,6 @@ def build(
     paths: t.List[str],
     target: str,
     *,
-    profiles: t.List[PathLike] = UNDEF,  # type: ignore
     parallel_count: int = 1,
     parallel_index: int = 1,
     modified_files: t.Optional[t.List[str]] = None,
@@ -109,8 +101,6 @@ def build(
     dry_run: bool = False,
     verbose: t.Optional[int] = None,
 ) -> t.Tuple[t.List[App], int]:
-    build_profile = get_build_profile(profiles)
-
     modified_components = None
     if modified_files is not None:
         modified_components = sorted(CiSettings().get_modified_components(modified_files))
@@ -121,7 +111,6 @@ def build(
     test_related_apps, non_test_related_apps = get_all_apps(
         paths,
         target,
-        profiles=profiles,
         modified_files=modified_files,
         modified_components=modified_components,
     )
@@ -144,7 +133,6 @@ def build(
         parallel_count=parallel_count,
         parallel_index=parallel_index,
         dry_run=dry_run,
-        config_file=build_profile.merged_profile_path,
         modified_files=modified_files,
         modified_components=modified_components,
         verbose=verbose,

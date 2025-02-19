@@ -7,7 +7,7 @@ from pathlib import Path
 from idf_ci.cli import cli
 
 
-def test_build_profile_init(runner, tmp_dir):
+def test_build_init_profile(runner, tmp_dir):
     # Test init command with default path
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['build', 'init-profile', '--path', tmp_dir])
@@ -23,7 +23,7 @@ def test_build_profile_init(runner, tmp_dir):
     assert os.path.exists(specific_path)
 
 
-def test_ci_profile_init(runner, tmp_dir):
+def test_ci_init_profile(runner, tmp_dir):
     # Test init command with default path
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ['init-profile', '--path', tmp_dir])
@@ -64,8 +64,7 @@ def test_completions(runner):
     assert 'Fish:' in result.output
 
 
-def test_profile_init_file_exists(runner, tmp_dir):
-    # Test that init doesn't fail if file already exists
+def test_init_profile_but_already_exists(runner, tmp_dir):
     build_profile_path = os.path.join(tmp_dir, '.idf_build_apps.toml')
     ci_profile_path = os.path.join(tmp_dir, '.idf_ci.toml')
 

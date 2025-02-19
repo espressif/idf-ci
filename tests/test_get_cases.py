@@ -4,10 +4,19 @@
 import textwrap
 from pathlib import Path
 
+import pytest
+
 from idf_ci import get_pytest_cases
+from idf_ci.cli import cli
 
 
 class TestGetPytestCases:
+    @pytest.fixture(scope='function', autouse=True)
+    def _setup(self, runner):
+        runner.invoke(cli, ['test', 'init-profile'])
+
+        yield
+
     TEMPLATE_SCRIPT = textwrap.dedent("""
         import pytest
 

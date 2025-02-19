@@ -104,9 +104,9 @@ def test_component_mapping_with_absolute_paths():
     assert components == {'wifi'}
 
 
-def test_ci_profile_option(tmp_dir, runner):
+def test_ci_profile_option(tmp_path, runner):
     # Create a custom CI profile file
-    custom_profile = os.path.join(tmp_dir, 'custom_ci_profile.toml')
+    custom_profile = tmp_path / 'custom_ci_profile.toml'
     with open(custom_profile, 'w') as f:
         f.write("""
 extend_component_mapping_regexes = [
@@ -117,8 +117,10 @@ component_ignored_file_extensions = [
     '.custom'
 ]
 """)
+    runner.invoke(cli, ['--ci-profile', custom_profile, 'build', 'init-profile'])
+    runner.invoke(cli, ['--ci-profile', custom_profile, 'test', 'init-profile'])
 
-    result = runner.invoke(cli, ['--ci-profile', custom_profile, 'build', 'run', '--paths', tmp_dir])
+    result = runner.invoke(cli, ['--ci-profile', custom_profile, 'build', 'run'])
     assert result.exit_code == 0
     assert f'Using CI profile: {custom_profile}' in result.output
     assert CiSettings.CONFIG_FILE_PATH == custom_profile
@@ -127,7 +129,7 @@ component_ignored_file_extensions = [
     CiSettings.CONFIG_FILE_PATH = None  # reset
 
     # Test with non-existent profile
-    non_existent = os.path.join(tmp_dir, 'non_existent.toml')
+    non_existent = os.path.join(tmp_path, 'non_existent.toml')
     result = runner.invoke(cli, ['--ci-profile', non_existent])
     assert result.exit_code == 2  # Click returns 2 for parameter validation errors
     assert re.search(r"Error: Invalid value for '--ci-profile': File .* does not exist.", result.output)

@@ -10,7 +10,6 @@ import typing as t
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import iniconfig
 import pytest
 from _pytest.config import Config
 from _pytest.fixtures import FixtureRequest
@@ -18,7 +17,6 @@ from _pytest.python import Function
 from _pytest.stash import StashKey
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
-from ..profiles import get_test_profile
 from ..settings import CiSettings
 from ..utils import setup_logging
 from .models import PytestCase
@@ -234,31 +232,6 @@ class IdfPytestPlugin:
 ##################
 # Hook Functions #
 ##################
-def pytest_load_initial_conftests(parser: pytest.Parser, args: t.List[str]):
-    cli_args = parser.parse(args)
-    setup_logging(cli_args.log_cli_level)
-
-    if 'ci_profile' in cli_args and cli_args.ci_profile:
-        LOGGER.debug('loading ci profile: %s', cli_args.ci_profile)
-        CiSettings.CONFIG_FILE_PATH = cli_args.ci_profile
-
-    # add default test profiles into args
-    new_args = []
-    test_config_path = get_test_profile(CiSettings().test_profiles).merged_profile_path
-    ini = iniconfig.IniConfig(test_config_path)
-    for k, v in ini['pytest'].items():
-        if k not in args:  # cli args have higher priority
-            new_args.extend(['-o', f'{k}={v}'])
-        else:
-            LOGGER.debug('%s is defined in cli args, skip loading from test profile', k)
-
-    if new_args:
-        LOGGER.debug('new args loaded from test profile "%s":', test_config_path)
-        for arg in new_args:
-            LOGGER.debug('  %r', arg)
-        args.extend(new_args)
-
-
 def pytest_addoption(parser: pytest.Parser):
     idf_ci_group = parser.getgroup('idf_ci')
     idf_ci_group.addoption(
@@ -272,6 +245,13 @@ def pytest_addoption(parser: pytest.Parser):
 
 
 def pytest_configure(config: Config):
+    setup_logging(config.getoption('log_cli_level', None))
+
+    ci_profile = config.getoption('ci_profile', None)
+    if ci_profile:
+        LOGGER.debug('loading ci profile: %s', ci_profile)
+        CiSettings.CONFIG_FILE_PATH = ci_profile
+
     cli_target = config.getoption('target') or 'all'
     sdkconfig_name = config.getoption('sdkconfig', None)
 

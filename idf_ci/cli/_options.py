@@ -51,27 +51,6 @@ def option_target(func):
     )(func)
 
 
-_OPTION_PROFILES_HELP = """
-\b
-List of profiles to apply. Could be "default" or file path to a custom profile.
-Support passing multiple ones separated by a semicolon (;).
-The later profiles will override the previous ones.
-
-\b
-Example:
-  --profiles default;custom.toml  # To apply default and custom profiles
-  --profiles ';'  # To unset the default profile
-"""
-
-
-def option_profiles(func):
-    return click.option(
-        '--profiles',
-        help=_OPTION_PROFILES_HELP,
-        callback=_semicolon_separated_list,
-    )(func)
-
-
 def option_parallel(func):
     @click.option('--parallel-count', default=1, help='Number of parallel builds')
     @click.option('--parallel-index', default=1, help='Index of the parallel build')
