@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 import os
-import shutil
 
 import click
 
 from idf_ci.settings import CiSettings
 
 from ..utils import setup_logging
+from ._options import create_config_file
 from .build import build
 from .test import test
 
@@ -54,16 +54,7 @@ def init(path: str):
     """
     Create .idf_ci.toml with default values
     """
-    if path is None:
-        path = os.getcwd()
-
-    if os.path.isdir(path):
-        filepath = os.path.join(path, '.idf_ci.toml')
-    else:
-        filepath = path
-
-    shutil.copyfile(os.path.join(os.path.dirname(__file__), '..', 'templates', '.idf_ci.toml'), filepath)
-    click.echo(f'Created {filepath}')
+    create_config_file(os.path.join(os.path.dirname(__file__), '..', 'templates', '.idf_ci.toml'), path)
 
 
 @cli.command()

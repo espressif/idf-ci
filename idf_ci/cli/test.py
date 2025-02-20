@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import shutil
 
 import click
+
+from ._options import create_config_file
 
 
 @click.group()
@@ -21,13 +22,4 @@ def init(path: str):
     """
     Create pytest.ini with default values
     """
-    if path is None:
-        path = os.getcwd()
-
-    if os.path.isdir(path):
-        filepath = os.path.join(path, 'pytest.ini')
-    else:
-        filepath = path
-
-    shutil.copyfile(os.path.join(os.path.dirname(__file__), '..', 'templates', 'pytest.ini'), filepath)
-    click.echo(f'Created {filepath}')
+    create_config_file(os.path.join(os.path.dirname(__file__), '..', 'templates', 'pytest.ini'), path)

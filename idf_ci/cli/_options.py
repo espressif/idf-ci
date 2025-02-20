@@ -1,11 +1,17 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
+import difflib
 import functools
+import logging
 import os
+import shutil
+import typing as t
 
 import click
 
 from idf_ci._compat import UNDEF
+
+logger = logging.getLogger(__name__)
 
 
 ########################
@@ -67,3 +73,52 @@ def option_modified_files(func):
         help='Semicolon separated list of files that have been modified',
         callback=_semicolon_separated_list,
     )(func)
+
+
+#########
+# Utils #
+#########
+def create_config_file(template_filepath: str, dest: t.Optional[str] = None) -> str:
+    """
+    Create a configuration file from a template.
+
+    :param template_filepath: Path to the template file.
+    :param dest: Path to the destination file. If None, the current working directory is used.
+    :return: Path to the created file.
+    """
+    if dest is None:
+        dest = os.getcwd()
+
+    if os.path.isdir(dest):
+        filename = os.path.basename(template_filepath)
+        filepath = os.path.join(dest, filename)
+    else:
+        filepath = dest
+
+    if not os.path.isfile(filepath):
+        shutil.copyfile(template_filepath, filepath)
+        click.echo(f'Created {filepath}')
+        return filepath
+
+    with open(template_filepath) as template_file:
+        template_content = template_file.readlines()
+    with open(filepath) as existing_file:
+        existing_content = existing_file.readlines()
+
+    diff = list(difflib.unified_diff(existing_content, template_content, fromfile='existing', tofile='template'))
+    if not diff:
+        click.secho(f'{filepath} already exists and is identical to the template.', fg='yellow')
+        return filepath
+
+    click.secho(f'{filepath} already exists. Showing diff:', fg='yellow')
+    for line in diff:
+        if line.startswith('+'):
+            click.secho(line, fg='green', nl=False)
+        elif line.startswith('-'):
+            click.secho(line, fg='red', nl=False)
+        elif line.startswith('@@'):
+            click.secho(line, fg='cyan', nl=False)
+        else:
+            click.secho(line, nl=False)
+
+    return filepath
