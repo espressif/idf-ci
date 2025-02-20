@@ -38,10 +38,10 @@ def option_paths(func):
     return click.option(
         '--paths',
         '-p',
-        default=[os.getcwd()],
         multiple=True,
         type=click.Path(dir_okay=True, file_okay=False, exists=True),
         help=_OPTION_PATHS_HELP,
+        callback=lambda ctx, param, value: [os.getcwd()] if not value else value,  # noqa: ARG005
     )(func)
 
 

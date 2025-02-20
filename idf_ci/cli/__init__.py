@@ -45,11 +45,14 @@ def cli(ci_profile, verbose):
 
 
 @cli.command()
-@click.option('--path', default=os.getcwd(), help='Path to create the CI profile')
+@click.option('--path', help='Path to create the CI profile')
 def init_profile(path: str):
     """
     Create .idf_ci.toml with default values at the given folder
     """
+    if path is None:
+        path = os.getcwd()
+
     if os.path.isdir(path):
         filepath = os.path.join(path, '.idf_ci.toml')
     else:

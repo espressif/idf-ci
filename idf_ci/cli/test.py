@@ -16,11 +16,14 @@ def test():
 
 
 @test.command()
-@click.option('--path', default=os.getcwd(), help='Path to create the CI profile')
+@click.option('--path', help='Path to create the CI profile')
 def init_profile(path: str):
     """
     Create pytest.ini with default values at the given folder
     """
+    if path is None:
+        path = os.getcwd()
+
     if os.path.isdir(path):
         filepath = os.path.join(path, 'pytest.ini')
     else:
