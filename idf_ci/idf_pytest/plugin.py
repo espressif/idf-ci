@@ -25,7 +25,7 @@ _MODULE_NOT_FOUND_REGEX = re.compile(r"No module named '(.+?)'")
 IDF_CI_PYTEST_CASE_KEY = StashKey[t.Optional[PytestCase]]()
 IDF_CI_PLUGIN_KEY = StashKey['IdfPytestPlugin']()
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 ############
@@ -80,10 +80,10 @@ def build_dir(
     for check_dir in check_dirs:
         binary_path = os.path.join(app_path, check_dir)
         if os.path.isdir(binary_path):
-            LOGGER.info(f'found valid binary path: {binary_path}')
+            logger.info(f'found valid binary path: {binary_path}')
             return check_dir
 
-        LOGGER.warning('checking binary path: %s... missing... try another place', binary_path)
+        logger.warning('checking binary path: %s... missing... try another place', binary_path)
 
     raise ValueError(
         f'no build dir valid. Please build the binary via "idf.py -B {check_dirs[0]} build" and run pytest again'
@@ -149,7 +149,7 @@ class IdfPytestPlugin:
                     # redirect_stderr somehow breaks the sys.stderr.write() method
                     # fix it when implement proper logging
                     pkg = res.group(1)
-                    LOGGER.warning(f'WARNING:Mocking missed package while collecting: {pkg}\n')
+                    logger.warning(f'WARNING:Mocking missed package while collecting: {pkg}\n')
                     sys.modules[pkg] = MagicMock()
                     continue
             else:
@@ -200,7 +200,7 @@ class IdfPytestPlugin:
                     continue
 
                 if self.sdkconfig_name not in set(app.config for app in _c.apps):
-                    LOGGER.debug('skip test case %s due to sdkconfig name mismatch', _c.caseid)
+                    logger.debug('skip test case %s due to sdkconfig name mismatch', _c.caseid)
                     deselected_items.append(item)
                 else:
                     res.append(item)
@@ -217,7 +217,7 @@ class IdfPytestPlugin:
 
                 skip_reason = _c.get_skip_reason_if_not_built(app_dirs)
                 if skip_reason:
-                    LOGGER.debug(skip_reason)
+                    logger.debug(skip_reason)
                     deselected_items.append(item)
                 else:
                     res.append(item)
@@ -249,7 +249,7 @@ def pytest_configure(config: Config):
 
     ci_profile = config.getoption('ci_profile', None)
     if ci_profile:
-        LOGGER.debug('loading ci profile: %s', ci_profile)
+        logger.debug('loading ci profile: %s', ci_profile)
         CiSettings.CONFIG_FILE_PATH = ci_profile
 
     cli_target = config.getoption('target') or 'all'

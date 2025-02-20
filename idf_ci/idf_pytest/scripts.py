@@ -15,7 +15,7 @@ from idf_ci._compat import UNDEF, Undefined
 from .models import PytestCase
 from .plugin import IdfPytestPlugin
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_pytest_cases(

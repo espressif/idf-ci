@@ -12,7 +12,7 @@ from . import get_pytest_cases
 from ._compat import UNDEF, Undefined
 from .settings import CiSettings
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_all_apps(
@@ -75,16 +75,16 @@ def get_all_apps(
         if _case:
             test_related_apps.add(app)
             app.build_status = BuildStatus.SHOULD_BE_BUILT
-            LOGGER.debug('Found app: %s - required by modified test case %s', app, _case.path)
+            logger.debug('Found app: %s - required by modified test case %s', app, _case.path)
         elif app.build_status != BuildStatus.SKIPPED:
             _case = pytest_dict.get(app_key)
             if _case:
                 test_related_apps.add(app)
                 # build or not should be decided by the build stage
-                LOGGER.debug('Found test-related app: %s - required by %s', app, _case.path)
+                logger.debug('Found test-related app: %s - required by %s', app, _case.path)
             else:
                 non_test_related_apps.add(app)
-                LOGGER.debug('Found non-test-related app: %s', app)
+                logger.debug('Found non-test-related app: %s', app)
 
     return test_related_apps, non_test_related_apps
 
@@ -104,8 +104,8 @@ def build(
     modified_components = None
     if modified_files is not None:
         modified_components = sorted(CiSettings().get_modified_components(modified_files))
-        LOGGER.debug('Modified files: %s', modified_files)
-        LOGGER.debug('Modified components: %s', modified_components)
+        logger.debug('Modified files: %s', modified_files)
+        logger.debug('Modified components: %s', modified_components)
 
     # we have to call get_all_apps first, then call build_apps(apps)
     test_related_apps, non_test_related_apps = get_all_apps(
