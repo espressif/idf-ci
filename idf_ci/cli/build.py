@@ -9,9 +9,8 @@ import click
 
 from idf_ci._compat import Undefined
 from idf_ci.scripts import build as build_cmd
-from idf_ci.settings import CiSettings
 
-from ._options import option_modified_files, option_parallel, option_paths, option_profiles, option_target
+from ._options import option_modified_files, option_parallel, option_paths, option_target
 
 
 @click.group()
@@ -25,7 +24,6 @@ def build():
 @build.command()
 @option_paths
 @option_target
-@option_profiles
 @option_parallel
 @option_modified_files
 @click.option('--only-test-related', is_flag=True, help='Run build only for test-related apps')
@@ -37,7 +35,6 @@ def run(
     *,
     paths,
     target,
-    profiles,
     parallel_count,
     parallel_index,
     modified_files,
@@ -46,20 +43,15 @@ def run(
     dry_run,
 ):
     """
-    Run build according to the given profiles
+    Run build
     """
-    if isinstance(profiles, Undefined):
-        profiles = CiSettings().build_profiles
-
     if isinstance(modified_files, Undefined):
         modified_files = None
 
-    click.echo(f'Building projects under {sorted(paths)} for target {target} with profiles {profiles}')
     _start = time.time()
     apps, ret = build_cmd(
         paths,
         target,
-        profiles=profiles,
         parallel_count=parallel_count,
         parallel_index=parallel_index,
         modified_files=modified_files,
@@ -79,10 +71,10 @@ def run(
 
 
 @build.command()
-@click.option('--path', help='Path to create the build profile. By default, it creates at the current directory')
-def init_profile(path: str):
+@click.option('--path', help='Path to create the config file')
+def init(path: str):
     """
-    Create .idf_build_apps.toml with default values at the given folder
+    Create .idf_build_apps.toml with default values
     """
     if path is None:
         path = os.getcwd()
@@ -95,5 +87,5 @@ def init_profile(path: str):
     else:
         filepath = path
 
-    shutil.copyfile(os.path.join(os.path.dirname(__file__), '..', 'templates', 'default_build_profile.toml'), filepath)
-    click.echo(f'Created build profile at {filepath}')
+    shutil.copyfile(os.path.join(os.path.dirname(__file__), '..', 'templates', '.idf_build_apps.toml'), filepath)
+    click.echo(f'Created {filepath}')

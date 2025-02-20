@@ -4,10 +4,19 @@
 import textwrap
 from pathlib import Path
 
+import pytest
+
 from idf_ci import get_pytest_cases
+from idf_ci.cli import cli
 
 
 class TestGetPytestCases:
+    @pytest.fixture(autouse=True)
+    def _setup(self, runner):
+        assert runner.invoke(cli, ['test', 'init']).exit_code == 0
+
+        yield
+
     TEMPLATE_SCRIPT = textwrap.dedent("""
         import pytest
 
@@ -40,7 +49,7 @@ class TestGetPytestCases:
         """)
 
     def test_get_pytest_cases_single_specific(self, tmp_path: Path) -> None:
-        script = tmp_path / 'pytest_get_pytest_cases_single_specific.py'
+        script = tmp_path / 'test_get_pytest_cases_single_specific.py'
         script.write_text(self.TEMPLATE_SCRIPT)
         cases = get_pytest_cases([str(tmp_path)], 'esp32')
 
@@ -49,7 +58,7 @@ class TestGetPytestCases:
         assert cases[0].name == 'test_foo_single'
 
     def test_get_pytest_cases_multi_specific(self, tmp_path: Path) -> None:
-        script = tmp_path / 'pytest_get_pytest_cases_multi_specific.py'
+        script = tmp_path / 'test_get_pytest_cases_multi_specific.py'
         script.write_text(self.TEMPLATE_SCRIPT)
         cases = get_pytest_cases([str(tmp_path)], 'esp32s2,esp32s2,esp32s3')
 
@@ -61,7 +70,7 @@ class TestGetPytestCases:
         assert len(cases) == 0
 
     def test_get_pytest_cases_all(self, tmp_path: Path) -> None:
-        script = tmp_path / 'pytest_get_pytest_cases_multi_all.py'
+        script = tmp_path / 'test_get_pytest_cases_multi_all.py'
         script.write_text(self.TEMPLATE_SCRIPT)
         cases = get_pytest_cases([str(tmp_path)])
 
@@ -79,7 +88,7 @@ class TestGetPytestCases:
         assert cases[3].targets == ['esp32c3']
 
     def test_filter_with_sdkconfig_name(self, tmp_path: Path) -> None:
-        script = tmp_path / 'pytest_filter_with_sdkconfig_name.py'
+        script = tmp_path / 'test_filter_with_sdkconfig_name.py'
         script.write_text(
             textwrap.dedent("""
             import pytest
@@ -113,7 +122,7 @@ class TestGetPytestCases:
         assert len(cases) == 2
 
     def test_host_test(self, tmp_path: Path) -> None:
-        script = tmp_path / 'pytest_host_test.py'
+        script = tmp_path / 'test_host_test.py'
         script.write_text(self.TEMPLATE_SCRIPT)
 
         cases = get_pytest_cases([str(tmp_path)], 'linux')
@@ -126,7 +135,7 @@ class TestGetPytestCases:
         assert cases[1].name == 'test_foo_host'
 
     def test_custom_app_path(self, tmp_path: Path) -> None:
-        script = tmp_path / 'pytest_custom_app_path.py'
+        script = tmp_path / 'test_custom_app_path.py'
         script.write_text(
             textwrap.dedent("""
             import pytest
@@ -147,7 +156,7 @@ class TestGetPytestCases:
         assert cases[0].apps[1].build_dir == str(tmp_path / 'subdir' / 'build_esp32s3_foo')
 
     def test_no_params(self, tmp_path: Path) -> None:
-        script = tmp_path / 'pytest_no_params.py'
+        script = tmp_path / 'test_no_params.py'
         script.write_text(
             textwrap.dedent("""
             def test_no_param():

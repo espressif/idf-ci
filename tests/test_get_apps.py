@@ -9,10 +9,18 @@ from conftest import create_project
 from idf_build_apps.constants import SUPPORTED_TARGETS
 
 from idf_ci import get_all_apps
+from idf_ci.cli import cli
 
 
 @pytest.mark.skipif(os.getenv('IDF_PATH') is None, reason='IDF_PATH is set')
 class TestGetAllApps:
+    @pytest.fixture(autouse=True)
+    def _setup(self, runner):
+        assert runner.invoke(cli, ['build', 'init']).exit_code == 0
+        assert runner.invoke(cli, ['test', 'init']).exit_code == 0
+
+        yield
+
     def test_without_test_scripts(self, tmp_path: Path) -> None:
         create_project('foo', tmp_path)
         create_project('bar', tmp_path)
@@ -34,7 +42,7 @@ class TestGetAllApps:
 
     def test_single_dut_test_script(self, tmp_path: Path) -> None:
         create_project('foo', tmp_path)
-        with open(tmp_path / 'foo' / 'pytest_single_dut_test_script.py', 'w') as fw:
+        with open(tmp_path / 'foo' / 'test_single_dut_test_script.py', 'w') as fw:
             fw.write(
                 textwrap.dedent("""
                 import pytest
@@ -56,7 +64,7 @@ class TestGetAllApps:
 
     def test_multi_dut_test_script(self, tmp_path: Path) -> None:
         create_project('foo', tmp_path)
-        with open(tmp_path / 'foo' / 'pytest_multi_dut_test_script.py', 'w') as fw:
+        with open(tmp_path / 'foo' / 'test_multi_dut_test_script.py', 'w') as fw:
             fw.write(
                 textwrap.dedent("""
                 import pytest
@@ -92,7 +100,7 @@ class TestGetAllApps:
         create_project('foo', tmp_path)
         create_project('bar', tmp_path)
 
-        (tmp_path / 'pytest_modified_pytest_script.py').write_text(
+        (tmp_path / 'test_modified_pytest_script.py').write_text(
             textwrap.dedent("""
             import pytest
             import os
@@ -122,7 +130,7 @@ class TestGetAllApps:
         test_related_apps, non_test_related_apps = get_all_apps(
             [str(tmp_path)],
             target='all',
-            modified_files=[str(tmp_path / 'pytest_modified_pytest_script.py')],
+            modified_files=[str(tmp_path / 'test_modified_pytest_script.py')],
             modified_components=[],
         )
         assert len(test_related_apps) == 2
@@ -133,7 +141,7 @@ class TestGetAllApps:
         (tmp_path / 'foo' / 'sdkconfig.ci').touch()
         (tmp_path / 'foo' / 'sdkconfig.ci.linux').write_text('CONFIG_IDF_TARGET="linux"\n', encoding='utf-8')
 
-        with open(tmp_path / 'foo' / 'pytest_host_test_script.py', 'w') as fw:
+        with open(tmp_path / 'foo' / 'test_host_test_script.py', 'w') as fw:
             fw.write(
                 textwrap.dedent("""
                 import pytest

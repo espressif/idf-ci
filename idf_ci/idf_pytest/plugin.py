@@ -10,7 +10,6 @@ import typing as t
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import iniconfig
 import pytest
 from _pytest.config import Config
 from _pytest.fixtures import FixtureRequest
@@ -18,7 +17,6 @@ from _pytest.python import Function
 from _pytest.stash import StashKey
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
-from ..profiles import get_test_profile
 from ..settings import CiSettings
 from ..utils import setup_logging
 from .models import PytestCase
@@ -27,7 +25,7 @@ _MODULE_NOT_FOUND_REGEX = re.compile(r"No module named '(.+?)'")
 IDF_CI_PYTEST_CASE_KEY = StashKey[t.Optional[PytestCase]]()
 IDF_CI_PLUGIN_KEY = StashKey['IdfPytestPlugin']()
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 ############
@@ -82,10 +80,10 @@ def build_dir(
     for check_dir in check_dirs:
         binary_path = os.path.join(app_path, check_dir)
         if os.path.isdir(binary_path):
-            logging.info(f'found valid binary path: {binary_path}')
+            logger.info(f'found valid binary path: {binary_path}')
             return check_dir
 
-        logging.warning('checking binary path: %s... missing... try another place', binary_path)
+        logger.warning('checking binary path: %s... missing... try another place', binary_path)
 
     raise ValueError(
         f'no build dir valid. Please build the binary via "idf.py -B {check_dirs[0]} build" and run pytest again'
@@ -151,7 +149,7 @@ class IdfPytestPlugin:
                     # redirect_stderr somehow breaks the sys.stderr.write() method
                     # fix it when implement proper logging
                     pkg = res.group(1)
-                    logging.warning(f'WARNING:Mocking missed package while collecting: {pkg}\n')
+                    logger.warning(f'WARNING:Mocking missed package while collecting: {pkg}\n')
                     sys.modules[pkg] = MagicMock()
                     continue
             else:
@@ -202,7 +200,7 @@ class IdfPytestPlugin:
                     continue
 
                 if self.sdkconfig_name not in set(app.config for app in _c.apps):
-                    LOGGER.debug('skip test case %s due to sdkconfig name mismatch', _c.caseid)
+                    logger.debug('skip test case %s due to sdkconfig name mismatch', _c.caseid)
                     deselected_items.append(item)
                 else:
                     res.append(item)
@@ -219,7 +217,7 @@ class IdfPytestPlugin:
 
                 skip_reason = _c.get_skip_reason_if_not_built(app_dirs)
                 if skip_reason:
-                    LOGGER.debug(skip_reason)
+                    logger.debug(skip_reason)
                     deselected_items.append(item)
                 else:
                     res.append(item)
@@ -234,37 +232,8 @@ class IdfPytestPlugin:
 ##################
 # Hook Functions #
 ##################
-def pytest_load_initial_conftests(parser: pytest.Parser, args: t.List[str]):
-    cli_args = parser.parse(args)
-    setup_logging(cli_args.log_cli_level)
-
-    if 'ci_profile' in cli_args and cli_args.ci_profile:
-        LOGGER.debug('loading ci profile: %s', cli_args.ci_profile)
-        CiSettings.CONFIG_FILE_PATH = cli_args.ci_profile
-
-    # add default test profiles into args
-    new_args = []
-    test_config_path = get_test_profile(CiSettings().test_profiles).merged_profile_path
-    ini = iniconfig.IniConfig(test_config_path)
-    for k, v in ini['pytest'].items():
-        if k not in args:  # cli args have higher priority
-            new_args.extend(['-o', f'{k}={v}'])
-        else:
-            LOGGER.debug('%s is defined in cli args, skip loading from test profile', k)
-
-    if new_args:
-        LOGGER.debug('new args loaded from test profile "%s":', test_config_path)
-        for arg in new_args:
-            LOGGER.debug('  %r', arg)
-        args.extend(new_args)
-
-
 def pytest_addoption(parser: pytest.Parser):
     idf_ci_group = parser.getgroup('idf_ci')
-    idf_ci_group.addoption(
-        '--ci-profile',
-        help='path to the .idf_ci.toml file, by default it is preset "default"',
-    )
     idf_ci_group.addoption(
         '--sdkconfig',
         help='run only tests whose apps are built with this sdkconfig name',
@@ -272,6 +241,8 @@ def pytest_addoption(parser: pytest.Parser):
 
 
 def pytest_configure(config: Config):
+    setup_logging(config.getoption('log_cli_level', None))
+
     cli_target = config.getoption('target') or 'all'
     sdkconfig_name = config.getoption('sdkconfig', None)
 

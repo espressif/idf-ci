@@ -12,6 +12,9 @@ from ..utils import setup_logging
 from .build import build
 from .test import test
 
+logger = logging.getLogger(__name__)
+
+
 _CLI_SETTINGS = {
     'show_default': True,
     'help_option_names': ['-h', '--help'],
@@ -20,9 +23,10 @@ _CLI_SETTINGS = {
 
 @click.group(context_settings=_CLI_SETTINGS)
 @click.option(
-    '--ci-profile',
+    '-c',
+    '--config-file',
     type=click.Path(dir_okay=False, file_okay=True, exists=True),
-    help='Path to the CI profile file',
+    help='Path to the idf-ci config file',
 )
 @click.option(
     '--verbose',
@@ -31,10 +35,10 @@ _CLI_SETTINGS = {
     count=True,
     help='Increase verbosity, can be used multiple times. -v for info, -vv for debug, not set for warning',
 )
-def cli(ci_profile, verbose):
-    if ci_profile:
-        print('Using CI profile:', ci_profile)
-        CiSettings.CONFIG_FILE_PATH = ci_profile
+def cli(config_file, verbose):
+    if config_file:
+        logger.debug(f'Using config file: {config_file}')
+        CiSettings.CONFIG_FILE_PATH = config_file
 
     if verbose == 0:
         setup_logging(logging.WARNING)
@@ -45,18 +49,21 @@ def cli(ci_profile, verbose):
 
 
 @cli.command()
-@click.option('--path', default=os.getcwd(), help='Path to create the CI profile')
-def init_profile(path: str):
+@click.option('--path', help='Path to create the config file')
+def init(path: str):
     """
-    Create .idf_ci.toml with default values at the given folder
+    Create .idf_ci.toml with default values
     """
+    if path is None:
+        path = os.getcwd()
+
     if os.path.isdir(path):
         filepath = os.path.join(path, '.idf_ci.toml')
     else:
         filepath = path
 
-    shutil.copyfile(os.path.join(os.path.dirname(__file__), '..', 'templates', 'default_ci_profile.toml'), filepath)
-    click.echo(f'Created CI profile at {filepath}')
+    shutil.copyfile(os.path.join(os.path.dirname(__file__), '..', 'templates', '.idf_ci.toml'), filepath)
+    click.echo(f'Created {filepath}')
 
 
 @cli.command()

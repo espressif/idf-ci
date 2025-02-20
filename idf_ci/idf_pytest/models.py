@@ -10,7 +10,7 @@ from pytest_embedded.plugin import parse_multi_dut_args
 
 from idf_ci.utils import to_list
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class PytestApp:
@@ -33,7 +33,7 @@ class PytestApp:
 
         .. note::
 
-            Matches the build_dir (by default build_@t_@w) in the build profile.
+            Matches the build_dir (by default build_@t_@w) in the idf-build-apps config file.
 
         :return: The build directory for the app.
         """
@@ -71,7 +71,7 @@ class PytestCase:
         targets = to_list(parse_multi_dut_args(count, cls.get_param(item, 'target', None)))  # defined fixture
 
         if targets is None or targets == [None] * count:
-            LOGGER.critical(
+            logger.critical(
                 'No "target" defined in `@pytest.mark.parametrize` for test function "%s" in file "%s. Skipping...',
                 item.name,
                 item.path,

@@ -10,24 +10,21 @@ from contextlib import redirect_stderr, redirect_stdout
 import pytest
 from _pytest.config import ExitCode
 
-from idf_ci._compat import UNDEF, PathLike, Undefined
-from idf_ci.profiles import get_test_profile
+from idf_ci._compat import UNDEF, Undefined
 
 from .models import PytestCase
 from .plugin import IdfPytestPlugin
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_pytest_cases(
     paths: t.List[str],
     target: str = 'all',
     *,
-    profiles: t.List[PathLike] = UNDEF,  # type: ignore
     sdkconfig_name: t.Optional[str] = None,
     marker_expr: str = UNDEF,
 ) -> t.List[PytestCase]:
-    test_profile = get_test_profile(profiles)
     if isinstance(marker_expr, Undefined):
         if 'linux' in target:
             marker_expr = 'host_test'
@@ -41,8 +38,6 @@ def get_pytest_cases(
     args = [
         *paths,
         '--collect-only',
-        '-c',
-        test_profile.merged_profile_path,
         '--rootdir',
         os.getcwd(),
         '--target',

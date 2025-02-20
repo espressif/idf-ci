@@ -20,6 +20,7 @@ permissions:
 jobs:
   test-python:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-2022
@@ -38,7 +39,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e '.[test]'
       - name: Fake IDF and Run Test (windows)
-        if: ${{ matrix.os == 'windows-latest' }}
+        if: ${{ matrix.os == 'windows-2022' }}
         run: |
           $env:IDF_PATH="D:\tmp\esp-idf"
           mkdir -p $env:IDF_PATH\tools\idf_py_actions

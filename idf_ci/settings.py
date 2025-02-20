@@ -7,7 +7,7 @@ import sys
 import typing as t
 from pathlib import Path
 
-from idf_build_apps import App, CMakeApp, json_to_app
+from idf_build_apps import App, json_to_app
 from idf_build_apps.constants import BuildStatus
 from pydantic_settings import (
     BaseSettings,
@@ -17,7 +17,7 @@ from pydantic_settings import (
 
 from idf_ci._compat import PathLike
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class TomlConfigSettingsSource(InitSettingsSource):
@@ -65,14 +65,14 @@ class TomlConfigSettingsSource(InitSettingsSource):
             provided_p = Path(provided)
             if provided_p.is_file():
                 fp = provided_p.resolve()
-                LOGGER.debug(f'Loading config file: {fp}')
+                logger.debug(f'Loading config file: {fp}')
                 return fp
 
         rv = Path.cwd()
         while len(rv.parts) > 1:
             fp = rv / filename
             if fp.is_file():
-                LOGGER.debug(f'Loading config file: {fp}')
+                logger.debug(f'Loading config file: {fp}')
                 return fp
 
             rv = rv.parent
@@ -97,10 +97,6 @@ class CiSettings(BaseSettings):
         '.py',
     ]
     extend_component_ignored_file_extensions: t.List[str] = []
-
-    # profiles
-    build_profiles: t.List[PathLike] = ['default']
-    test_profiles: t.List[PathLike] = ['default']
 
     # build related settings
     built_app_list_filepatterns: t.List[str] = ['app_info_*.txt']
@@ -150,10 +146,10 @@ class CiSettings(BaseSettings):
     def get_apps_list(self) -> t.Optional[t.List[App]]:
         found_files = [p for p in Path('.').glob('app_info_*.txt')]
         if not found_files:
-            LOGGER.debug('No built app list files found')
+            logger.debug('No built app list files found')
             return None
 
-        LOGGER.debug('Found built app list files: %s', [str(p) for p in found_files])
+        logger.debug('Found built app list files: %s', [str(p) for p in found_files])
 
         apps: t.List[App] = []
         for filepattern in self.built_app_list_filepatterns:
@@ -162,10 +158,12 @@ class CiSettings(BaseSettings):
                     for line in fr:
                         line = line.strip()
                         if line:
-                            apps.append(json_to_app(line, extra_classes=[CMakeApp]))
-                            LOGGER.debug('App found: %s', apps[-1].build_path)
+                            app = json_to_app(line)
+                            if app.build_status == BuildStatus.SUCCESS:
+                                apps.append(app)
+                                logger.debug('App found: %s', apps[-1].build_path)
 
         if not apps:
-            LOGGER.warning(f'No apps found in the built app list files: {found_files}')
+            logger.warning(f'No apps found in the built app list files: {found_files}')
 
-        return [app for app in apps if app.build_status == BuildStatus.SUCCESS]
+        return apps

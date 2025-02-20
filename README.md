@@ -5,6 +5,9 @@
 
 Python toolkit for CI/CD of ESP-IDF projects.
 
+> [!WARNING]
+> This project is still under development. All APIs are subject to change.
+
 ## Installation
 
 ```bash
@@ -16,14 +19,14 @@ pip install -U idf-ci
 ### Initialize Configuration Files
 
 ```bash
-# Create .idf_ci.toml with default CI settings
-idf-ci init-profile
+# Create .idf_ci.toml with default idf-ci settings
+idf-ci init
 
 # Create .idf_build_apps.toml with default build settings
-idf-ci build init-profile
+idf-ci build init
 
 # Create pytest.ini with default test settings
-idf-ci test init-profile
+idf-ci test init
 ```
 
 ### Build Apps

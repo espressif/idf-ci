@@ -38,37 +38,16 @@ def option_paths(func):
     return click.option(
         '--paths',
         '-p',
-        default=[os.getcwd()],
         multiple=True,
         type=click.Path(dir_okay=True, file_okay=False, exists=True),
         help=_OPTION_PATHS_HELP,
+        callback=lambda ctx, param, value: [os.getcwd()] if not value else value,  # noqa: ARG005
     )(func)
 
 
 def option_target(func):
     return click.option(
         '--target', '-t', default='all', help='Target to be processed. Or "all" to process all targets.'
-    )(func)
-
-
-_OPTION_PROFILES_HELP = """
-\b
-List of profiles to apply. Could be "default" or file path to a custom profile.
-Support passing multiple ones separated by a semicolon (;).
-The later profiles will override the previous ones.
-
-\b
-Example:
-  --profiles default;custom.toml  # To apply default and custom profiles
-  --profiles ';'  # To unset the default profile
-"""
-
-
-def option_profiles(func):
-    return click.option(
-        '--profiles',
-        help=_OPTION_PROFILES_HELP,
-        callback=_semicolon_separated_list,
     )(func)
 
 

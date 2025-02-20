@@ -48,7 +48,6 @@ def generate_api_docs(language):
         [
             'sphinx-apidoc',
             os.path.join(os.path.dirname(__file__), '..', 'idf_ci'),
-            '--remove-old',
             '-f',
             '-H',
             'API Reference',
