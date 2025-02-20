@@ -17,13 +17,13 @@ pip install -U idf-ci
 
 ```bash
 # Create .idf_ci.toml with default CI settings
-idf-ci init-profile
+idf-ci init
 
 # Create .idf_build_apps.toml with default build settings
-idf-ci build init-profile
+idf-ci build init
 
 # Create pytest.ini with default test settings
-idf-ci test init-profile
+idf-ci test init
 ```
 
 ### Build Apps

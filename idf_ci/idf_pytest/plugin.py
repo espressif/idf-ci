@@ -235,10 +235,6 @@ class IdfPytestPlugin:
 def pytest_addoption(parser: pytest.Parser):
     idf_ci_group = parser.getgroup('idf_ci')
     idf_ci_group.addoption(
-        '--ci-profile',
-        help='path to the .idf_ci.toml file, by default it is preset "default"',
-    )
-    idf_ci_group.addoption(
         '--sdkconfig',
         help='run only tests whose apps are built with this sdkconfig name',
     )
@@ -246,11 +242,6 @@ def pytest_addoption(parser: pytest.Parser):
 
 def pytest_configure(config: Config):
     setup_logging(config.getoption('log_cli_level', None))
-
-    ci_profile = config.getoption('ci_profile', None)
-    if ci_profile:
-        logger.debug('loading ci profile: %s', ci_profile)
-        CiSettings.CONFIG_FILE_PATH = ci_profile
 
     cli_target = config.getoption('target') or 'all'
     sdkconfig_name = config.getoption('sdkconfig', None)

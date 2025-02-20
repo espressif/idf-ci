@@ -11,9 +11,9 @@ from idf_ci.cli import cli
 
 
 class TestGetPytestCases:
-    @pytest.fixture(scope='function', autouse=True)
+    @pytest.fixture(autouse=True)
     def _setup(self, runner):
-        runner.invoke(cli, ['test', 'init-profile'])
+        runner.invoke(cli, ['test', 'init'])
 
         yield
 

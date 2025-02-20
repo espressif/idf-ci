@@ -71,10 +71,10 @@ def run(
 
 
 @build.command()
-@click.option('--path', help='Path to create the build profile. By default, it creates at the current directory')
-def init_profile(path: str):
+@click.option('--path', help='Path to create the config file')
+def init(path: str):
     """
-    Create .idf_build_apps.toml with default values at the given folder
+    Create .idf_build_apps.toml with default values
     """
     if path is None:
         path = os.getcwd()
@@ -87,5 +87,5 @@ def init_profile(path: str):
     else:
         filepath = path
 
-    shutil.copyfile(os.path.join(os.path.dirname(__file__), '..', 'templates', 'default_build_profile.toml'), filepath)
-    click.echo(f'Created build profile at {filepath}')
+    shutil.copyfile(os.path.join(os.path.dirname(__file__), '..', 'templates', '.idf_build_apps.toml'), filepath)
+    click.echo(f'Created {filepath}')

@@ -14,10 +14,10 @@ from idf_ci.cli import cli
 
 @pytest.mark.skipif(os.getenv('IDF_PATH') is None, reason='IDF_PATH is set')
 class TestGetAllApps:
-    @pytest.fixture(scope='function', autouse=True)
+    @pytest.fixture(autouse=True)
     def _setup(self, runner):
-        runner.invoke(cli, ['-vv', 'build', 'init-profile'])
-        runner.invoke(cli, ['test', 'init-profile'])
+        runner.invoke(cli, ['-vv', 'build', 'init'])
+        runner.invoke(cli, ['test', 'init'])
 
         yield
 

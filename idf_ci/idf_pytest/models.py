@@ -33,7 +33,7 @@ class PytestApp:
 
         .. note::
 
-            Matches the build_dir (by default build_@t_@w) in the build profile.
+            Matches the build_dir (by default build_@t_@w) in the idf-build-apps config file.
 
         :return: The build directory for the app.
         """
