@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.1.3 (2025-02-20)
+
+### Feat
+
+- replace concept "profile" to concept "config file"
+- drop profile overriding. use only one profile
+
+### Fix
+
+- load only apps which are built successfully
+- calculate os.getcwd() dynamically
+- setup same logging level for different packages
+- get current workdir when called init-profile
+
+### Refactor
+
+- change all `LOGGER` to `logger`
+
 ## v0.1.2 (2025-02-10)
 
 ### Fix
