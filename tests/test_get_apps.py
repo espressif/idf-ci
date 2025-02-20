@@ -16,8 +16,8 @@ from idf_ci.cli import cli
 class TestGetAllApps:
     @pytest.fixture(autouse=True)
     def _setup(self, runner):
-        runner.invoke(cli, ['-vv', 'build', 'init'])
-        runner.invoke(cli, ['test', 'init'])
+        assert runner.invoke(cli, ['build', 'init']).exit_code == 0
+        assert runner.invoke(cli, ['test', 'init']).exit_code == 0
 
         yield
 

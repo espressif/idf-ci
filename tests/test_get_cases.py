@@ -13,7 +13,7 @@ from idf_ci.cli import cli
 class TestGetPytestCases:
     @pytest.fixture(autouse=True)
     def _setup(self, runner):
-        runner.invoke(cli, ['test', 'init'])
+        assert runner.invoke(cli, ['test', 'init']).exit_code == 0
 
         yield
 
