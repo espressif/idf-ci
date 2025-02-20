@@ -53,7 +53,7 @@ def get_all_apps(
     modified_pytest_cases = []
     if modified_files:
         modified_pytest_scripts = [
-            os.path.dirname(f) for f in modified_files if fnmatch.fnmatch(os.path.basename(f), 'pytest_*.py')
+            os.path.dirname(f) for f in modified_files if fnmatch.fnmatch(os.path.basename(f), 'test_*.py')
         ]
         if modified_pytest_scripts:
             modified_pytest_cases = get_pytest_cases(modified_pytest_scripts, target, marker_expr=marker_expr)
