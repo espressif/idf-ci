@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import shutil
 import time
 
 import click
@@ -10,7 +9,7 @@ import click
 from idf_ci._compat import Undefined
 from idf_ci.scripts import build as build_cmd
 
-from ._options import option_modified_files, option_parallel, option_paths, option_target
+from ._options import create_config_file, option_modified_files, option_parallel, option_paths, option_target
 
 
 @click.group()
@@ -76,16 +75,4 @@ def init(path: str):
     """
     Create .idf_build_apps.toml with default values
     """
-    if path is None:
-        path = os.getcwd()
-
-    if os.path.isdir(path):
-        # here don't use idf_build_apps.constants.IDF_BUILD_APPS_TOML_FN
-        # since idf_build_apps requires idf_path
-        # fix it after idf-build-apps support lazy-load variables
-        filepath = os.path.join(path, '.idf_build_apps.toml')
-    else:
-        filepath = path
-
-    shutil.copyfile(os.path.join(os.path.dirname(__file__), '..', 'templates', '.idf_build_apps.toml'), filepath)
-    click.echo(f'Created {filepath}')
+    create_config_file(os.path.join(os.path.dirname(__file__), '..', 'templates', '.idf_build_apps.toml'), path)
