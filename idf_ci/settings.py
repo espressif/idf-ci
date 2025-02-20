@@ -7,7 +7,7 @@ import sys
 import typing as t
 from pathlib import Path
 
-from idf_build_apps import App, CMakeApp, json_to_app
+from idf_build_apps import App, json_to_app
 from idf_build_apps.constants import BuildStatus
 from pydantic_settings import (
     BaseSettings,
@@ -158,10 +158,12 @@ class CiSettings(BaseSettings):
                     for line in fr:
                         line = line.strip()
                         if line:
-                            apps.append(json_to_app(line, extra_classes=[CMakeApp]))
-                            logger.debug('App found: %s', apps[-1].build_path)
+                            app = json_to_app(line)
+                            if app.build_status == BuildStatus.SUCCESS:
+                                apps.append(app)
+                                logger.debug('App found: %s', apps[-1].build_path)
 
         if not apps:
             logger.warning(f'No apps found in the built app list files: {found_files}')
 
-        return [app for app in apps if app.build_status == BuildStatus.SUCCESS]
+        return apps
