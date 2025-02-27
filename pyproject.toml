@@ -74,6 +74,8 @@ include = [
 [tool.setuptools.package-data]
 idf_ci = [
     "py.typed",
+    "templates/.idf_build_apps.toml",
+    "templates/.idf_ci.toml",
     "templates/*",
 ]
 
