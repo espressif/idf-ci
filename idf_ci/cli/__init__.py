@@ -1,16 +1,19 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
+
+__all__ = ['cli']
+
+
 import logging
 import os
 
 import click
 
+from idf_ci.cli._options import create_config_file
+from idf_ci.cli.build import build
+from idf_ci.cli.test import test
 from idf_ci.settings import CiSettings
-
-from ..utils import setup_logging
-from ._options import create_config_file
-from .build import build
-from .test import test
+from idf_ci.utils import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +98,3 @@ def completions():
 
 cli.add_command(build)
 cli.add_command(test)
-
-
-__all__ = ['cli']
