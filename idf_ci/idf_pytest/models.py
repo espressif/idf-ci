@@ -45,6 +45,8 @@ class PytestCase:
     Represents a pytest test case.
     """
 
+    KNOWN_ENV_MARKERS: t.ClassVar[t.Set[str]] = set()
+
     def __init__(self, apps: t.List[PytestApp], item: Function) -> None:
         self.apps = apps
         self.item = item

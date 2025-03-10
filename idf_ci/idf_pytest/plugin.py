@@ -163,8 +163,6 @@ class IdfPytestPlugin:
         for item in items:
             item.stash[IDF_CI_PYTEST_CASE_KEY] = PytestCase.from_item(item)
 
-        deselected_items: t.List[Function] = []
-
         # add markers to items
         for item in items:
             _c = self.get_case_by_item(item)
@@ -175,6 +173,8 @@ class IdfPytestPlugin:
                 item.add_marker(pytest.mark.host_test)
 
         yield
+
+        deselected_items: t.List[Function] = []
 
         # filter by target
         if self.cli_target != 'all':
@@ -233,10 +233,19 @@ class IdfPytestPlugin:
 # Hook Functions #
 ##################
 def pytest_addoption(parser: pytest.Parser):
+    # cli values
     idf_ci_group = parser.getgroup('idf_ci')
     idf_ci_group.addoption(
         '--sdkconfig',
         help='run only tests whose apps are built with this sdkconfig name',
+    )
+
+    # ini values
+    parser.addini(
+        'env_markers',
+        help='markers that indicate the running environment of the test case. '
+        'Each line is a `<marker_name>: <marker_description>` pair',
+        type='linelist',
     )
 
 
@@ -245,6 +254,14 @@ def pytest_configure(config: Config):
 
     cli_target = config.getoption('target') or 'all'
     sdkconfig_name = config.getoption('sdkconfig', None)
+
+    env_markers: t.Set[str] = set()
+    for line in config.getini('env_markers'):
+        name, _ = line.split(':', maxsplit=1)
+        config.addinivalue_line('markers', line)
+        env_markers.add(name)
+
+    PytestCase.KNOWN_ENV_MARKERS = env_markers
 
     plugin = IdfPytestPlugin(cli_target=cli_target, sdkconfig_name=sdkconfig_name)
     config.stash[IDF_CI_PLUGIN_KEY] = plugin
