@@ -12,6 +12,7 @@ from _pytest.config import ExitCode
 
 from idf_ci._compat import UNDEF, Undefined
 
+from ..utils import setup_logging
 from .models import PytestCase
 from .plugin import IdfPytestPlugin
 
@@ -46,11 +47,15 @@ def get_pytest_cases(
     if marker_expr:
         args.extend(['-m', f'{marker_expr}'])
 
+    cur_log_level = logger.parent.level  # type: ignore
+
     with io.StringIO() as out_b, io.StringIO() as err_b:
         with redirect_stdout(out_b), redirect_stderr(err_b):
             res = pytest.main(args, plugins=[plugin])
         stdout_msg = out_b.getvalue()
         stderr_msg = err_b.getvalue()
+
+    setup_logging(level=cur_log_level)  # the redirect messes up the logging level
 
     if res == ExitCode.OK:
         return plugin.cases

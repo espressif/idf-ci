@@ -39,16 +39,16 @@ _CLI_SETTINGS = {
     help='Increase verbosity, can be used multiple times. -v for info, -vv for debug, not set for warning',
 )
 def click_cli(config_file, verbose):
-    if config_file:
-        logger.debug(f'Using config file: {config_file}')
-        CiSettings.CONFIG_FILE_PATH = config_file
-
     if verbose == 0:
         setup_logging(logging.WARNING)
     elif verbose == 1:
         setup_logging(logging.INFO)
     else:
         setup_logging(logging.DEBUG)
+
+    if config_file:
+        logger.debug(f'Using config file: {config_file}')
+        CiSettings.CONFIG_FILE_PATH = config_file
 
 
 @click_cli.command()
