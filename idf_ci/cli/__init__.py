@@ -10,8 +10,8 @@ import os
 import click
 
 from idf_ci.cli._options import create_config_file
-from idf_ci.cli.build import build
-from idf_ci.cli.test import test
+from idf_ci.cli.build_group import build
+from idf_ci.cli.test_group import test
 from idf_ci.settings import CiSettings
 from idf_ci.utils import setup_logging
 

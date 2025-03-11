@@ -9,15 +9,15 @@ from conftest import create_project
 from idf_build_apps.constants import SUPPORTED_TARGETS
 
 from idf_ci import get_all_apps
-from idf_ci.cli import cli
+from idf_ci.cli import click_cli
 
 
 @pytest.mark.skipif(os.getenv('IDF_PATH') is None, reason='IDF_PATH is set')
 class TestGetAllApps:
     @pytest.fixture(autouse=True)
     def _setup(self, runner):
-        assert runner.invoke(cli, ['build', 'init']).exit_code == 0
-        assert runner.invoke(cli, ['test', 'init']).exit_code == 0
+        assert runner.invoke(click_cli, ['build', 'init']).exit_code == 0
+        assert runner.invoke(click_cli, ['test', 'init']).exit_code == 0
 
         yield
 

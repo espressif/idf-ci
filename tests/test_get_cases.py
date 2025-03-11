@@ -7,13 +7,13 @@ from pathlib import Path
 import pytest
 
 from idf_ci import get_pytest_cases
-from idf_ci.cli import cli
+from idf_ci.cli import click_cli
 
 
 class TestGetPytestCases:
     @pytest.fixture(autouse=True)
     def _setup(self, runner):
-        assert runner.invoke(cli, ['test', 'init']).exit_code == 0
+        assert runner.invoke(click_cli, ['test', 'init']).exit_code == 0
 
         yield
 
