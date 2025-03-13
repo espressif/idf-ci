@@ -61,7 +61,7 @@ doc = [
 ]
 
 [project.scripts]
-idf-ci = "idf_ci.cli:cli"
+idf-ci = "idf_ci.cli:click_cli"
 
 [project.entry-points.pytest11]
 idf-ci = "idf_ci.idf_pytest.plugin"

@@ -4,7 +4,7 @@
 import os
 import re
 
-from idf_ci.cli import cli
+from idf_ci.cli import click_cli
 from idf_ci.settings import CiSettings
 
 
@@ -116,10 +116,10 @@ component_ignored_file_extensions = [
     '.custom'
 ]
 """)
-    runner.invoke(cli, ['--config-file', custom_config, 'build', 'init'])
-    runner.invoke(cli, ['--config-file', custom_config, 'test', 'init'])
+    runner.invoke(click_cli, ['--config-file', custom_config, 'build', 'init'])
+    runner.invoke(click_cli, ['--config-file', custom_config, 'test', 'init'])
 
-    result = runner.invoke(cli, ['--config-file', custom_config, 'build', 'run'])
+    result = runner.invoke(click_cli, ['--config-file', custom_config, 'build', 'run'])
     assert result.exit_code == 0
     assert CiSettings.CONFIG_FILE_PATH == custom_config
     assert len(CiSettings().all_component_mapping_regexes) == 3  # default got 2
@@ -128,7 +128,7 @@ component_ignored_file_extensions = [
 
     # Test with non-existent config file
     non_existent = os.path.join(tmp_path, 'non_existent.toml')
-    result = runner.invoke(cli, ['--config-file', non_existent])
+    result = runner.invoke(click_cli, ['--config-file', non_existent])
     assert result.exit_code == 2  # Click returns 2 for parameter validation errors
     assert re.search(r"Error: Invalid value for '-c' / '--config-file': File .* does not exist.", result.output)
     assert len(CiSettings().all_component_mapping_regexes) == 2  # default got 2
@@ -137,7 +137,7 @@ component_ignored_file_extensions = [
 def test_ci_profile_not_specified(runner):
     original_config_path = CiSettings.CONFIG_FILE_PATH
     with runner.isolated_filesystem() as tmp_d:
-        result = runner.invoke(cli, ['build', 'init'])
+        result = runner.invoke(click_cli, ['build', 'init'])
         assert result.exit_code == 0
         assert CiSettings.CONFIG_FILE_PATH == original_config_path
         assert os.path.exists(tmp_d + os.sep + '.idf_build_apps.toml')

@@ -1,16 +1,19 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
+
+__all__ = ['click_cli']
+
+
 import logging
 import os
 
 import click
 
+from idf_ci.cli._options import create_config_file
+from idf_ci.cli.build_group import build
+from idf_ci.cli.test_group import test
 from idf_ci.settings import CiSettings
-
-from ..utils import setup_logging
-from ._options import create_config_file
-from .build import build
-from .test import test
+from idf_ci.utils import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +38,7 @@ _CLI_SETTINGS = {
     count=True,
     help='Increase verbosity, can be used multiple times. -v for info, -vv for debug, not set for warning',
 )
-def cli(config_file, verbose):
-    if config_file:
-        logger.debug(f'Using config file: {config_file}')
-        CiSettings.CONFIG_FILE_PATH = config_file
-
+def click_cli(config_file, verbose):
     if verbose == 0:
         setup_logging(logging.WARNING)
     elif verbose == 1:
@@ -47,8 +46,12 @@ def cli(config_file, verbose):
     else:
         setup_logging(logging.DEBUG)
 
+    if config_file:
+        logger.debug(f'Using config file: {config_file}')
+        CiSettings.CONFIG_FILE_PATH = config_file
 
-@cli.command()
+
+@click_cli.command()
 @click.option('--path', help='Path to create the config file')
 def init(path: str):
     """
@@ -57,7 +60,7 @@ def init(path: str):
     create_config_file(os.path.join(os.path.dirname(__file__), '..', 'templates', '.idf_ci.toml'), path)
 
 
-@cli.command()
+@click_cli.command()
 def completions():
     """
     Instructions to enable shell completions for idf-ci
@@ -93,8 +96,5 @@ def completions():
     click.echo(help_message)
 
 
-cli.add_command(build)
-cli.add_command(test)
-
-
-__all__ = ['cli']
+click_cli.add_command(build)
+click_cli.add_command(test)

@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
-
+import json
 import logging
 import os
 import typing as t
+from collections import defaultdict
+from functools import lru_cache
 
 from _pytest.python import Function
 from pytest_embedded.plugin import parse_multi_dut_args
@@ -44,6 +46,8 @@ class PytestCase:
     """
     Represents a pytest test case.
     """
+
+    KNOWN_ENV_MARKERS: t.ClassVar[t.Set[str]] = set()
 
     def __init__(self, apps: t.List[PytestApp], item: Function) -> None:
         self.apps = apps
@@ -96,7 +100,21 @@ class PytestCase:
 
     @property
     def targets(self) -> t.List[str]:
+        # sequence matters
         return [app.target for app in self.apps]
+
+    @property
+    def target_selector(self) -> str:
+        return ','.join(self.targets)
+
+    @property
+    def env_markers(self) -> t.Set[str]:
+        return {marker for marker in self.all_markers if marker in self.KNOWN_ENV_MARKERS}
+
+    @property
+    def env_selector(self) -> str:
+        # sequence not matters, sorted for consistency
+        return ','.join(sorted(self.env_markers))
 
     @property
     def configs(self) -> t.List[str]:
@@ -120,10 +138,6 @@ class PytestCase:
     @property
     def is_in_ci(self) -> bool:
         return 'CI_JOB_ID' in os.environ or 'GITHUB_ACTIONS' in os.environ
-
-    @property
-    def target_selector(self) -> str:
-        return ','.join(app.target for app in self.apps)
 
     @property
     def all_markers(self) -> t.Set[str]:
@@ -163,3 +177,81 @@ class PytestCase:
 
         msg += '\nMight be a issue of .build-test-rules.yml files'
         return msg
+
+
+class GroupedPytestCases:
+    def __init__(self, cases: t.List[PytestCase]) -> None:
+        self.cases = cases
+
+    @property
+    @lru_cache()
+    def grouped_cases(self) -> t.Dict[t.Tuple[str, str], t.List[PytestCase]]:
+        """
+        Group test cases by target and env_markers
+        """
+        grouped: t.Dict[t.Tuple[str, str], t.List[PytestCase]] = defaultdict(list)
+        for case in self.cases:
+            grouped[(case.target_selector, case.env_selector)].append(case)
+        return grouped
+
+    def output_as_string(self) -> str:
+        """
+        Output as string, for previewing each group of test cases
+        """
+        lines: t.List[str] = []
+        for (target_selector, env_selector), cases in self.grouped_cases.items():
+            if not env_selector:
+                lines.append(f'{target_selector}: {len(cases)} cases')
+            else:
+                lines.append(f'{target_selector} - {env_selector}: {len(cases)} cases')
+
+            for c in cases:
+                lines.append(f'\t{c.caseid}')
+
+        return '\n'.join(lines)
+
+    def output_as_github_ci(self) -> str:
+        """
+        Output test cases in JSON string for GitHub Actions CI - matrix strategy
+
+        Example output:
+
+        .. code:: json
+
+            {
+                include: [
+                    {
+                        'targets': 'esp32,esp32',
+                        'env_markers: 'generic',
+                        'nodes': 'nodeid1 nodeid2',
+                    },
+                    {
+                        'targets': 'esp32',
+                        'env_markers: 'generic',
+                        'nodes': 'nodeid1 nodeid2',
+                    },
+                    ...
+                ]
+            }
+
+        Example usage:
+
+        .. code:: yaml
+
+            strategy:
+                matrix: ${{fromJson( this output as env var )}}
+        """
+        include_list = []
+        for (target_selector, env_selector), cases in self.grouped_cases.items():
+            include_list.append(
+                {
+                    'targets': target_selector,
+                    'env_markers': env_selector,
+                    'nodes': ' '.join([c.item.nodeid for c in cases]),
+                }
+            )
+
+        return json.dumps({'include': include_list})
+
+    def output_as_gitlab_ci(self) -> str:
+        raise NotImplementedError
