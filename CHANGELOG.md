@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.5 (2025-03-13)
+
+### Fix
+
+- `env_selector` shall return markers with `and` joined
+
 ## v0.1.4 (2025-03-13)
 
 ### Feat
