@@ -16,13 +16,13 @@ repos:
           - license_header.txt        # defaults to: LICENSE.txt
           - --use-current-year
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: 'v0.9.3'
+    rev: 'v0.9.10'
     hooks:
       - id: ruff
         args: ['--fix']
       - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v1.14.1'
+    rev: 'v1.15.0'
     hooks:
       - id: mypy
         args: ['--warn-unused-ignores']
@@ -31,8 +31,8 @@ repos:
           - click
           - pytest
           - tomlkit
-          - idf-build-apps~=2.7
-          - pytest-embedded~=1.13
+          - idf-build-apps~=2.8
+          - pytest-embedded~=1.16
           - rich
   - repo: https://github.com/hfudev/rstfmt
     rev: 'v0.1.4'

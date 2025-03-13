@@ -28,11 +28,11 @@ dependencies = [
     "click",
     "tomlkit", # we need both read and write
     # build related
-    "idf-build-apps>=2.7,<3",
+    "idf-build-apps~=2.8",
     # test related
-    "pytest-embedded-idf[serial]~=1.13",
-    "pytest-embedded-jtag~=1.13",
-    "pytest-embedded-qemu~=1.13",
+    "pytest-embedded-idf[serial]~=1.16",
+    "pytest-embedded-jtag~=1.16",
+    "pytest-embedded-qemu~=1.16",
     "pytest-ignore-test-results>=0.3.0,<1",
     "pytest-timeout",
     # logging / printing
