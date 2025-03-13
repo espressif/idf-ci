@@ -6,6 +6,9 @@ The ``idf-ci`` tool provides default configurations for CI/CD processes. During 
 
 .. code:: text
 
+   .pytest_cache/
+   __pycache__/
+
    # esp-idf built binaries
    build/
    build_*_*/
