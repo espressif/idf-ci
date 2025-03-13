@@ -110,7 +110,10 @@ docstring-code-format = true
 [tool.mypy]
 python_version = "3.8"
 [[tool.mypy.overrides]]
-module = ["pytest_embedded.plugin.*"]
+module = [
+    "pytest_embedded.plugin.*",
+    "pytest_embedded.utils.*",
+]
 follow_untyped_imports = true
 
 [tool.pytest.ini_options]

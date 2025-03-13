@@ -169,6 +169,7 @@ class IdfPytestPlugin:
             if _c is None:
                 continue
 
+            # add 'host_test' marker to host test cases
             if 'qemu' in _c.all_markers or 'linux' in _c.targets:
                 item.add_marker(pytest.mark.host_test)
 

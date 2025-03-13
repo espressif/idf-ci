@@ -6,13 +6,21 @@ import os
 import typing as t
 from collections import defaultdict
 from functools import lru_cache
+from typing import NamedTuple
 
 from _pytest.python import Function
 from pytest_embedded.plugin import parse_multi_dut_args
+from pytest_embedded.utils import targets_to_marker
 
 from idf_ci.utils import to_list
 
 logger = logging.getLogger(__name__)
+
+
+class GroupKey(NamedTuple):
+    target_selector: str
+    env_selector: str
+    runner_tags: t.Tuple[str, ...]
 
 
 class PytestApp:
@@ -114,7 +122,16 @@ class PytestCase:
     @property
     def env_selector(self) -> str:
         # sequence not matters, sorted for consistency
-        return ','.join(sorted(self.env_markers))
+        return ' and '.join(sorted(self.env_markers))  # pytest marker use 'and' to combine multiple markers
+
+    @property
+    def runner_tags(self) -> t.Tuple[str, ...]:
+        return tuple(
+            [
+                targets_to_marker(self.targets),
+                *self.env_markers,
+            ]
+        )
 
     @property
     def configs(self) -> t.List[str]:
@@ -185,13 +202,14 @@ class GroupedPytestCases:
 
     @property
     @lru_cache()
-    def grouped_cases(self) -> t.Dict[t.Tuple[str, str], t.List[PytestCase]]:
+    def grouped_cases(self) -> t.Dict[GroupKey, t.List[PytestCase]]:
         """
         Group test cases by target and env_markers
         """
-        grouped: t.Dict[t.Tuple[str, str], t.List[PytestCase]] = defaultdict(list)
+        grouped: t.Dict[GroupKey, t.List[PytestCase]] = defaultdict(list)
         for case in self.cases:
-            grouped[(case.target_selector, case.env_selector)].append(case)
+            key = GroupKey(case.target_selector, case.env_selector, case.runner_tags)
+            grouped[key].append(case)
         return grouped
 
     def output_as_string(self) -> str:
@@ -199,11 +217,11 @@ class GroupedPytestCases:
         Output as string, for previewing each group of test cases
         """
         lines: t.List[str] = []
-        for (target_selector, env_selector), cases in self.grouped_cases.items():
-            if not env_selector:
-                lines.append(f'{target_selector}: {len(cases)} cases')
+        for key, cases in self.grouped_cases.items():
+            if not key.env_selector:
+                lines.append(f'{key.target_selector}: {len(cases)} cases')
             else:
-                lines.append(f'{target_selector} - {env_selector}: {len(cases)} cases')
+                lines.append(f'{key.target_selector} - {key.env_selector}: {len(cases)} cases')
 
             for c in cases:
                 lines.append(f'\t{c.caseid}')
@@ -222,14 +240,21 @@ class GroupedPytestCases:
                 include: [
                     {
                         'targets': 'esp32,esp32',
-                        'env_markers: 'generic',
+                        'env_markers: 'generic and flash_4mb',
+                        'runner_tags': ['self_hosted', 'esp32_2', 'generic', 'flash_4mb'],
+                        'nodes': 'nodeid1 nodeid2',
+                    },
+                    {
+                        'targets': 'esp32,esp32s2',
+                        'env_markers: 'generic and two_duts',
+                        'runner_tags': ['self_hosted', 'esp32+esp32s2', 'generic', 'two_duts'],
                         'nodes': 'nodeid1 nodeid2',
                     },
                     {
                         'targets': 'esp32',
                         'env_markers: 'generic',
-                        'nodes': 'nodeid1 nodeid2',
-                    },
+                        'runner_tags': ['self_hosted', 'esp32', 'generic'],
+                        'nodes': 'nodeid1',
                     ...
                 ]
             }
@@ -242,11 +267,12 @@ class GroupedPytestCases:
                 matrix: ${{fromJson( this output as env var )}}
         """
         include_list = []
-        for (target_selector, env_selector), cases in self.grouped_cases.items():
+        for key, cases in self.grouped_cases.items():
             include_list.append(
                 {
-                    'targets': target_selector,
-                    'env_markers': env_selector,
+                    'targets': key.target_selector,
+                    'env_markers': key.env_selector,
+                    'runner_tags': ['self-hosted', *key.runner_tags],  # self-hosted is required in github
                     'nodes': ' '.join([c.item.nodeid for c in cases]),
                 }
             )
