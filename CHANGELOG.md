@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.1.4 (2025-03-13)
+
+### Feat
+
+- support `idf-ci test collect`
+- support `env_markers` in ini file
+
+### Fix
+
+- solve name collision in `idf_ci.cli`
+- avoid `cli` name conflict as sub-package and cli function
+- package data includes dotfiles
+- stop overriding existing config files
+
 ## v0.1.3 (2025-02-20)
 
 ### Feat
