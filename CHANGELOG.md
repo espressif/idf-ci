@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.6 (2025-03-21)
+
+### Fix
+
+- remove duplicated sub folders while pytest collection
+
 ## v0.1.5 (2025-03-13)
 
 ### Fix
