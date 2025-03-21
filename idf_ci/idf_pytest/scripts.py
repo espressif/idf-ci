@@ -12,7 +12,7 @@ from _pytest.config import ExitCode
 
 from idf_ci._compat import UNDEF, Undefined
 
-from ..utils import setup_logging
+from ..utils import remove_subfolders, setup_logging
 from .models import PytestCase
 from .plugin import IdfPytestPlugin
 
@@ -37,7 +37,9 @@ def get_pytest_cases(
         sdkconfig_name=sdkconfig_name,
     )
     args = [
-        *paths,
+        # remove sub folders if parent folder is already in the list
+        # https://github.com/pytest-dev/pytest/issues/13319
+        *remove_subfolders(paths),
         '--collect-only',
         '--rootdir',
         os.getcwd(),
