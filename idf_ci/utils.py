@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 import typing as t
+from pathlib import Path
 
 from idf_build_apps.log import get_rich_log_handler
 
@@ -61,3 +62,13 @@ def setup_logging(level: t.Optional[int] = logging.WARNING) -> None:
     package_logger.addHandler(get_rich_log_handler(level))
 
     package_logger.propagate = False
+
+
+def remove_subfolders(paths: t.List[str]) -> t.List[str]:
+    result = set()
+
+    for p in sorted([Path(p).resolve() for p in paths]):
+        if not any(parent in result for parent in p.parents):
+            result.add(p)
+
+    return sorted([str(p) for p in result])
