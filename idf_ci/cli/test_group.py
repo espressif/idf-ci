@@ -8,7 +8,7 @@ import click
 from idf_ci import get_pytest_cases
 
 from ..idf_pytest.models import GroupedPytestCases
-from ._options import create_config_file
+from ._options import create_config_file, option_pytest
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,8 @@ def init(path: str):
 
 @test.command()
 @click.argument('paths', nargs=-1, type=click.Path(dir_okay=False, file_okay=True, exists=True))
-@click.option('-m', '--marker-expr', default='not host_test', help='Pytest marker expression')
 @click.option('-t', '--target', default='all', help='Target to be processed. Or "all" to process all targets.')
+@option_pytest
 @click.option(
     '--format',
     '_format',
@@ -53,16 +53,23 @@ def init(path: str):
     type=click.Path(dir_okay=False, file_okay=True),
     help='Output destination. Stdout if not provided',
 )
-def collect(paths, *, marker_expr, target, _format, output):
+def collect(
+    paths,
+    *,
+    marker_expr,
+    filter_expr,
+    target,
+    _format,
+    output,
+):
     """
     Run pytest with provided arguments
     """
-    logger.debug(f'Collecting test cases from {paths} with target {target} and marker expression {marker_expr}')
-
     cases = get_pytest_cases(
         paths=paths or ['.'],
         target=target or 'all',
         marker_expr=marker_expr,
+        filter_expr=filter_expr,
     )
 
     grouped_cases = GroupedPytestCases(cases)
