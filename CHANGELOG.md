@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.8 (2025-03-24)
+
+### Fix
+
+- plugin load sequence. idf-ci must load after pytest-embedded
+
 ## v0.1.7 (2025-03-24)
 
 ### Fix
