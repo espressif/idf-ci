@@ -33,7 +33,10 @@ logger = logging.getLogger(__name__)
 ############
 @pytest.fixture
 @multi_dut_argument
-def target(request: FixtureRequest) -> str:
+def target(
+    request: FixtureRequest,
+    target: t.Optional[str],  # noqa: ARG001 # override original target fixture
+) -> str:
     _t = getattr(request, 'param', None)
     if not _t:
         raise ValueError('"target" shall either be defined in pytest.mark.parametrize')
@@ -53,6 +56,7 @@ def build_dir(
     app_path: str,
     target: t.Optional[str],
     config: t.Optional[str],
+    build_dir: t.Optional[str],  # noqa: ARG001 # override original build_dir fixture
 ) -> str:
     """
     Check local build dir with the following priority:
