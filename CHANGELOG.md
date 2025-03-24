@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.7 (2025-03-24)
+
+### Fix
+
+- make sure the plugin override sequence
+
 ## v0.1.6 (2025-03-21)
 
 ### Fix
