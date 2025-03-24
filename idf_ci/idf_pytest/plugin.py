@@ -31,67 +31,6 @@ logger = logging.getLogger(__name__)
 ############
 # Fixtures #
 ############
-@pytest.fixture
-@multi_dut_argument
-def target(
-    request: FixtureRequest,
-    target: t.Optional[str],  # noqa: ARG001 # override original target fixture
-) -> str:
-    _t = getattr(request, 'param', None)
-    if not _t:
-        raise ValueError('"target" shall either be defined in pytest.mark.parametrize')
-    return _t
-
-
-@pytest.fixture
-@multi_dut_argument
-def config(request: FixtureRequest) -> str:
-    return getattr(request, 'param', None) or 'default'
-
-
-@pytest.fixture
-@multi_dut_fixture
-def build_dir(
-    request: FixtureRequest,
-    app_path: str,
-    target: t.Optional[str],
-    config: t.Optional[str],
-    build_dir: t.Optional[str],  # noqa: ARG001 # override original build_dir fixture
-) -> str:
-    """
-    Check local build dir with the following priority:
-
-    1. build_<target>_<config>
-    2. build_<target>
-    3. build_<config>
-    4. build
-
-    Returns:
-        valid build directory
-    """
-    check_dirs = []
-    build_dir_arg = request.config.getoption('build_dir', None)
-    if build_dir_arg:
-        check_dirs.append(build_dir_arg)
-    if target is not None and config is not None:
-        check_dirs.append(f'build_{target}_{config}')
-    if target is not None:
-        check_dirs.append(f'build_{target}')
-    if config is not None:
-        check_dirs.append(f'build_{config}')
-    check_dirs.append('build')
-
-    for check_dir in check_dirs:
-        binary_path = os.path.join(app_path, check_dir)
-        if os.path.isdir(binary_path):
-            logger.info(f'found valid binary path: {binary_path}')
-            return check_dir
-
-        logger.warning('checking binary path: %s... missing... try another place', binary_path)
-
-    raise ValueError(
-        f'no build dir valid. Please build the binary via "idf.py -B {check_dirs[0]} build" and run pytest again'
-    )
 
 
 def _try_import(path: Path):
@@ -136,6 +75,66 @@ class IdfPytestPlugin:
     @staticmethod
     def get_case_by_item(item: pytest.Item) -> t.Optional[PytestCase]:
         return item.stash.get(IDF_CI_PYTEST_CASE_KEY, None)
+
+    @pytest.fixture
+    @multi_dut_argument
+    def target(
+        self,
+        request: FixtureRequest,
+    ) -> str:
+        _t = getattr(request, 'param', None)
+        if not _t:
+            raise ValueError('"target" shall either be defined in pytest.mark.parametrize')
+        return _t
+
+    @pytest.fixture
+    @multi_dut_argument
+    def config(self, request: FixtureRequest) -> str:
+        return getattr(request, 'param', None) or 'default'
+
+    @pytest.fixture
+    @multi_dut_fixture
+    def build_dir(
+        self,
+        request: FixtureRequest,
+        app_path: str,
+        target: t.Optional[str],
+        config: t.Optional[str],
+    ) -> str:
+        """
+        Check local build dir with the following priority:
+
+        1. build_<target>_<config>
+        2. build_<target>
+        3. build_<config>
+        4. build
+
+        Returns:
+            valid build directory
+        """
+        check_dirs = []
+        build_dir_arg = request.config.getoption('build_dir', None)
+        if build_dir_arg:
+            check_dirs.append(build_dir_arg)
+        if target is not None and config is not None:
+            check_dirs.append(f'build_{target}_{config}')
+        if target is not None:
+            check_dirs.append(f'build_{target}')
+        if config is not None:
+            check_dirs.append(f'build_{config}')
+        check_dirs.append('build')
+
+        for check_dir in check_dirs:
+            binary_path = os.path.join(app_path, check_dir)
+            if os.path.isdir(binary_path):
+                logger.info(f'found valid binary path: {binary_path}')
+                return check_dir
+
+            logger.warning('checking binary path: %s... missing... try another place', binary_path)
+
+        raise ValueError(
+            f'no build dir valid. Please build the binary via "idf.py -B {check_dirs[0]} build" and run pytest again'
+        )
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_pycollect_makemodule(
