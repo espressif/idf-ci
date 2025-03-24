@@ -103,6 +103,22 @@ class CiSettings(BaseSettings):
     preserve_test_related_apps: bool = True
     preserve_non_test_related_apps: bool = False
 
+    # env vars
+    ci_detection_envs: t.List[str] = [
+        'CI',
+        'GITHUB_ACTIONS',
+        'CIRCLECI',
+        'TRAVIS',
+        'JENKINS_URL',
+        'DRONE',
+        'APPVEYOR',
+        'BITBUCKET_COMMIT',
+        'SEMAPHORE',
+        'TEAMCITY_VERSION',
+    ]
+    local_runtime_envs: t.Dict[str, t.Any] = {}
+    ci_runtime_envs: t.Dict[str, t.Any] = {}
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -123,6 +139,20 @@ class CiSettings(BaseSettings):
     @property
     def all_component_mapping_regexes(self) -> t.Set[re.Pattern]:
         return {re.compile(regex) for regex in self.component_mapping_regexes + self.extend_component_mapping_regexes}
+
+    def is_in_ci(self):
+        return any(os.getenv(env) is not None for env in self.ci_detection_envs)
+
+    def model_post_init(self, __context: t.Any) -> None:
+        if self.is_in_ci():
+            _envs = self.ci_runtime_envs
+        else:
+            _envs = self.local_runtime_envs
+
+        if _envs:
+            for key, value in _envs.items():
+                os.environ[key] = str(value)
+                logger.debug('Set local env var: %s=%s', key, value)
 
     def get_modified_components(self, modified_files: t.Iterable[str]) -> t.Set[str]:
         modified_components = set()
