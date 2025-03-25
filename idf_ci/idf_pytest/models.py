@@ -237,25 +237,25 @@ class GroupedPytestCases:
         .. code:: json
 
             {
-                include: [
+                "include": [
                     {
-                        'targets': 'esp32,esp32',
-                        'env_markers: 'generic and flash_4mb',
-                        'runner_tags': ['self_hosted', 'esp32_2', 'generic', 'flash_4mb'],
-                        'nodes': 'nodeid1 nodeid2',
+                        "targets": "esp32,esp32",
+                        "env_markers": "generic and flash_4mb",
+                        "runner_tags": ["self_hosted", "esp32_2", "generic", "flash_4mb"],
+                        "nodes": "nodeid1 nodeid2"
                     },
                     {
-                        'targets': 'esp32,esp32s2',
-                        'env_markers: 'generic and two_duts',
-                        'runner_tags': ['self_hosted', 'esp32+esp32s2', 'generic', 'two_duts'],
-                        'nodes': 'nodeid1 nodeid2',
+                        "targets": "esp32,esp32s2",
+                        "env_markers": "generic and two_duts",
+                        "runner_tags": ["self_hosted", "esp32+esp32s2", "generic", "two_duts"],
+                        "nodes": "nodeid1 nodeid2"
                     },
                     {
-                        'targets': 'esp32',
-                        'env_markers: 'generic',
-                        'runner_tags': ['self_hosted', 'esp32', 'generic'],
-                        'nodes': 'nodeid1',
-                    ...
+                        "targets": "esp32",
+                        "env_markers": "generic",
+                        "runner_tags": ["self_hosted", "esp32", "generic"],
+                        "nodes": "nodeid1"
+                    }
                 ]
             }
 
@@ -264,7 +264,7 @@ class GroupedPytestCases:
         .. code:: yaml
 
             strategy:
-                matrix: ${{fromJson( this output as env var )}}
+                matrix: ${{fromJson( this_output_as_env_var )}}
         """
         include_list = []
         for key, cases in self.grouped_cases.items():
