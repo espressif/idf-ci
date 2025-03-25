@@ -48,8 +48,8 @@ class TestGetPytestCases:
             pass
         """)
 
-    def test_get_pytest_cases_single_specific(self, tmp_path: Path) -> None:
-        script = tmp_path / 'test_get_pytest_cases_single_specific.py'
+    def test_get_single_specific(self, tmp_path: Path) -> None:
+        script = tmp_path / 'test_get_single_specific.py'
         script.write_text(self.TEMPLATE_SCRIPT)
         cases = get_pytest_cases([str(tmp_path)], 'esp32')
 
@@ -57,8 +57,8 @@ class TestGetPytestCases:
         assert cases[0].targets == ['esp32']
         assert cases[0].name == 'test_foo_single'
 
-    def test_get_pytest_cases_multi_specific(self, tmp_path: Path) -> None:
-        script = tmp_path / 'test_get_pytest_cases_multi_specific.py'
+    def test_get_multi_specific(self, tmp_path: Path) -> None:
+        script = tmp_path / 'test_get_multi_specific.py'
         script.write_text(self.TEMPLATE_SCRIPT)
         cases = get_pytest_cases([str(tmp_path)], 'esp32s2,esp32s2,esp32s3')
 
@@ -69,8 +69,20 @@ class TestGetPytestCases:
         cases = get_pytest_cases([str(tmp_path)], 'esp32s3,esp32s2,esp32s2')  # order matters
         assert len(cases) == 0
 
-    def test_get_pytest_cases_all(self, tmp_path: Path) -> None:
-        script = tmp_path / 'test_get_pytest_cases_multi_all.py'
+    def test_get_by_filter(self, tmp_path: Path) -> None:
+        script = tmp_path / 'test_get_by_filter.py'
+        script.write_text(self.TEMPLATE_SCRIPT)
+        cases = get_pytest_cases([str(tmp_path)], 'linux', filter_expr='foo')
+
+        assert len(cases) == 1
+        assert cases[0].name == 'test_foo_host'
+
+        cases = get_pytest_cases([str(tmp_path)], 'esp32', filter_expr='foo')
+        assert len(cases) == 1
+        assert cases[0].name == 'test_foo_single'
+
+    def test_get_all(self, tmp_path: Path) -> None:
+        script = tmp_path / 'test_get_multi_all.py'
         script.write_text(self.TEMPLATE_SCRIPT)
         cases = get_pytest_cases([str(tmp_path)])
 

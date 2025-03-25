@@ -67,6 +67,16 @@ def option_parallel(func):
     return wrapper
 
 
+def option_pytest(func):
+    @click.option('-m', '--marker-expr', default=UNDEF, help='Pytest marker expression, "-m" option')
+    @click.option('-k', '--filter-expr', help='Pytest filter expression, "-k" option')
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 def option_modified_files(func):
     return click.option(
         '--modified-files',

@@ -9,7 +9,7 @@ from idf_build_apps import App, build_apps, find_apps
 from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
 
 from . import get_pytest_cases
-from ._compat import UNDEF, Undefined
+from ._compat import UNDEF, is_undefined
 from .settings import CiSettings
 
 logger = logging.getLogger(__name__)
@@ -22,11 +22,12 @@ def get_all_apps(
     modified_files: t.Optional[t.List[str]] = None,
     modified_components: t.Optional[t.List[str]] = None,
     marker_expr: str = UNDEF,
+    filter_expr: t.Optional[str] = None,
     default_build_targets: t.List[str] = UNDEF,  # type: ignore
 ) -> t.Tuple[t.Set[App], t.Set[App]]:
     apps = []
     for _t in target.split(','):
-        if isinstance(default_build_targets, Undefined):
+        if is_undefined(default_build_targets):
             if _t != 'all' and _t not in SUPPORTED_TARGETS:
                 default_targets = list({*SUPPORTED_TARGETS, _t})
             else:
@@ -56,7 +57,12 @@ def get_all_apps(
             os.path.dirname(f) for f in modified_files if fnmatch.fnmatch(os.path.basename(f), 'test_*.py')
         ]
         if modified_pytest_scripts:
-            modified_pytest_cases = get_pytest_cases(modified_pytest_scripts, target, marker_expr=marker_expr)
+            modified_pytest_cases = get_pytest_cases(
+                modified_pytest_scripts,
+                target,
+                marker_expr=marker_expr,
+                filter_expr=filter_expr,
+            )
 
     # Create dictionaries mapping app info to test cases
     def get_app_dict(cases):
@@ -100,6 +106,8 @@ def build(
     only_non_test_related: bool = False,
     dry_run: bool = False,
     verbose: t.Optional[int] = None,
+    marker_expr: str = UNDEF,
+    filter_expr: t.Optional[str] = None,
 ) -> t.Tuple[t.List[App], int]:
     modified_components = None
     if modified_files is not None:
@@ -113,6 +121,8 @@ def build(
         target,
         modified_files=modified_files,
         modified_components=modified_components,
+        marker_expr=marker_expr,
+        filter_expr=filter_expr,
     )
 
     for _app in test_related_apps:

@@ -10,7 +10,7 @@ from contextlib import redirect_stderr, redirect_stdout
 import pytest
 from _pytest.config import ExitCode
 
-from idf_ci._compat import UNDEF, Undefined
+from idf_ci._compat import UNDEF, is_undefined
 
 from ..utils import remove_subfolders, setup_logging
 from .models import PytestCase
@@ -25,8 +25,9 @@ def get_pytest_cases(
     *,
     sdkconfig_name: t.Optional[str] = None,
     marker_expr: str = UNDEF,
+    filter_expr: t.Optional[str] = None,
 ) -> t.List[PytestCase]:
-    if isinstance(marker_expr, Undefined):
+    if is_undefined(marker_expr):
         if 'linux' in target:
             marker_expr = 'host_test'
         else:
@@ -48,6 +49,8 @@ def get_pytest_cases(
     ]
     if marker_expr:
         args.extend(['-m', f'{marker_expr}'])
+    if filter_expr:
+        args.extend(['-k', f'{filter_expr}'])
 
     cur_log_level = logger.parent.level  # type: ignore
 

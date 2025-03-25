@@ -7,9 +7,8 @@ import typing as t
 PathLike = t.Union[str, os.PathLike]
 
 
-class Undefined(str):
-    def __new__(cls, *args, **kwargs):
-        return super().__new__(cls, 'undefined')
+UNDEF = '__UNDEF__'
 
 
-UNDEF = Undefined()
+def is_undefined(value: t.Any) -> bool:
+    return value == UNDEF

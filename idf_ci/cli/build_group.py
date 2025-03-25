@@ -6,10 +6,17 @@ import time
 
 import click
 
-from idf_ci._compat import Undefined
+from idf_ci._compat import is_undefined
 from idf_ci.scripts import build as build_cmd
 
-from ._options import create_config_file, option_modified_files, option_parallel, option_paths, option_target
+from ._options import (
+    create_config_file,
+    option_modified_files,
+    option_parallel,
+    option_paths,
+    option_pytest,
+    option_target,
+)
 
 
 @click.group()
@@ -24,6 +31,7 @@ def build():
 @option_paths
 @option_target
 @option_parallel
+@option_pytest
 @option_modified_files
 @click.option('--only-test-related', is_flag=True, help='Run build only for test-related apps')
 @click.option('--only-non-test-related', is_flag=True, help='Run build only for non-test-related apps')
@@ -40,11 +48,13 @@ def run(
     only_test_related,
     only_non_test_related,
     dry_run,
+    marker_expr,
+    filter_expr,
 ):
     """
     Run build
     """
-    if isinstance(modified_files, Undefined):
+    if is_undefined(modified_files):
         modified_files = None
 
     _start = time.time()
@@ -58,6 +68,8 @@ def run(
         only_non_test_related=only_non_test_related,
         dry_run=dry_run,
         verbose=ctx.parent.parent.params['verbose'],
+        marker_expr=marker_expr,
+        filter_expr=filter_expr,
     )
     click.echo(f'Built the following apps in {time.time() - _start:.2f} seconds:')
     for app in apps:

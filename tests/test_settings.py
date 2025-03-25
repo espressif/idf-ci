@@ -4,6 +4,8 @@
 import os
 import re
 
+import pytest
+
 from idf_ci.cli import click_cli
 from idf_ci.settings import CiSettings
 
@@ -141,3 +143,67 @@ def test_ci_profile_not_specified(runner):
         assert result.exit_code == 0
         assert CiSettings.CONFIG_FILE_PATH == original_config_path
         assert os.path.exists(tmp_d + os.sep + '.idf_build_apps.toml')
+
+
+class TestEnvVars:
+    @pytest.fixture(autouse=True)
+    def _cleanup_envs(self):
+        yield
+        for key in list(os.environ.keys()):
+            if key.startswith('TEST_VAR_'):
+                del os.environ[key]
+
+    def test_local_runtime_set_by_ci_settings(self, monkeypatch):
+        CiSettings(
+            local_runtime_envs={
+                'TEST_VAR_BOOL': True,  # bool, but env var is always str
+                'TEST_VAR_STR': 'test_local_value',
+            },
+            ci_runtime_envs={
+                'TEST_VAR_BOOL': False,
+                'TEST_VAR_STR': 'test_ci_value',
+            },
+            ci_detection_envs=['NON_EXIST_CI'],
+        )
+        assert os.getenv('TEST_VAR_BOOL') == 'True'
+        assert os.getenv('TEST_VAR_STR') == 'test_local_value'
+
+        monkeypatch.setenv('NON_EXIST_CI', '1')
+        CiSettings(
+            local_runtime_envs={
+                'TEST_VAR_BOOL': True,  # bool, but env var is always str
+                'TEST_VAR_STR': 'test_local_value',
+            },
+            ci_runtime_envs={
+                'TEST_VAR_BOOL': False,
+                'TEST_VAR_STR': 'test_ci_value',
+            },
+            ci_detection_envs=['NON_EXIST_CI'],
+        )
+        assert os.getenv('TEST_VAR_BOOL') == 'False'
+        assert os.getenv('TEST_VAR_STR') == 'test_ci_value'
+
+    def test_set_by_ci_config_file(self, tmp_path, monkeypatch):
+        with open(tmp_path / '.idf_ci.toml', 'w') as f:
+            f.write("""
+ci_detection_envs=[
+    'NON_EXIST_CI'
+]
+
+[local_runtime_envs]
+TEST_VAR_BOOL = true  # bool, but env var is always str
+TEST_VAR_STR = "test_local_value"
+
+[ci_runtime_envs]
+TEST_VAR_BOOL = false
+TEST_VAR_STR = "test_ci_value"
+""")
+
+        CiSettings()
+        assert os.getenv('TEST_VAR_BOOL') == 'True'
+        assert os.getenv('TEST_VAR_STR') == 'test_local_value'
+
+        monkeypatch.setenv('NON_EXIST_CI', '1')
+        CiSettings()
+        assert os.getenv('TEST_VAR_BOOL') == 'False'
+        assert os.getenv('TEST_VAR_STR') == 'test_ci_value'
