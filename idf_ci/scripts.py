@@ -25,6 +25,18 @@ def get_all_apps(
     filter_expr: t.Optional[str] = None,
     default_build_targets: t.List[str] = UNDEF,  # type: ignore
 ) -> t.Tuple[t.Set[App], t.Set[App]]:
+    """
+    Get test-related and non-test-related applications.
+
+    :param paths: List of paths to search for applications
+    :param target: Target device(s) separated by commas
+    :param modified_files: List of modified files
+    :param modified_components: List of modified components
+    :param marker_expr: Pytest marker expression -m
+    :param filter_expr: Pytest filter expression -k
+    :param default_build_targets: Default build targets to use
+    :return: Tuple of (test_related_apps, non_test_related_apps)
+    """
     apps = []
     for _t in target.split(','):
         if is_undefined(default_build_targets):
@@ -76,18 +88,18 @@ def get_all_apps(
 
     for app in apps:
         app_key = (os.path.abspath(app.app_dir), app.target, app.config_name or 'default')
-        # override build_status if test script got modified\
-        _case = modified_pytest_dict.get(app_key)
-        if _case:
+        # override build_status if test script got modified
+        case = modified_pytest_dict.get(app_key)
+        if case:
             test_related_apps.add(app)
             app.build_status = BuildStatus.SHOULD_BE_BUILT
-            logger.debug('Found app: %s - required by modified test case %s', app, _case.path)
+            logger.debug('Found app: %s - required by modified test case %s', app, case.path)
         elif app.build_status != BuildStatus.SKIPPED:
-            _case = pytest_dict.get(app_key)
-            if _case:
+            case = pytest_dict.get(app_key)
+            if case:
                 test_related_apps.add(app)
                 # build or not should be decided by the build stage
-                logger.debug('Found test-related app: %s - required by %s', app, _case.path)
+                logger.debug('Found test-related app: %s - required by %s', app, case.path)
             else:
                 non_test_related_apps.add(app)
                 logger.debug('Found non-test-related app: %s', app)
@@ -109,13 +121,28 @@ def build(
     marker_expr: str = UNDEF,
     filter_expr: t.Optional[str] = None,
 ) -> t.Tuple[t.List[App], int]:
+    """
+    Build applications based on specified parameters.
+
+    :param paths: List of paths to search for applications
+    :param target: Target device(s) separated by commas
+    :param parallel_count: Total number of parallel jobs
+    :param parallel_index: Index of current parallel job (1-based)
+    :param modified_files: List of modified files
+    :param only_test_related: Only build test-related applications
+    :param only_non_test_related: Only build non-test-related applications
+    :param dry_run: Do not actually build, just simulate
+    :param verbose: Verbosity level
+    :param marker_expr: Pytest marker expression
+    :param filter_expr: Filter expression
+    :return: Tuple of (built apps, build return code)
+    """
     modified_components = None
     if modified_files is not None:
         modified_components = sorted(CiSettings().get_modified_components(modified_files))
         logger.debug('Modified files: %s', modified_files)
         logger.debug('Modified components: %s', modified_components)
 
-    # we have to call get_all_apps first, then call build_apps(apps)
     test_related_apps, non_test_related_apps = get_all_apps(
         paths,
         target,
@@ -125,11 +152,11 @@ def build(
         filter_expr=filter_expr,
     )
 
-    for _app in test_related_apps:
-        _app.preserve = CiSettings().preserve_test_related_apps
+    for app in test_related_apps:
+        app.preserve = CiSettings().preserve_test_related_apps
 
-    for _app in non_test_related_apps:
-        _app.preserve = CiSettings().preserve_non_test_related_apps
+    for app in non_test_related_apps:
+        app.preserve = CiSettings().preserve_non_test_related_apps
 
     if not only_test_related and not only_non_test_related:
         apps = sorted(test_related_apps.union(non_test_related_apps))

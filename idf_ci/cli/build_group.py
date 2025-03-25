@@ -21,9 +21,7 @@ from ._options import (
 
 @click.group()
 def build():
-    """
-    Group of build related commands
-    """
+    """Group of build related commands"""
     pass
 
 
@@ -51,13 +49,11 @@ def run(
     marker_expr,
     filter_expr,
 ):
-    """
-    Run build
-    """
+    """Execute the build process for applications"""
     if is_undefined(modified_files):
         modified_files = None
 
-    _start = time.time()
+    start_time = time.time()
     apps, ret = build_cmd(
         paths,
         target,
@@ -71,7 +67,7 @@ def run(
         marker_expr=marker_expr,
         filter_expr=filter_expr,
     )
-    click.echo(f'Built the following apps in {time.time() - _start:.2f} seconds:')
+    click.echo(f'Built the following apps in {time.time() - start_time:.2f} seconds:')
     for app in apps:
         line = f'\t{app.build_path} [{app.build_status.value}]'
         if app.build_comment:

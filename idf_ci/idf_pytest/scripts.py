@@ -27,16 +27,25 @@ def get_pytest_cases(
     marker_expr: str = UNDEF,
     filter_expr: t.Optional[str] = None,
 ) -> t.List[PytestCase]:
+    """
+    Collect pytest test cases from specified paths.
+
+    :param paths: List of file system paths to collect test cases from
+    :param target: Filter by targets
+    :param sdkconfig_name: Filter tests whose apps are built with this sdkconfig name
+    :param marker_expr: Filter by pytest marker expression -m
+    :param filter_expr: Filter by pytest filter expression -k
+    :return: List of collected PytestCase objects
+    :raises RuntimeError: If pytest collection fails
+    """
     if is_undefined(marker_expr):
-        if 'linux' in target:
-            marker_expr = 'host_test'
-        else:
-            marker_expr = 'not host_test'
+        marker_expr = 'host_test' if 'linux' in target else 'not host_test'
 
     plugin = IdfPytestPlugin(
         cli_target=target,
         sdkconfig_name=sdkconfig_name,
     )
+
     args = [
         # remove sub folders if parent folder is already in the list
         # https://github.com/pytest-dev/pytest/issues/13319
@@ -47,22 +56,24 @@ def get_pytest_cases(
         '--target',
         target,
     ]
+
     if marker_expr:
         args.extend(['-m', f'{marker_expr}'])
     if filter_expr:
         args.extend(['-k', f'{filter_expr}'])
 
-    cur_log_level = logger.parent.level  # type: ignore
+    original_log_level = logger.parent.level  # type: ignore
 
-    with io.StringIO() as out_b, io.StringIO() as err_b:
-        with redirect_stdout(out_b), redirect_stderr(err_b):
-            res = pytest.main(args, plugins=[plugin])
-        stdout_msg = out_b.getvalue()
-        stderr_msg = err_b.getvalue()
+    with io.StringIO() as stdout_buffer, io.StringIO() as stderr_buffer:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            result = pytest.main(args, plugins=[plugin])
+        stdout_content = stdout_buffer.getvalue()
+        stderr_content = stderr_buffer.getvalue()
 
-    setup_logging(level=cur_log_level)  # the redirect messes up the logging level
+    # Restore logging level as redirection changes it
+    setup_logging(level=original_log_level)
 
-    if res == ExitCode.OK:
+    if result == ExitCode.OK:
         return plugin.cases
 
-    raise RuntimeError(f'pytest collection failed.\nArgs: {args}\nStdout: {stdout_msg}\nStderr: {stderr_msg}')
+    raise RuntimeError(f'pytest collection failed.\nArgs: {args}\nStdout: {stdout_content}\nStderr: {stderr_content}')

@@ -35,6 +35,7 @@ dependencies = [
     "pytest-embedded-qemu~=1.16",
     "pytest-ignore-test-results>=0.3.0,<1",
     "pytest-timeout",
+    "pytest-rerunfailures",
     # logging / printing
     "rich",
 ]

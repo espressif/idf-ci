@@ -128,45 +128,61 @@ class CiSettings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,  # noqa: ARG003
         file_secret_settings: PydanticBaseSettingsSource,  # noqa: ARG003
     ) -> t.Tuple[PydanticBaseSettingsSource, ...]:
-        sources: t.Tuple[PydanticBaseSettingsSource, ...] = (init_settings,)
-        if cls.CONFIG_FILE_PATH is None:
-            sources += (TomlConfigSettingsSource(settings_cls, '.idf_ci.toml'),)
-        else:
-            sources += (TomlConfigSettingsSource(settings_cls, cls.CONFIG_FILE_PATH),)
+        return (
+            init_settings,
+            TomlConfigSettingsSource(
+                settings_cls, cls.CONFIG_FILE_PATH if cls.CONFIG_FILE_PATH is not None else '.idf_ci.toml'
+            ),
+        )
 
-        return sources
+    def model_post_init(self, __context: t.Any) -> None:
+        runtime_envs = self.ci_runtime_envs if self.is_in_ci else self.local_runtime_envs
+
+        for key, value in runtime_envs.items():
+            os.environ[key] = str(value)
+            logger.debug('Set local env var: %s=%s', key, value)
+
+    @property
+    def is_in_ci(self) -> bool:
+        """
+        Check if the code is running in a CI environment.
+
+        :return: True if in CI environment, False otherwise
+        """
+        return any(os.getenv(env) is not None for env in self.ci_detection_envs)
 
     @property
     def all_component_mapping_regexes(self) -> t.Set[re.Pattern]:
+        """
+        Get all component mapping regexes as compiled pattern objects.
+
+        :return: Set of compiled regex patterns
+        """
         return {re.compile(regex) for regex in self.component_mapping_regexes + self.extend_component_mapping_regexes}
 
-    def is_in_ci(self):
-        return any(os.getenv(env) is not None for env in self.ci_detection_envs)
-
-    def model_post_init(self, __context: t.Any) -> None:
-        if self.is_in_ci():
-            _envs = self.ci_runtime_envs
-        else:
-            _envs = self.local_runtime_envs
-
-        if _envs:
-            for key, value in _envs.items():
-                os.environ[key] = str(value)
-                logger.debug('Set local env var: %s=%s', key, value)
-
     def get_modified_components(self, modified_files: t.Iterable[str]) -> t.Set[str]:
+        """
+        Get the set of components that have been modified based on the provided files.
+
+        :param modified_files: Iterable of file paths that have been modified
+        :return: Set of component names that have been modified
+        """
         modified_components = set()
+
         for modified_file in modified_files:
-            p = Path(modified_file)
-            if p.suffix in self.component_ignored_file_extensions + self.extend_component_ignored_file_extensions:
+            file_path = Path(modified_file)
+            if (
+                file_path.suffix
+                in self.component_ignored_file_extensions + self.extend_component_ignored_file_extensions
+            ):
                 continue
 
             # always use absolute path as posix string
             # Path.resolve return relative path when file does not exist. so use os.path.abspath
-            modified_file = Path(os.path.abspath(modified_file)).as_posix()
+            abs_path = Path(os.path.abspath(modified_file)).as_posix()
 
             for regex in self.all_component_mapping_regexes:
-                match = regex.search(modified_file)
+                match = regex.search(abs_path)
                 if match:
                     modified_components.add(match.group(1))
                     break
@@ -174,7 +190,12 @@ class CiSettings(BaseSettings):
         return modified_components
 
     def get_apps_list(self) -> t.Optional[t.List[App]]:
-        found_files = [p for p in Path('.').glob('app_info_*.txt')]
+        """
+        Get the list of successfully built applications from the app info files.
+
+        :return: List of App objects representing successfully built applications, or None if no files found
+        """
+        found_files = list(Path('.').glob('app_info_*.txt'))
         if not found_files:
             logger.debug('No built app list files found')
             return None
@@ -185,13 +206,15 @@ class CiSettings(BaseSettings):
         for filepattern in self.built_app_list_filepatterns:
             for filepath in Path('.').glob(filepattern):
                 with open(filepath) as fr:
-                    for line in fr:
+                    for line in fr.readlines():
                         line = line.strip()
-                        if line:
-                            app = json_to_app(line)
-                            if app.build_status == BuildStatus.SUCCESS:
-                                apps.append(app)
-                                logger.debug('App found: %s', apps[-1].build_path)
+                        if not line:
+                            continue
+
+                        app = json_to_app(line)
+                        if app.build_status == BuildStatus.SUCCESS:
+                            apps.append(app)
+                            logger.debug('App found: %s', app.build_path)
 
         if not apps:
             logger.warning(f'No apps found in the built app list files: {found_files}')

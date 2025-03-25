@@ -18,13 +18,7 @@ from idf_ci.utils import setup_logging
 logger = logging.getLogger(__name__)
 
 
-_CLI_SETTINGS = {
-    'show_default': True,
-    'help_option_names': ['-h', '--help'],
-}
-
-
-@click.group(context_settings=_CLI_SETTINGS)
+@click.group(context_settings={'show_default': True, 'help_option_names': ['-h', '--help']})
 @click.option(
     '-c',
     '--config-file',
@@ -39,12 +33,8 @@ _CLI_SETTINGS = {
     help='Increase verbosity, can be used multiple times. -v for info, -vv for debug, not set for warning',
 )
 def click_cli(config_file, verbose):
-    if verbose == 0:
-        setup_logging(logging.WARNING)
-    elif verbose == 1:
-        setup_logging(logging.INFO)
-    else:
-        setup_logging(logging.DEBUG)
+    """ESP-IDF CI CLI Tool."""
+    setup_logging(logging.WARNING if verbose == 0 else logging.INFO if verbose == 1 else logging.DEBUG)
 
     if config_file:
         logger.debug(f'Using config file: {config_file}')
@@ -54,19 +44,14 @@ def click_cli(config_file, verbose):
 @click_cli.command()
 @click.option('--path', help='Path to create the config file')
 def init(path: str):
-    """
-    Create .idf_ci.toml with default values
-    """
+    """Create .idf_ci.toml with default values."""
     create_config_file(os.path.join(os.path.dirname(__file__), '..', 'templates', '.idf_ci.toml'), path)
 
 
 @click_cli.command()
 def completions():
-    """
-    Instructions to enable shell completions for idf-ci
-    """
-
-    help_message = """
+    """Instructions to enable shell completions for idf-ci."""
+    click.echo("""
     To enable autocomplete run the following command:
 
     Bash:
@@ -92,8 +77,7 @@ def completions():
         _IDF_CI_COMPLETE=fish_source idf-ci > ~/.config/fish/completions/idf-ci.fish
 
     After modifying the shell config, you need to start a new shell in order for the changes to be loaded.
-    """
-    click.echo(help_message)
+    """)
 
 
 click_cli.add_command(build)

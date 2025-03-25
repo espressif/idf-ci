@@ -65,6 +65,12 @@ def setup_logging(level: t.Optional[int] = logging.WARNING) -> None:
 
 
 def remove_subfolders(paths: t.List[str]) -> t.List[str]:
+    """
+    Remove paths that are subfolders of other paths in the list.
+
+    :param paths: List of directory paths as strings
+    :return: Filtered list of paths with no subfolder/parent folder relationships
+    """
     result = set()
 
     for p in sorted([Path(p).resolve() for p in paths]):

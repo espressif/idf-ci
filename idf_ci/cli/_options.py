@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import difflib
-import functools
 import logging
 import os
 import shutil
@@ -58,23 +57,15 @@ def option_target(func):
 
 
 def option_parallel(func):
-    @click.option('--parallel-count', default=1, help='Number of parallel builds')
-    @click.option('--parallel-index', default=1, help='Index of the parallel build')
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-
-    return wrapper
+    func = click.option('--parallel-count', default=1, help='Number of parallel builds')(func)
+    func = click.option('--parallel-index', default=1, help='Index of the parallel build')(func)
+    return func
 
 
 def option_pytest(func):
-    @click.option('-m', '--marker-expr', default=UNDEF, help='Pytest marker expression, "-m" option')
-    @click.option('-k', '--filter-expr', help='Pytest filter expression, "-k" option')
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-
-    return wrapper
+    func = click.option('-m', '--marker-expr', default=UNDEF, help='Pytest marker expression, "-m" option')(func)
+    func = click.option('-k', '--filter-expr', help='Pytest filter expression, "-k" option')(func)
+    return func
 
 
 def option_modified_files(func):
@@ -92,16 +83,18 @@ def create_config_file(template_filepath: str, dest: t.Optional[str] = None) -> 
     """
     Create a configuration file from a template.
 
-    :param template_filepath: Path to the template file.
-    :param dest: Path to the destination file. If None, the current working directory is used.
-    :return: Path to the created file.
+    If the destination file already exists, shows a diff between the existing file
+    and the template. If they're identical, notifies the user without making changes.
+
+    :param template_filepath: Path to the template file
+    :param dest: Path to the destination file or directory
+    :return: Path to the created or existing file
     """
     if dest is None:
         dest = os.getcwd()
 
     if os.path.isdir(dest):
-        filename = os.path.basename(template_filepath)
-        filepath = os.path.join(dest, filename)
+        filepath = os.path.join(dest, os.path.basename(template_filepath))
     else:
         filepath = dest
 

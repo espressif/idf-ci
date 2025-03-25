@@ -15,18 +15,14 @@ logger = logging.getLogger(__name__)
 
 @click.group()
 def test():
-    """
-    Group of test related commands
-    """
+    """Group of test related commands."""
     pass
 
 
 @test.command()
 @click.option('--path', help='Path to create the config file')
 def init(path: str):
-    """
-    Create pytest.ini with default values
-    """
+    """Create pytest.ini with default values."""
     create_config_file(os.path.join(os.path.dirname(__file__), '..', 'templates', 'pytest.ini'), path)
 
 
@@ -62,31 +58,29 @@ def collect(
     _format,
     output,
 ):
-    """
-    Run pytest with provided arguments
-    """
-    cases = get_pytest_cases(
-        paths=paths or ['.'],
-        target=target or 'all',
-        marker_expr=marker_expr,
-        filter_expr=filter_expr,
+    """Collect and process pytest cases."""
+    grouped_cases = GroupedPytestCases(
+        get_pytest_cases(
+            paths=paths or ['.'],
+            target=target or 'all',
+            marker_expr=marker_expr,
+            filter_expr=filter_expr,
+        )
     )
 
-    grouped_cases = GroupedPytestCases(cases)
-
+    result = ''
     if _format == 'raw':
-        s = grouped_cases.output_as_string()
+        result = grouped_cases.output_as_string()
     elif _format == 'github':
-        s = grouped_cases.output_as_github_ci()
+        result = grouped_cases.output_as_github_ci()
     elif _format == 'gitlab':
-        s = grouped_cases.output_as_gitlab_ci()
+        result = grouped_cases.output_as_gitlab_ci()
     else:
         raise ValueError(f'Unknown output format: {_format}')
 
     if output is None:
-        click.echo(s)
+        click.echo(result)
     else:
         with open(output, 'w') as f:
-            f.write(s)
-
+            f.write(result)
         click.echo(f'Created test cases collection file: {output}')
