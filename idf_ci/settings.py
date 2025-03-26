@@ -80,6 +80,37 @@ class TomlConfigSettingsSource(InitSettingsSource):
         return None
 
 
+class GitlabSettings(BaseSettings):
+    project: str = 'espressif/esp-idf'
+    debug_artifacts_filepatterns: t.List[str] = [
+        '**/build*/bootloader/*.map',
+        '**/build*/bootloader/*.elf',
+        '**/build*/*.map',
+        '**/build*/*.elf',
+        '**/build*/build.log',  # build_log_filename
+    ]
+    flash_artifacts_filepatterns: t.List[str] = [
+        '**/build*/bootloader/*.bin',
+        '**/build*/*.bin',
+        '**/build*/partition_table/*.bin',
+        '**/build*/flasher_args.json',
+        '**/build*/flash_project_args',
+        '**/build*/config/sdkconfig.json',
+        '**/build*/sdkconfig',
+        '**/build*/project_description.json',
+    ]
+    metrics_artifacts_filepatterns: t.List[str] = [
+        '**/build*/size.json',  # size_json_filename
+    ]
+    # TODO use it in ci job
+    ci_artifacts_filepatterns: t.List[str] = [
+        'app_info_*.txt',  # collect_app_info_filename
+        'presigned_urls.json',
+        'build_summary_*.xml',  # junitxml
+        'pipeline.env',  # pipeline.env
+    ]
+
+
 class CiSettings(BaseSettings):
     CONFIG_FILE_PATH: t.ClassVar[t.Optional[Path]] = None
 
@@ -118,6 +149,9 @@ class CiSettings(BaseSettings):
     ]
     local_runtime_envs: t.Dict[str, t.Any] = {}
     ci_runtime_envs: t.Dict[str, t.Any] = {}
+
+    # gitlab subsection
+    gitlab: GitlabSettings = GitlabSettings()
 
     @classmethod
     def settings_customise_sources(

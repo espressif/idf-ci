@@ -11,12 +11,13 @@ repos:
     hooks:
       - id: insert-license
         files: \.py$
+        exclude: idf_ci/_vendor\.py$
         args:
           - --license-filepath
           - license_header.txt        # defaults to: LICENSE.txt
           - --use-current-year
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: 'v0.9.10'
+    rev: 'v0.11.2'
     hooks:
       - id: ruff
         args: ['--fix']
@@ -34,6 +35,9 @@ repos:
           - idf-build-apps~=2.8
           - pytest-embedded~=1.16
           - rich
+          - types-PyYAML
+          - minio
+          - python-gitlab
   - repo: https://github.com/hfudev/rstfmt
     rev: 'v0.1.4'
     hooks:

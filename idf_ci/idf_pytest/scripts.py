@@ -12,6 +12,7 @@ from _pytest.config import ExitCode
 
 from idf_ci._compat import UNDEF, UndefinedOr, is_undefined
 
+from ..idf_gitlab.envs import GitlabEnvVars
 from ..utils import remove_subfolders, setup_logging
 from .models import PytestCase
 from .plugin import IdfPytestPlugin
@@ -24,8 +25,8 @@ def get_pytest_cases(
     target: str = 'all',
     *,
     sdkconfig_name: t.Optional[str] = None,
-    marker_expr: UndefinedOr[str] = UNDEF,
-    filter_expr: UndefinedOr[str] = UNDEF,
+    marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
+    filter_expr: UndefinedOr[t.Optional[str]] = UNDEF,
 ) -> t.List[PytestCase]:
     """
     Collect pytest test cases from specified paths.
@@ -40,6 +41,9 @@ def get_pytest_cases(
     """
     if is_undefined(marker_expr):
         marker_expr = 'host_test' if 'linux' in target else 'not host_test'
+
+    if is_undefined(filter_expr):
+        filter_expr = GitlabEnvVars().DYNAMIC_PIPELINE_FILTER_EXPR
 
     plugin = IdfPytestPlugin(
         cli_target=target,

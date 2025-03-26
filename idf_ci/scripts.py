@@ -9,7 +9,8 @@ from idf_build_apps import App, build_apps, find_apps
 from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
 
 from . import get_pytest_cases
-from ._compat import UNDEF, UndefinedOr, is_undefined
+from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
+from .idf_gitlab.envs import GitlabEnvVars
 from .settings import CiSettings
 
 logger = logging.getLogger(__name__)
@@ -21,8 +22,8 @@ def get_all_apps(
     *,
     modified_files: t.Optional[t.List[str]] = None,
     modified_components: t.Optional[t.List[str]] = None,
-    marker_expr: UndefinedOr[str] = UNDEF,
-    filter_expr: UndefinedOr[str] = UNDEF,
+    marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
+    filter_expr: UndefinedOr[t.Optional[str]] = UNDEF,
     default_build_targets: UndefinedOr[t.List[str]] = UNDEF,
 ) -> t.Tuple[t.Set[App], t.Set[App]]:
     """
@@ -37,6 +38,26 @@ def get_all_apps(
     :param default_build_targets: Default build targets to use
     :return: Tuple of (test_related_apps, non_test_related_apps)
     """
+    # Respect some environment variables
+    if GitlabEnvVars().is_full_pipeline:
+        modified_files = None
+        modified_components = None
+        marker_expr = None
+        filter_expr = None
+    else:
+        if is_undefined(filter_expr):
+            filter_expr = GitlabEnvVars().DYNAMIC_PIPELINE_FILTER_EXPR
+
+        if is_defined_and_satisfies(filter_expr):
+            logger.info(
+                'Running with quick test filter: %s. '
+                'Skipping dependency-driven build. '
+                'Build and test only filtered cases.',
+                filter_expr,
+            )
+            modified_files = None
+            modified_components = None
+
     apps = []
     for _t in target.split(','):
         if is_undefined(default_build_targets):
