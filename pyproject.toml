@@ -121,6 +121,10 @@ follow_untyped_imports = true
 testpaths = ["tests"]
 addopts = "-p no:idf-ci -p pytester"
 
+filterwarnings = [
+    "ignore::FutureWarning",
+]
+
 [tool.commitizen]
 name = "cz_conventional_commits"
 tag_format = "v$version"

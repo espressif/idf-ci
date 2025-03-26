@@ -9,7 +9,7 @@ from idf_build_apps import App, build_apps, find_apps
 from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
 
 from . import get_pytest_cases
-from ._compat import UNDEF, is_undefined
+from ._compat import UNDEF, UndefinedOr, is_undefined
 from .settings import CiSettings
 
 logger = logging.getLogger(__name__)
@@ -21,9 +21,9 @@ def get_all_apps(
     *,
     modified_files: t.Optional[t.List[str]] = None,
     modified_components: t.Optional[t.List[str]] = None,
-    marker_expr: str = UNDEF,
-    filter_expr: t.Optional[str] = None,
-    default_build_targets: t.List[str] = UNDEF,  # type: ignore
+    marker_expr: UndefinedOr[str] = UNDEF,
+    filter_expr: UndefinedOr[str] = UNDEF,
+    default_build_targets: UndefinedOr[t.List[str]] = UNDEF,
 ) -> t.Tuple[t.Set[App], t.Set[App]]:
     """
     Get test-related and non-test-related applications.
@@ -45,7 +45,7 @@ def get_all_apps(
             else:
                 default_targets = SUPPORTED_TARGETS
         else:
-            default_targets = default_build_targets
+            default_targets = default_build_targets  # type: ignore
 
         apps.extend(
             find_apps(
@@ -58,7 +58,7 @@ def get_all_apps(
             )
         )
 
-    cases = get_pytest_cases(paths, target, marker_expr=marker_expr)
+    cases = get_pytest_cases(paths, target, marker_expr=marker_expr, filter_expr=filter_expr)
     if not cases:
         return set(), set(apps)
 
@@ -118,8 +118,8 @@ def build(
     only_non_test_related: bool = False,
     dry_run: bool = False,
     verbose: t.Optional[int] = None,
-    marker_expr: str = UNDEF,
-    filter_expr: t.Optional[str] = None,
+    marker_expr: UndefinedOr[str] = UNDEF,
+    filter_expr: UndefinedOr[str] = UNDEF,
 ) -> t.Tuple[t.List[App], int]:
     """
     Build applications based on specified parameters.

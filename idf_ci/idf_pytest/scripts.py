@@ -10,7 +10,7 @@ from contextlib import redirect_stderr, redirect_stdout
 import pytest
 from _pytest.config import ExitCode
 
-from idf_ci._compat import UNDEF, is_undefined
+from idf_ci._compat import UNDEF, UndefinedOr, is_undefined
 
 from ..utils import remove_subfolders, setup_logging
 from .models import PytestCase
@@ -24,8 +24,8 @@ def get_pytest_cases(
     target: str = 'all',
     *,
     sdkconfig_name: t.Optional[str] = None,
-    marker_expr: str = UNDEF,
-    filter_expr: t.Optional[str] = None,
+    marker_expr: UndefinedOr[str] = UNDEF,
+    filter_expr: UndefinedOr[str] = UNDEF,
 ) -> t.List[PytestCase]:
     """
     Collect pytest test cases from specified paths.
@@ -59,11 +59,12 @@ def get_pytest_cases(
 
     if marker_expr:
         args.extend(['-m', f'{marker_expr}'])
-    if filter_expr:
+    if not is_undefined(filter_expr):
         args.extend(['-k', f'{filter_expr}'])
 
-    original_log_level = logger.parent.level  # type: ignore
+    logger.debug('Collecting pytest test cases with args: %s', args)
 
+    original_log_level = logger.parent.level  # type: ignore
     with io.StringIO() as stdout_buffer, io.StringIO() as stderr_buffer:
         with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
             result = pytest.main(args, plugins=[plugin])
