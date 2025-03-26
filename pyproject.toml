@@ -26,7 +26,12 @@ classifiers = [
 ]
 dependencies = [
     "click",
+    # file format
     "tomlkit", # we need both read and write
+    "pyyaml",
+    # ci related
+    "python-gitlab",
+    "minio",
     # build related
     "idf-build-apps~=2.8",
     # test related
