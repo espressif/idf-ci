@@ -1,0 +1,40 @@
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.py"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.py"
+
+# https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs
+# `contents` is for permission to the contents of the repository.
+# `pull-requests` is for permission to pull request
+permissions:
+  contents: write
+  checks: write
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python "3.7"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.7"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[test]'
+      - name: Fake IDF and Run Test
+        run: |
+          $env:IDF_PATH="D:\tmp\esp-idf"
+          mkdir -p $env:IDF_PATH\tools\idf_py_actions
+          pushd $env:IDF_PATH\tools\idf_py_actions\
+          echo "SUPPORTED_TARGETS = ['esp32', 'esp32s2', 'esp32c3', 'esp32s3', 'esp32c2', 'esp32c6', 'esp32h2', 'esp32p4']" >> constants.py
+          echo "PREVIEW_TARGETS = ['linux', 'esp32c5', 'esp32c61', 'esp32h21']" >> constants.py
+          popd
+          pytest --junitxml pytest.xml tests/
