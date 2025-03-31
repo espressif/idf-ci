@@ -61,5 +61,6 @@ def generate_api_docs(language):
             os.path.join(os.path.dirname(__file__), language, 'references', 'api'),
             os.path.join(os.path.dirname(__file__), '..', 'idf_ci'),
             os.path.join(os.path.dirname(__file__), '..', 'idf_ci', 'settings.py'),
+            os.path.join(os.path.dirname(__file__), '..', 'idf_ci', 'idf_gitlab', 'envs.py'),
         ]
     )

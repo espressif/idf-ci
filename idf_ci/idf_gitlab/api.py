@@ -111,9 +111,11 @@ class ArtifactManager:
         This method downloads artifacts from either GitLab's built-in storage or S3
         storage, depending on the configuration and artifact type.
 
-        There are two main use cases: 1. CI use case: Use commit_sha to download
-        artifacts from a specific commit 2. Local use case: Use branch to download
-        artifacts from the latest pipeline of a branch
+        There are two main use cases:
+
+        1. CI use case: Use commit_sha to download artifacts from a specific commit
+        2. Local use case: Use branch to download artifacts from the latest pipeline of
+           a branch
 
         :param commit_sha: Optional commit SHA. If provided, will download from this
             specific commit

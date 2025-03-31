@@ -121,8 +121,12 @@ class IdfPytestPlugin:
     ) -> str:
         """Find a valid build directory based on priority rules.
 
-        Checks local build directories in the following order: 1.
-        build_<target>_<config> 2. build_<target> 3. build_<config> 4. build
+        Checks local build directories in the following order:
+
+        1. build_<target>_<config>
+        2. build_<target>
+        3. build_<config>
+        4. build
 
         :param request: Pytest fixture request
         :param app_path: Path to the application

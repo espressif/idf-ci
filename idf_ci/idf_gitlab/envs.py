@@ -16,12 +16,6 @@ class GitlabEnvVars(BaseSettings):
     # Pipeline Control Variables
     CHANGED_FILES_SEMICOLON_SEPARATED: UndefinedOr[str] = UNDEF
 
-    IS_FULL_TEST_PIPELINE: UndefinedOr[bool] = UNDEF
-    IS_MR_PIPELINE: UndefinedOr[bool] = UNDEF
-    IS_DEBUG_PIPELINE: UndefinedOr[bool] = UNDEF
-
-    DYNAMIC_PIPELINE_FILTER_EXPR: UndefinedOr[str] = UNDEF
-
     # GitLab API Authentication
     GITLAB_HTTPS_SERVER: str = 'https://gitlab.com'
     GITLAB_ACCESS_TOKEN: t.Optional[str] = None
@@ -34,6 +28,13 @@ class GitlabEnvVars(BaseSettings):
 
     # other env vars used
     IDF_PATH: str = ''
+
+    # Possibly Set by idf-ci
+    IS_FULL_TEST_PIPELINE: UndefinedOr[bool] = UNDEF
+    IS_MR_PIPELINE: UndefinedOr[bool] = UNDEF
+    IS_DEBUG_PIPELINE: UndefinedOr[bool] = UNDEF
+
+    DYNAMIC_PIPELINE_FILTER_EXPR: UndefinedOr[str] = UNDEF
 
     @property
     def is_full_pipeline(self) -> bool:
