@@ -38,11 +38,13 @@ class IdfPytestPlugin:
         cli_target: str,
         sdkconfig_name: t.Optional[str] = None,
     ) -> None:
-        """
-        Initialize the IDF pytest plugin.
+        """Initialize the IDF pytest plugin.
 
-        :param cli_target: Target passed from command line - single target, comma separated targets, or 'all'
-        :param sdkconfig_name: Filter tests whose apps are built with this sdkconfig name
+        :param cli_target: Target passed from command line - single target, comma
+            separated targets, or 'all'
+        :param sdkconfig_name: Filter tests whose apps are built with this sdkconfig
+            name
+
         """
         self.cli_target = cli_target
         self.sdkconfig_name = sdkconfig_name
@@ -52,10 +54,10 @@ class IdfPytestPlugin:
 
     @property
     def cases(self) -> t.List[PytestCase]:
-        """
-        Get all test cases being tested, sorted by case ID.
+        """Get all test cases being tested, sorted by case ID.
 
-        :return: Sorted list of test cases
+        :returns: Sorted list of test cases
+
         """
         cases = []
         for item in self._testing_items:
@@ -67,11 +69,12 @@ class IdfPytestPlugin:
 
     @staticmethod
     def get_case_by_item(item: pytest.Item) -> t.Optional[PytestCase]:
-        """
-        Get the test case associated with a pytest item.
+        """Get the test case associated with a pytest item.
 
         :param item: The pytest test item
-        :return: PytestCase object or None if not found
+
+        :returns: PytestCase object or None if not found
+
         """
         return item.stash.get(IDF_CI_PYTEST_CASE_KEY, None)
 
@@ -81,12 +84,14 @@ class IdfPytestPlugin:
         self,
         request: FixtureRequest,
     ) -> str:
-        """
-        Fixture that provides the target for tests.
+        """Fixture that provides the target for tests.
 
         :param request: Pytest fixture request
-        :return: Target string
+
+        :returns: Target string
+
         :raises ValueError: If target parameter is not defined
+
         """
         target_value = getattr(request, 'param', None)
         if not target_value:
@@ -96,11 +101,12 @@ class IdfPytestPlugin:
     @pytest.fixture
     @multi_dut_argument
     def config(self, request: FixtureRequest) -> str:
-        """
-        Fixture that provides the configuration for tests.
+        """Fixture that provides the configuration for tests.
 
         :param request: Pytest fixture request
-        :return: Configuration string, defaults to 'default' if not specified
+
+        :returns: Configuration string, defaults to 'default' if not specified
+
         """
         return getattr(request, 'param', None) or 'default'
 
@@ -113,21 +119,20 @@ class IdfPytestPlugin:
         target: t.Optional[str],
         config: t.Optional[str],
     ) -> str:
-        """
-        Find a valid build directory based on priority rules.
+        """Find a valid build directory based on priority rules.
 
-        Checks local build directories in the following order:
-        1. build_<target>_<config>
-        2. build_<target>
-        3. build_<config>
-        4. build
+        Checks local build directories in the following order: 1.
+        build_<target>_<config> 2. build_<target> 3. build_<config> 4. build
 
         :param request: Pytest fixture request
         :param app_path: Path to the application
         :param target: Target being used
         :param config: Configuration being used
-        :return: Valid build directory name
+
+        :returns: Valid build directory name
+
         :raises ValueError: If no valid build directory is found
+
         """
         check_dirs = []
         build_dir_arg = request.config.getoption('build_dir')
@@ -160,13 +165,13 @@ class IdfPytestPlugin:
         self,
         module_path: Path,
     ):
-        """
-        Handle module collection for pytest, mocking any missing modules.
+        """Handle module collection for pytest, mocking any missing modules.
 
-        This hook runs before module collection to prevent errors from missing dependencies
-        by automatically mocking them.
+        This hook runs before module collection to prevent errors from missing
+        dependencies by automatically mocking them.
 
         :param module_path: Path to the module being collected
+
         """
         while True:
             try:
@@ -186,11 +191,11 @@ class IdfPytestPlugin:
 
     @pytest.hookimpl(wrapper=True)
     def pytest_collection_modifyitems(self, config: Config, items: t.List[Function]):
-        """
-        Filter test cases based on target, sdkconfig, and available apps.
+        """Filter test cases based on target, sdkconfig, and available apps.
 
         :param config: Pytest configuration
         :param items: Collected test items
+
         """
         # Add markers definitions
         config.addinivalue_line('markers', 'host_test: this test case runs on host machines')
@@ -269,10 +274,10 @@ class IdfPytestPlugin:
 # Hook Functions #
 ##################
 def pytest_addoption(parser: pytest.Parser):
-    """
-    Add custom command line options for IDF pytest plugin.
+    """Add custom command line options for IDF pytest plugin.
 
     :param parser: Pytest command line parser
+
     """
     # CLI values
     idf_ci_group = parser.getgroup('idf_ci')
@@ -291,10 +296,10 @@ def pytest_addoption(parser: pytest.Parser):
 
 
 def pytest_configure(config: Config):
-    """
-    Configure the pytest environment for IDF tests.
+    """Configure the pytest environment for IDF tests.
 
     :param config: Pytest configuration object
+
     """
     setup_logging(config.getoption('log_cli_level'))
 
@@ -315,10 +320,10 @@ def pytest_configure(config: Config):
 
 
 def pytest_unconfigure(config: Config):
-    """
-    Clean up the IDF pytest plugin when pytest is shutting down.
+    """Clean up the IDF pytest plugin when pytest is shutting down.
 
     :param config: Pytest configuration object
+
     """
     plugin = config.stash.get(IDF_CI_PLUGIN_KEY, None)
     if plugin:

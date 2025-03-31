@@ -30,12 +30,14 @@ class ArtifactManager:
 
     This class provides a unified interface for downloading and uploading artifacts,
     supporting both GitLab's built-in storage and S3 storage. It handles:
+
     1. GitLab API operations (pipeline, merge request queries)
     2. S3 storage operations (artifact upload/download)
     3. Fallback to GitLab storage when S3 is not configured
 
-    :ivar env: GitLab environment variables
-    :ivar settings: CI settings
+    :var env: GitLab environment variables
+    :var settings: CI settings
+
     """
 
     def __init__(self):
@@ -63,7 +65,9 @@ class ArtifactManager:
         """Get a merge request by its branch name.
 
         :param branch: Branch name of the merge request to get
-        :return: The merge request object
+
+        :returns: The merge request object
+
         """
         mrs = self.project.mergerequests.list(state='opened', source_branch=branch)
         if not mrs:
@@ -74,7 +78,9 @@ class ArtifactManager:
         """Get file patterns based on the artifact type.
 
         :param artifact_type: Type of artifacts to download (debug, flash, metrics)
-        :return: List of file patterns
+
+        :returns: List of file patterns
+
         """
         if artifact_type:
             if artifact_type == 'flash':
@@ -102,17 +108,20 @@ class ArtifactManager:
     ) -> None:
         """Download artifacts from a pipeline.
 
-        This method downloads artifacts from either GitLab's built-in storage or S3 storage,
-        depending on the configuration and artifact type.
+        This method downloads artifacts from either GitLab's built-in storage or S3
+        storage, depending on the configuration and artifact type.
 
-        There are two main use cases:
-        1. CI use case: Use commit_sha to download artifacts from a specific commit
-        2. Local use case: Use branch to download artifacts from the latest pipeline of a branch
+        There are two main use cases: 1. CI use case: Use commit_sha to download
+        artifacts from a specific commit 2. Local use case: Use branch to download
+        artifacts from the latest pipeline of a branch
 
-        :param commit_sha: Optional commit SHA. If provided, will download from this specific commit
-        :param branch: Optional Git branch. If no commit_sha provided, will use current branch
+        :param commit_sha: Optional commit SHA. If provided, will download from this
+            specific commit
+        :param branch: Optional Git branch. If no commit_sha provided, will use current
+            branch
         :param artifact_type: Type of artifacts to download (debug, flash, metrics)
         :param folder: download artifacts under this folder
+
         """
         env = GitlabEnvVars()
         if folder is None:
@@ -163,13 +172,16 @@ class ArtifactManager:
     ) -> None:
         """Upload artifacts to S3 storage.
 
-        This method uploads artifacts to S3 storage only. GitLab's built-in storage is not supported.
-        The commit SHA is required to identify where to store the artifacts.
+        This method uploads artifacts to S3 storage only. GitLab's built-in storage is
+        not supported. The commit SHA is required to identify where to store the
+        artifacts.
 
         :param commit_sha: Commit SHA to upload artifacts to
         :param artifact_type: Type of artifacts to upload (debug, flash, metrics)
         :param folder: upload artifacts under this folder
+
         :raises ValueError: If commit_sha is not provided or S3 is not configured
+
         """
         if folder is None:
             folder = os.getcwd()

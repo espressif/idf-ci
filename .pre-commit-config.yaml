@@ -38,13 +38,14 @@ repos:
           - types-PyYAML
           - minio
           - python-gitlab
-  - repo: https://github.com/hfudev/rstfmt
-    rev: 'v0.1.4'
+  - repo: https://github.com/LilSpazJoekp/docstrfmt
+    rev: v1.10.0
     hooks:
-      - id: rstfmt
-        args: ['-w', '-1']
-        files: "docs\/.+rst$"
-        additional_dependencies:
-          - sphinx-argparse
-          - sphinx-tabs
-          - sphinxcontrib-mermaid
+      - id: docstrfmt
+        types: [rst]
+        args: ['-l', '99999999999999999999999']
+  - repo: https://github.com/LilSpazJoekp/docstrfmt
+    rev: v1.10.0
+    hooks:
+      - id: docstrfmt
+        types: [python]

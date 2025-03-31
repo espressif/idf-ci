@@ -21,9 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class TomlConfigSettingsSource(InitSettingsSource):
-    """
-    A source class that loads variables from a TOML file
-    """
+    """A source class that loads variables from a TOML file"""
 
     def __init__(
         self,
@@ -54,12 +52,14 @@ class TomlConfigSettingsSource(InitSettingsSource):
 
     @staticmethod
     def _pick_toml_file(provided: t.Optional[PathLike], filename: str) -> t.Optional[Path]:
-        """
-        Pick a file path to use. If a file path is provided, use it. Otherwise, search up the directory tree for a
-        file with the given name.
+        """Pick a file path to use.
+
+        If a file path is provided, use it. Otherwise, search up the directory tree for
+        a file with the given name.
 
         :param provided: Explicit path provided when instantiating this class.
         :param filename: Name of the file to search for.
+
         """
         if provided:
             provided_p = Path(provided)
@@ -178,28 +178,29 @@ class CiSettings(BaseSettings):
 
     @property
     def is_in_ci(self) -> bool:
-        """
-        Check if the code is running in a CI environment.
+        """Check if the code is running in a CI environment.
 
-        :return: True if in CI environment, False otherwise
+        :returns: True if in CI environment, False otherwise
+
         """
         return any(os.getenv(env) is not None for env in self.ci_detection_envs)
 
     @property
     def all_component_mapping_regexes(self) -> t.Set[re.Pattern]:
-        """
-        Get all component mapping regexes as compiled pattern objects.
+        """Get all component mapping regexes as compiled pattern objects.
 
-        :return: Set of compiled regex patterns
+        :returns: Set of compiled regex patterns
+
         """
         return {re.compile(regex) for regex in self.component_mapping_regexes + self.extend_component_mapping_regexes}
 
     def get_modified_components(self, modified_files: t.Iterable[str]) -> t.Set[str]:
-        """
-        Get the set of components that have been modified based on the provided files.
+        """Get the set of components that have been modified based on the provided files.
 
         :param modified_files: Iterable of file paths that have been modified
-        :return: Set of component names that have been modified
+
+        :returns: Set of component names that have been modified
+
         """
         modified_components = set()
 
@@ -224,10 +225,11 @@ class CiSettings(BaseSettings):
         return modified_components
 
     def get_apps_list(self) -> t.Optional[t.List[App]]:
-        """
-        Get the list of successfully built applications from the app info files.
+        """Get the list of successfully built applications from the app info files.
 
-        :return: List of App objects representing successfully built applications, or None if no files found
+        :returns: List of App objects representing successfully built applications, or
+            None if no files found
+
         """
         found_files = list(Path('.').glob('app_info_*.txt'))
         if not found_files:

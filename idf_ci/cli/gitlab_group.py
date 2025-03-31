@@ -33,28 +33,10 @@ def dynamic_pipeline_variables():
 def download_artifacts(artifact_type, commit_sha, branch, folder):
     """Download artifacts from a GitLab pipeline.
 
-    This command downloads artifacts from either GitLab's built-in storage or S3 storage,
-    depending on the configuration. The artifacts are downloaded to the specified folder
-    (or current directory if not specified).
+    This command downloads artifacts from either GitLab's built-in storage or S3
+    storage, depending on the configuration. The artifacts are downloaded to the
+    specified folder (or current directory if not specified).
 
-    There are two main use cases:
-    1. CI use case: Use --commit-sha to download artifacts from a specific commit
-    2. Local use case: Use --branch to download artifacts from the latest pipeline of a branch
-       (defaults to current branch if not specified)
-
-    .. examples::
-
-        # Download all artifacts from a specific commit to current directory
-        idf-ci gitlab download-artifacts --commit-sha abc123
-
-        # Download only flash artifacts from a specific commit to a folder
-        idf-ci gitlab download-artifacts --type flash --commit-sha abc123 /path/to/folder
-
-        # Download all artifacts from latest pipeline of current branch
-        idf-ci gitlab download-artifacts
-
-        # Download debug artifacts from latest pipeline of a specific branch
-        idf-ci gitlab download-artifacts --type debug --branch feature/new-feature
     """
     manager = ArtifactManager()
     manager.download_artifacts(
@@ -81,12 +63,13 @@ def download_artifacts(artifact_type, commit_sha, branch, folder):
 def upload_artifacts(artifact_type, commit_sha, folder):
     """Upload artifacts to S3 storage.
 
-    This command uploads artifacts to S3 storage only. GitLab's built-in storage is not supported.
-    The commit SHA is required to identify where to store the artifacts.
+    This command uploads artifacts to S3 storage only. GitLab's built-in storage is not
+    supported. The commit SHA is required to identify where to store the artifacts.
 
     :param commit_sha: Commit SHA to upload artifacts to
     :param artifact_type: Type of artifacts to upload (debug, flash, metrics)
     :param folder: Directory containing artifacts to upload
+
     """
     manager = ArtifactManager()
     manager.upload_artifacts(

@@ -24,9 +24,7 @@ class GroupKey(NamedTuple):
 
 
 class PytestApp:
-    """
-    Represents a pytest app.
-    """
+    """Represents a pytest app."""
 
     def __init__(self, path: str, target: str, config: str) -> None:
         self.path = os.path.abspath(path)
@@ -38,22 +36,21 @@ class PytestApp:
 
     @property
     def build_dir(self) -> str:
-        """
-        Returns the build directory for the app.
+        """Returns the build directory for the app.
 
         .. note::
 
-            Matches the build_dir (by default build_@t_@w) in the idf-build-apps config file.
+            Matches the build_dir (by default build_@t_@w) in the idf-build-apps config
+            file.
 
-        :return: The build directory for the app.
+        :returns: The build directory for the app.
+
         """
         return os.path.join(self.path, f'build_{self.target}_{self.config}')
 
 
 class PytestCase:
-    """
-    Represents a pytest test case.
-    """
+    """Represents a pytest test case."""
 
     KNOWN_ENV_MARKERS: t.ClassVar[t.Set[str]] = set()
 
@@ -63,13 +60,14 @@ class PytestCase:
 
     @classmethod
     def get_param(cls, item: Function, key: str, default: t.Any = None) -> t.Any:
-        """
-        Get parameter value from pytest item.
+        """Get parameter value from pytest item.
 
         :param item: Pytest function item
         :param key: Parameter key to retrieve
         :param default: Default value if key not found
-        :return: Parameter value or default
+
+        :returns: Parameter value or default
+
         """
         # funcargs is not calculated while collection
         # callspec is something defined in parametrize
@@ -80,11 +78,12 @@ class PytestCase:
 
     @classmethod
     def from_item(cls, item: Function) -> t.Optional['PytestCase']:
-        """
-        Create a PytestCase from a pytest item.
+        """Create a PytestCase from a pytest item.
 
         :param item: Pytest function item
-        :return: PytestCase instance or None if targets not defined
+
+        :returns: PytestCase instance or None if targets not defined
+
         """
         count = cls.get_param(item, 'count', 1)
 
@@ -172,11 +171,12 @@ class PytestCase:
         return {marker.name for marker in self.item.iter_markers()}
 
     def get_skip_reason_if_not_built(self, app_dirs: t.Optional[t.List[str]] = None) -> t.Optional[str]:
-        """
-        Check if all binaries of the test case are built in the app lists.
+        """Check if all binaries of the test case are built in the app lists.
 
         :param app_dirs: App folder paths to check
-        :return: Skip reason string if not all binaries are built, None otherwise
+
+        :returns: Skip reason string if not all binaries are built, None otherwise
+
         """
         if app_dirs is None:
             # ignore this feature
@@ -208,9 +208,7 @@ class PytestCase:
 
 
 class GroupedPytestCases:
-    """
-    Groups pytest cases by target and environment markers.
-    """
+    """Groups pytest cases by target and environment markers."""
 
     def __init__(self, cases: t.List[PytestCase]) -> None:
         self.cases = cases
@@ -218,10 +216,10 @@ class GroupedPytestCases:
     @property
     @lru_cache()
     def grouped_cases(self) -> t.Dict[GroupKey, t.List[PytestCase]]:
-        """
-        Groups test cases by target and environment markers.
+        """Groups test cases by target and environment markers.
 
-        :return: Dictionary of GroupKey to list of PytestCases
+        :returns: Dictionary of GroupKey to list of PytestCases
+
         """
         grouped: t.Dict[GroupKey, t.List[PytestCase]] = defaultdict(list)
         for case in self.cases:
@@ -230,10 +228,10 @@ class GroupedPytestCases:
         return grouped
 
     def output_as_string(self) -> str:
-        """
-        Generates a human-readable string representation of grouped test cases.
+        """Generates a human-readable string representation of grouped test cases.
 
-        :return: String representation of grouped test cases
+        :returns: String representation of grouped test cases
+
         """
         lines: t.List[str] = []
         for key, cases in self.grouped_cases.items():
@@ -248,12 +246,11 @@ class GroupedPytestCases:
         return '\n'.join(lines)
 
     def output_as_github_ci(self) -> str:
-        """
-        Generates a JSON string for GitHub Actions CI matrix strategy.
+        """Generates a JSON string for GitHub Actions CI matrix strategy.
 
         Example output:
 
-        .. code:: json
+        .. code-block:: json
 
             {
                 "include": [
@@ -280,12 +277,13 @@ class GroupedPytestCases:
 
         Example usage:
 
-        .. code:: yaml
+        .. code-block:: yaml
 
             strategy:
                 matrix: ${{fromJson( this_output_as_env_var )}}
 
-        :return: JSON string suitable for GitHub Actions matrix strategy
+        :returns: JSON string suitable for GitHub Actions matrix strategy
+
         """
         include_list = []
         for key, cases in self.grouped_cases.items():
@@ -301,10 +299,11 @@ class GroupedPytestCases:
         return json.dumps({'include': include_list})
 
     def output_as_gitlab_ci(self) -> str:
-        """
-        Generates CI configuration for GitLab CI.
+        """Generates CI configuration for GitLab CI.
+
+        :returns: GitLab CI configuration string
 
         :raises: NotImplementedError
-        :return: GitLab CI configuration string
+
         """
         raise NotImplementedError

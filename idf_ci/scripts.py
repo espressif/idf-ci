@@ -26,8 +26,7 @@ def get_all_apps(
     filter_expr: UndefinedOr[t.Optional[str]] = UNDEF,
     default_build_targets: UndefinedOr[t.List[str]] = UNDEF,
 ) -> t.Tuple[t.Set[App], t.Set[App]]:
-    """
-    Get test-related and non-test-related applications.
+    """Get test-related and non-test-related applications.
 
     :param paths: List of paths to search for applications
     :param target: Target device(s) separated by commas
@@ -36,7 +35,9 @@ def get_all_apps(
     :param marker_expr: Pytest marker expression -m
     :param filter_expr: Pytest filter expression -k
     :param default_build_targets: Default build targets to use
-    :return: Tuple of (test_related_apps, non_test_related_apps)
+
+    :returns: Tuple of (test_related_apps, non_test_related_apps)
+
     """
     # Respect some environment variables
     if GitlabEnvVars().is_full_pipeline:
@@ -142,8 +143,7 @@ def build(
     marker_expr: UndefinedOr[str] = UNDEF,
     filter_expr: UndefinedOr[str] = UNDEF,
 ) -> t.Tuple[t.List[App], int]:
-    """
-    Build applications based on specified parameters.
+    """Build applications based on specified parameters.
 
     :param paths: List of paths to search for applications
     :param target: Target device(s) separated by commas
@@ -156,7 +156,9 @@ def build(
     :param verbose: Verbosity level
     :param marker_expr: Pytest marker expression
     :param filter_expr: Filter expression
-    :return: Tuple of (built apps, build return code)
+
+    :returns: Tuple of (built apps, build return code)
+
     """
     modified_components = None
     if modified_files is not None:
