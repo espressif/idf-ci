@@ -159,7 +159,7 @@ class ArtifactManager:
         *,
         commit_sha: str,
         artifact_type: t.Optional[Literal['debug', 'flash', 'metrics']] = None,
-        input_dir: t.Optional[str] = None,
+        folder: t.Optional[str] = None,
     ) -> None:
         """Upload artifacts to S3 storage.
 
@@ -168,12 +168,12 @@ class ArtifactManager:
 
         :param commit_sha: Commit SHA to upload artifacts to
         :param artifact_type: Type of artifacts to upload (debug, flash, metrics)
-        :param input_dir: Optional input directory. Defaults to current directory
+        :param folder: upload artifacts under this folder
         :raises ValueError: If commit_sha is not provided or S3 is not configured
         """
-        if input_dir is None:
-            input_dir = os.getcwd()
-        input_path = Path(input_dir)
+        if folder is None:
+            folder = os.getcwd()
+        from_path = Path(folder)
 
         if not commit_sha:
             raise ValueError('Commit SHA is required to upload artifacts')
@@ -183,11 +183,11 @@ class ArtifactManager:
             raise ValueError('Configure S3 storage to upload artifacts')
 
         s3_prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
-        logger.info(f'Uploading artifacts under {input_dir} to s3 prefix {s3_prefix}')
+        logger.info(f'Uploading artifacts under {from_path} to s3 prefix {s3_prefix}')
 
         upload_to_s3(
             s3_client=s3_client,
             prefix=s3_prefix,
-            input_path=input_path,
+            from_path=from_path,
             patterns=self._get_patterns_by_type(artifact_type),
         )

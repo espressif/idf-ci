@@ -77,13 +77,8 @@ def download_artifacts(artifact_type, commit_sha, branch, folder):
     required=True,
     help='Commit SHA to upload artifacts to. Required for S3 storage.',
 )
-@click.option(
-    '--input-dir',
-    '-i',
-    type=click.Path(file_okay=False, dir_okay=True),
-    help='Input directory containing artifacts to upload. Defaults to current directory.',
-)
-def upload_artifacts(artifact_type, commit_sha, input_dir):
+@click.argument('folder', required=False)
+def upload_artifacts(artifact_type, commit_sha, folder):
     """Upload artifacts to S3 storage.
 
     This command uploads artifacts to S3 storage only. GitLab's built-in storage is not supported.
@@ -91,12 +86,11 @@ def upload_artifacts(artifact_type, commit_sha, input_dir):
 
     :param commit_sha: Commit SHA to upload artifacts to
     :param artifact_type: Type of artifacts to upload (debug, flash, metrics)
-    :param prefix: Optional prefix to filter artifacts by path
-    :param input_dir: Directory containing artifacts to upload
+    :param folder: Directory containing artifacts to upload
     """
     manager = ArtifactManager()
     manager.upload_artifacts(
         commit_sha=commit_sha,
-        input_dir=input_dir,
         artifact_type=artifact_type,
+        folder=folder,
     )
