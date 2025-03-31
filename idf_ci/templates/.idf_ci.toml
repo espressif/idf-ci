@@ -12,5 +12,37 @@ component_ignored_file_extensions = [
 ]
 
 built_app_list_filepatterns = [
-    "app_info_*.txt",
+    "app_info_*.txt",   # collect_app_info_filename
+]
+
+[gitlab]
+GITLAB_PROJECT = "espressif/esp-idf"
+
+debug_artifacts_filepatterns = [
+    '**/build*/bootloader/*.map',
+    '**/build*/bootloader/*.elf',
+    '**/build*/*.map',
+    '**/build*/*.elf',
+    '**/build*/build.log',  # build_log_filename
+]
+flash_artifacts_filepatterns = [
+    '**/build*/bootloader/*.bin',
+    '**/build*/*.bin',
+    '**/build*/partition_table/*.bin',
+    '**/build*/flasher_args.json',
+    '**/build*/flash_project_args',
+    '**/build*/config/sdkconfig.json',
+    '**/build*/sdkconfig',
+    '**/build*/project_description.json',
+]
+metrics_artifacts_filepatterns = [
+    '**/build*/size.json',  # size_json_filename
+]
+
+# ci_artifacts will be uploaded to idf_gitlab artifacts, which is required for the CI/CD pipeline
+ci_artifacts_filepatterns = [
+    'app_info_*.txt',  # collect_app_info_filename
+    'presigned_urls.json',
+    'build_summary_*.xml',  # junitxml
+    'pipeline.env',  # pipeline.env
 ]

@@ -28,20 +28,6 @@ IDF_CI_PLUGIN_KEY = StashKey['IdfPytestPlugin']()
 logger = logging.getLogger(__name__)
 
 
-############
-# Fixtures #
-############
-
-
-def _try_import(path: Path):
-    spec = importlib.util.spec_from_file_location('', path)
-    # write these if to make mypy happy
-    if spec:
-        module = importlib.util.module_from_spec(spec)
-        if spec.loader and module:
-            spec.loader.exec_module(module)
-
-
 ##########
 # Plugin #
 ##########
@@ -53,8 +39,10 @@ class IdfPytestPlugin:
         sdkconfig_name: t.Optional[str] = None,
     ) -> None:
         """
-        :param cli_target: target passed from command line, could be single target, comma separated targets, or 'all'
-        :param sdkconfig_name: run only tests whose apps are built with this sdkconfig name
+        Initialize the IDF pytest plugin.
+
+        :param cli_target: Target passed from command line - single target, comma separated targets, or 'all'
+        :param sdkconfig_name: Filter tests whose apps are built with this sdkconfig name
         """
         self.cli_target = cli_target
         self.sdkconfig_name = sdkconfig_name
@@ -64,16 +52,27 @@ class IdfPytestPlugin:
 
     @property
     def cases(self) -> t.List[PytestCase]:
-        res = []
-        for item in self._testing_items:
-            c = self.get_case_by_item(item)
-            if c:
-                res.append(c)
+        """
+        Get all test cases being tested, sorted by case ID.
 
-        return sorted(res, key=lambda x: x.caseid)
+        :return: Sorted list of test cases
+        """
+        cases = []
+        for item in self._testing_items:
+            case = self.get_case_by_item(item)
+            if case:
+                cases.append(case)
+
+        return sorted(cases, key=lambda x: x.caseid)
 
     @staticmethod
     def get_case_by_item(item: pytest.Item) -> t.Optional[PytestCase]:
+        """
+        Get the test case associated with a pytest item.
+
+        :param item: The pytest test item
+        :return: PytestCase object or None if not found
+        """
         return item.stash.get(IDF_CI_PYTEST_CASE_KEY, None)
 
     @pytest.fixture
@@ -82,14 +81,27 @@ class IdfPytestPlugin:
         self,
         request: FixtureRequest,
     ) -> str:
-        _t = getattr(request, 'param', None)
-        if not _t:
-            raise ValueError('"target" shall either be defined in pytest.mark.parametrize')
-        return _t
+        """
+        Fixture that provides the target for tests.
+
+        :param request: Pytest fixture request
+        :return: Target string
+        :raises ValueError: If target parameter is not defined
+        """
+        target_value = getattr(request, 'param', None)
+        if not target_value:
+            raise ValueError('"target" must be defined in pytest.mark.parametrize')
+        return target_value
 
     @pytest.fixture
     @multi_dut_argument
     def config(self, request: FixtureRequest) -> str:
+        """
+        Fixture that provides the configuration for tests.
+
+        :param request: Pytest fixture request
+        :return: Configuration string, defaults to 'default' if not specified
+        """
         return getattr(request, 'param', None) or 'default'
 
     @pytest.fixture
@@ -102,18 +114,24 @@ class IdfPytestPlugin:
         config: t.Optional[str],
     ) -> str:
         """
-        Check local build dir with the following priority:
+        Find a valid build directory based on priority rules.
 
+        Checks local build directories in the following order:
         1. build_<target>_<config>
         2. build_<target>
         3. build_<config>
         4. build
 
-        Returns:
-            valid build directory
+        :param request: Pytest fixture request
+        :param app_path: Path to the application
+        :param target: Target being used
+        :param config: Configuration being used
+        :return: Valid build directory name
+        :raises ValueError: If no valid build directory is found
         """
         check_dirs = []
-        build_dir_arg = request.config.getoption('build_dir', None)
+        build_dir_arg = request.config.getoption('build_dir')
+
         if build_dir_arg:
             check_dirs.append(build_dir_arg)
         if target is not None and config is not None:
@@ -127,13 +145,14 @@ class IdfPytestPlugin:
         for check_dir in check_dirs:
             binary_path = os.path.join(app_path, check_dir)
             if os.path.isdir(binary_path):
-                logger.info(f'found valid binary path: {binary_path}')
+                logger.info(f'Found valid binary path: {binary_path}')
                 return check_dir
 
-            logger.warning('checking binary path: %s... missing... try another place', binary_path)
+            logger.warning('Checking binary path: %s... missing... trying another location', binary_path)
 
         raise ValueError(
-            f'no build dir valid. Please build the binary via "idf.py -B {check_dirs[0]} build" and run pytest again'
+            'No valid build directory found. '
+            f'Please build the binary via "idf.py -B {check_dirs[0]} build" and run pytest again'
         )
 
     @pytest.hookimpl(tryfirst=True)
@@ -141,95 +160,108 @@ class IdfPytestPlugin:
         self,
         module_path: Path,
     ):
-        # no need to install third-party packages for collecting
-        # try to eliminate ModuleNotFoundError in test scripts
+        """
+        Handle module collection for pytest, mocking any missing modules.
+
+        This hook runs before module collection to prevent errors from missing dependencies
+        by automatically mocking them.
+
+        :param module_path: Path to the module being collected
+        """
         while True:
             try:
-                _try_import(module_path)
+                spec = importlib.util.spec_from_file_location('', module_path)
+                if spec:
+                    module = importlib.util.module_from_spec(spec)
+                    if spec.loader and module:
+                        spec.loader.exec_module(module)
+                break
             except ModuleNotFoundError as e:
-                res = _MODULE_NOT_FOUND_REGEX.search(e.msg)
-                if res:
-                    # redirect_stderr somehow breaks the sys.stderr.write() method
-                    # fix it when implement proper logging
-                    pkg = res.group(1)
-                    logger.warning(f'WARNING:Mocking missed package while collecting: {pkg}\n')
+                match = _MODULE_NOT_FOUND_REGEX.search(e.msg)
+                if match:
+                    pkg = match.group(1)
+                    logger.warning('Mocking missing package during collection: %s', pkg)
                     sys.modules[pkg] = MagicMock()
                     continue
-            else:
-                break
 
     @pytest.hookimpl(wrapper=True)
     def pytest_collection_modifyitems(self, config: Config, items: t.List[Function]):
-        # add markers definitions
+        """
+        Filter test cases based on target, sdkconfig, and available apps.
+
+        :param config: Pytest configuration
+        :param items: Collected test items
+        """
+        # Add markers definitions
         config.addinivalue_line('markers', 'host_test: this test case runs on host machines')
 
+        # Create PytestCase objects for all items
         for item in items:
             item.stash[IDF_CI_PYTEST_CASE_KEY] = PytestCase.from_item(item)
 
-        # add markers to items
+        # Add markers to items
         for item in items:
-            _c = self.get_case_by_item(item)
-            if _c is None:
+            case = self.get_case_by_item(item)
+            if case is None:
                 continue
 
-            # add 'host_test' marker to host test cases
-            if 'qemu' in _c.all_markers or 'linux' in _c.targets:
+            # Add 'host_test' marker to host test cases
+            if 'qemu' in case.all_markers or 'linux' in case.targets:
                 item.add_marker(pytest.mark.host_test)
 
         yield
 
         deselected_items: t.List[Function] = []
 
-        # filter by target
+        # Filter by target
         if self.cli_target != 'all':
-            res = []
+            filtered_items = []
             for item in items:
-                _c = self.get_case_by_item(item)
-                if _c is None:
+                case = self.get_case_by_item(item)
+                if case is None:
                     continue
 
-                if _c.target_selector != self.cli_target:
-                    item.add_marker(pytest.mark.skip(reason=f'target mismatch: {self.cli_target}'))
+                if case.target_selector != self.cli_target:
+                    item.add_marker(pytest.mark.skip(reason=f'Target mismatch: {self.cli_target}'))
                     deselected_items.append(item)
                 else:
-                    res.append(item)
-            items[:] = res
+                    filtered_items.append(item)
+            items[:] = filtered_items
 
-        # filter by sdkconfig_name
+        # Filter by sdkconfig_name
         if self.sdkconfig_name:
-            res = []
+            filtered_items = []
             for item in items:
-                _c = self.get_case_by_item(item)
-                if _c is None:
+                case = self.get_case_by_item(item)
+                if case is None:
                     continue
 
-                if self.sdkconfig_name not in set(app.config for app in _c.apps):
-                    logger.debug('skip test case %s due to sdkconfig name mismatch', _c.caseid)
+                if self.sdkconfig_name not in set(app.config for app in case.apps):
+                    logger.debug('Skipping test case %s due to sdkconfig name mismatch', case.caseid)
                     deselected_items.append(item)
                 else:
-                    res.append(item)
-            items[:] = res
+                    filtered_items.append(item)
+            items[:] = filtered_items
 
-        # filter by app list
+        # Filter by app list
         if self.apps is not None:
             app_dirs = [os.path.abspath(app.build_path) for app in self.apps]
-            res = []
+            filtered_items = []
             for item in items:
-                _c = self.get_case_by_item(item)
-                if _c is None:
+                case = self.get_case_by_item(item)
+                if case is None:
                     continue
 
-                skip_reason = _c.get_skip_reason_if_not_built(app_dirs)
+                skip_reason = case.get_skip_reason_if_not_built(app_dirs)
                 if skip_reason:
                     logger.debug(skip_reason)
                     deselected_items.append(item)
                 else:
-                    res.append(item)
-            items[:] = res
+                    filtered_items.append(item)
+            items[:] = filtered_items
 
-        # deselected items should be added to config.hook.pytest_deselected
+        # Report deselected items
         config.hook.pytest_deselected(items=deselected_items)
-
         self._testing_items.update(items)
 
 
@@ -237,27 +269,37 @@ class IdfPytestPlugin:
 # Hook Functions #
 ##################
 def pytest_addoption(parser: pytest.Parser):
-    # cli values
+    """
+    Add custom command line options for IDF pytest plugin.
+
+    :param parser: Pytest command line parser
+    """
+    # CLI values
     idf_ci_group = parser.getgroup('idf_ci')
     idf_ci_group.addoption(
         '--sdkconfig',
-        help='run only tests whose apps are built with this sdkconfig name',
+        help='Run only tests whose apps are built with this sdkconfig name',
     )
 
-    # ini values
+    # INI values
     parser.addini(
         'env_markers',
-        help='markers that indicate the running environment of the test case. '
+        help='Markers that indicate the running environment of the test case. '
         'Each line is a `<marker_name>: <marker_description>` pair',
         type='linelist',
     )
 
 
 def pytest_configure(config: Config):
-    setup_logging(config.getoption('log_cli_level', None))
+    """
+    Configure the pytest environment for IDF tests.
+
+    :param config: Pytest configuration object
+    """
+    setup_logging(config.getoption('log_cli_level'))
 
     cli_target = config.getoption('target') or 'all'
-    sdkconfig_name = config.getoption('sdkconfig', None)
+    sdkconfig_name = config.getoption('sdkconfig')
 
     env_markers: t.Set[str] = set()
     for line in config.getini('env_markers'):
@@ -273,7 +315,12 @@ def pytest_configure(config: Config):
 
 
 def pytest_unconfigure(config: Config):
-    _idf_ci_plugin = config.stash.get(IDF_CI_PLUGIN_KEY, None)
-    if _idf_ci_plugin:
+    """
+    Clean up the IDF pytest plugin when pytest is shutting down.
+
+    :param config: Pytest configuration object
+    """
+    plugin = config.stash.get(IDF_CI_PLUGIN_KEY, None)
+    if plugin:
         del config.stash[IDF_CI_PLUGIN_KEY]
-        config.pluginmanager.unregister(_idf_ci_plugin)
+        config.pluginmanager.unregister(plugin)

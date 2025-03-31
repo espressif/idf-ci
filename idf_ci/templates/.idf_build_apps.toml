@@ -12,9 +12,7 @@ build_dir = "build_@t_@w"
 build_log_filename = "build.log"
 size_json_filename = "size.json"
 
-collect_size_info = "size_info_@p.txt"
-collect_app_info = "app_info_@p.txt"
-junitxml = "build_summary_@p.xml"
+collect_app_info_filename = "app_info_@p.txt"
 
 check_manifest_rules = true
 manifest_filepatterns = [

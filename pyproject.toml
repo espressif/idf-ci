@@ -26,7 +26,12 @@ classifiers = [
 ]
 dependencies = [
     "click",
+    # file format
     "tomlkit", # we need both read and write
+    "pyyaml",
+    # ci related
+    "python-gitlab",
+    "minio",
     # build related
     "idf-build-apps~=2.8",
     # test related
@@ -35,6 +40,7 @@ dependencies = [
     "pytest-embedded-qemu~=1.16",
     "pytest-ignore-test-results>=0.3.0,<1",
     "pytest-timeout",
+    "pytest-rerunfailures",
     # logging / printing
     "rich",
 ]
@@ -119,6 +125,12 @@ follow_untyped_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-p no:idf-ci -p pytester"
+
+filterwarnings = [
+    "ignore::FutureWarning",
+]
+
+junit_family = "xunit1"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
