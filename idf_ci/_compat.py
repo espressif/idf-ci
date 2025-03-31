@@ -18,21 +18,24 @@ UndefinedOr = t.Union[UndefinedType, T]
 
 
 def is_undefined(value: t.Any) -> bool:
-    """
-    Check if a value is undefined.
+    """Check if a value is undefined.
 
     :param value: The value to check
-    :return: True if the value equals the UNDEF constant, False otherwise
+
+    :returns: True if the value equals the UNDEF constant, False otherwise
+
     """
     return isinstance(value, UndefinedType) or value == '__UNDEF__'  # click would convert UNDEF to '__UNDEF__'
 
 
 def is_defined_and_satisfies(value: t.Any, _callable: t.Callable[[t.Any], bool] = bool) -> bool:
-    """
-    Check if a value is defined and the callable returns True for the value.
+    """Check if a value is defined and the callable returns True for the value.
 
     :param value: The value to check
     :param _callable: The callable to check the value with. Default is ``bool()``
-    :return: True if the value is defined and the callable returns True for the value, False otherwise
+
+    :returns: True if the value is defined and the callable returns True for the value,
+        False otherwise
+
     """
     return not is_undefined(value) and _callable(value)

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import shutil
 import subprocess
 
 # Configuration file for the Sphinx documentation builder.
@@ -29,6 +30,7 @@ extensions = [
     'sphinxcontrib.mermaid',
     'sphinxarg.ext',
     'sphinx_tabs.tabs',
+    'sphinxcontrib.autodoc_pydantic',
 ]
 
 templates_path = ['../_templates']
@@ -44,10 +46,11 @@ html_theme = 'sphinx_rtd_theme'
 
 
 def generate_api_docs(language):
+    shutil.rmtree(os.path.join(os.path.dirname(__file__), language, 'references', 'api'), ignore_errors=True)
+
     subprocess.run(
         [
             'sphinx-apidoc',
-            os.path.join(os.path.dirname(__file__), '..', 'idf_ci'),
             '-f',
             '-H',
             'API Reference',
@@ -56,5 +59,8 @@ def generate_api_docs(language):
             '_apidoc_templates',
             '-o',
             os.path.join(os.path.dirname(__file__), language, 'references', 'api'),
+            os.path.join(os.path.dirname(__file__), '..', 'idf_ci'),
+            os.path.join(os.path.dirname(__file__), '..', 'idf_ci', 'settings.py'),
+            os.path.join(os.path.dirname(__file__), '..', 'idf_ci', 'idf_gitlab', 'envs.py'),
         ]
     )

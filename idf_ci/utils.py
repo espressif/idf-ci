@@ -23,12 +23,11 @@ def to_list(s: _T) -> t.List[_T]: ...
 
 
 def to_list(s):
-    """
-    Turn all objects to lists
+    """Turn all objects to lists
 
     :param s: anything
-    :return:
-        - ``None``, if ``s`` is None
+
+    :returns: - ``None``, if ``s`` is None
         - itself, if ``s`` is a list
         - ``list(s)``, if ``s`` is a tuple or a set
         - ``[s]``, if ``s`` is other type
@@ -47,10 +46,10 @@ def to_list(s):
 
 
 def setup_logging(level: t.Optional[int] = logging.WARNING) -> None:
-    """
-    Setup logging
+    """Setup logging
 
     :param level: logging level
+
     """
     if level is None:
         level = logging.WARNING
@@ -66,11 +65,12 @@ def setup_logging(level: t.Optional[int] = logging.WARNING) -> None:
 
 
 def remove_subfolders(paths: t.List[str]) -> t.List[str]:
-    """
-    Remove paths that are subfolders of other paths in the list.
+    """Remove paths that are subfolders of other paths in the list.
 
     :param paths: List of directory paths as strings
-    :return: Filtered list of paths with no subfolder/parent folder relationships
+
+    :returns: Filtered list of paths with no subfolder/parent folder relationships
+
     """
     result = set()
 
@@ -84,8 +84,10 @@ def remove_subfolders(paths: t.List[str]) -> t.List[str]:
 def get_current_branch() -> str:
     """Get the current Git branch by running git command.
 
-    :return: The current Git ref (branch name or commit SHA)
+    :returns: The current Git ref (branch name or commit SHA)
+
     :raises RuntimeError: If not in a Git repository or git command fails
+
     """
     result = subprocess.run(
         ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],

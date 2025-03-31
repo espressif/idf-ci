@@ -80,7 +80,5 @@ def run(
 @build.command()
 @click.option('--path', help='Path to create the config file')
 def init(path: str):
-    """
-    Create .idf_build_apps.toml with default values
-    """
+    """Create .idf_build_apps.toml with default values"""
     create_config_file(os.path.join(os.path.dirname(__file__), '..', 'templates', '.idf_build_apps.toml'), path)

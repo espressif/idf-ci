@@ -64,6 +64,7 @@ doc = [
     "sphinxcontrib-mermaid",    # mermaid graph support
     "sphinx-argparse",          # auto-generate cli help message
     "sphinx-tabs",              # tabs
+    "autodoc-pydantic",         # pydantic support
 ]
 
 [project.scripts]

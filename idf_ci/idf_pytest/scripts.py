@@ -28,16 +28,18 @@ def get_pytest_cases(
     marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
     filter_expr: UndefinedOr[t.Optional[str]] = UNDEF,
 ) -> t.List[PytestCase]:
-    """
-    Collect pytest test cases from specified paths.
+    """Collect pytest test cases from specified paths.
 
     :param paths: List of file system paths to collect test cases from
     :param target: Filter by targets
     :param sdkconfig_name: Filter tests whose apps are built with this sdkconfig name
     :param marker_expr: Filter by pytest marker expression -m
     :param filter_expr: Filter by pytest filter expression -k
-    :return: List of collected PytestCase objects
+
+    :returns: List of collected PytestCase objects
+
     :raises RuntimeError: If pytest collection fails
+
     """
     if is_undefined(marker_expr):
         marker_expr = 'host_test' if 'linux' in target else 'not host_test'

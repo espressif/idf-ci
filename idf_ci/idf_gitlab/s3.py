@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 def create_s3_client() -> t.Optional[minio.Minio]:
     """Create and configure an S3 client if all required credentials are available.
 
-    :return: Configured Minio client instance if all credentials are available, None otherwise
+    :returns: Configured Minio client instance if all credentials are available, None
+        otherwise
+
     """
     env = GitlabEnvVars()
     if not all(
@@ -72,6 +74,7 @@ def download_from_s3(
     :param s3_prefix: Prefix to use for S3 object names
     :param rel_to_idf: Input directory path
     :param patterns: List of glob patterns to match files against
+
     """
     env = GitlabEnvVars()
 
@@ -104,15 +107,16 @@ def download_from_s3(
 def upload_to_s3(
     s3_client: minio.Minio,
     prefix: str,
-    input_path: Path,
+    from_path: Path,
     patterns: t.List[str],
 ) -> None:
     """Upload files to S3 storage that match the given patterns.
 
     :param s3_client: Configured Minio client instance
     :param prefix: Prefix to use for S3 object names
-    :param input_path: Input directory path
+    :param from_path: upload directory path
     :param patterns: List of patterns to match files against
+
     """
     env = GitlabEnvVars()
     logger.debug(f'Uploading objects to S3 bucket with prefix {prefix}')
@@ -120,7 +124,7 @@ def upload_to_s3(
     # Use glob to find all matching files recursively
     for pattern in patterns:
         # Convert pattern to absolute path pattern
-        abs_pattern = os.path.join(str(input_path), pattern)
+        abs_pattern = os.path.join(str(from_path), pattern)
         for file_str in glob.glob(abs_pattern, recursive=True):
             file_path = Path(file_str)
             if not file_path.is_file():

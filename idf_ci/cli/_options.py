@@ -80,15 +80,16 @@ def option_modified_files(func):
 # Utils #
 #########
 def create_config_file(template_filepath: str, dest: t.Optional[str] = None) -> str:
-    """
-    Create a configuration file from a template.
+    """Create a configuration file from a template.
 
-    If the destination file already exists, shows a diff between the existing file
-    and the template. If they're identical, notifies the user without making changes.
+    If the destination file already exists, shows a diff between the existing file and
+    the template. If they're identical, notifies the user without making changes.
 
     :param template_filepath: Path to the template file
     :param dest: Path to the destination file or directory
-    :return: Path to the created or existing file
+
+    :returns: Path to the created or existing file
+
     """
     if dest is None:
         dest = os.getcwd()
