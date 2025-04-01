@@ -31,7 +31,6 @@ def to_list(s):
         - itself, if ``s`` is a list
         - ``list(s)``, if ``s`` is a tuple or a set
         - ``[s]``, if ``s`` is other type
-
     """
     if s is None:
         return s
@@ -49,7 +48,6 @@ def setup_logging(level: t.Optional[int] = logging.WARNING) -> None:
     """Setup logging
 
     :param level: logging level
-
     """
     if level is None:
         level = logging.WARNING
@@ -70,7 +68,6 @@ def remove_subfolders(paths: t.List[str]) -> t.List[str]:
     :param paths: List of directory paths as strings
 
     :returns: Filtered list of paths with no subfolder/parent folder relationships
-
     """
     result = set()
 
@@ -87,7 +84,6 @@ def get_current_branch() -> str:
     :returns: The current Git ref (branch name or commit SHA)
 
     :raises RuntimeError: If not in a Git repository or git command fails
-
     """
     result = subprocess.run(
         ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],

@@ -46,7 +46,6 @@ class GitlabEnvVars(BaseSettings):
         2. IS_MR_PIPELINE is set to "0"
 
         :returns: True if this is a full pipeline run, False otherwise
-
         """
         if is_defined_and_satisfies(self.IS_FULL_TEST_PIPELINE, lambda x: x == '1'):
             logger.info('Running in full pipeline mode since IS_FULL_TEST_PIPELINE is set to "1"')

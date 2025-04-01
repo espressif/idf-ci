@@ -37,7 +37,6 @@ class ArtifactManager:
 
     :var env: GitLab environment variables
     :var settings: CI settings
-
     """
 
     def __init__(self):
@@ -67,7 +66,6 @@ class ArtifactManager:
         :param branch: Branch name of the merge request to get
 
         :returns: The merge request object
-
         """
         mrs = self.project.mergerequests.list(state='opened', source_branch=branch)
         if not mrs:
@@ -80,7 +78,6 @@ class ArtifactManager:
         :param artifact_type: Type of artifacts to download (debug, flash, metrics)
 
         :returns: List of file patterns
-
         """
         if artifact_type:
             if artifact_type == 'flash':
@@ -123,7 +120,6 @@ class ArtifactManager:
             branch
         :param artifact_type: Type of artifacts to download (debug, flash, metrics)
         :param folder: download artifacts under this folder
-
         """
         env = GitlabEnvVars()
         if folder is None:
@@ -183,7 +179,6 @@ class ArtifactManager:
         :param folder: upload artifacts under this folder
 
         :raises ValueError: If commit_sha is not provided or S3 is not configured
-
         """
         if folder is None:
             folder = os.getcwd()

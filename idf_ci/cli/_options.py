@@ -89,7 +89,6 @@ def create_config_file(template_filepath: str, dest: t.Optional[str] = None) -> 
     :param dest: Path to the destination file or directory
 
     :returns: Path to the created or existing file
-
     """
     if dest is None:
         dest = os.getcwd()

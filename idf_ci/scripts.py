@@ -37,7 +37,6 @@ def get_all_apps(
     :param default_build_targets: Default build targets to use
 
     :returns: Tuple of (test_related_apps, non_test_related_apps)
-
     """
     # Respect some environment variables
     if GitlabEnvVars().is_full_pipeline:
@@ -158,7 +157,6 @@ def build(
     :param filter_expr: Filter expression
 
     :returns: Tuple of (built apps, build return code)
-
     """
     modified_components = None
     if modified_files is not None:

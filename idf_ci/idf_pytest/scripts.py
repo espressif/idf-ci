@@ -39,7 +39,6 @@ def get_pytest_cases(
     :returns: List of collected PytestCase objects
 
     :raises RuntimeError: If pytest collection fails
-
     """
     if is_undefined(marker_expr):
         marker_expr = 'host_test' if 'linux' in target else 'not host_test'

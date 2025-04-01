@@ -44,7 +44,6 @@ class PytestApp:
             file.
 
         :returns: The build directory for the app.
-
         """
         return os.path.join(self.path, f'build_{self.target}_{self.config}')
 
@@ -67,7 +66,6 @@ class PytestCase:
         :param default: Default value if key not found
 
         :returns: Parameter value or default
-
         """
         # funcargs is not calculated while collection
         # callspec is something defined in parametrize
@@ -83,7 +81,6 @@ class PytestCase:
         :param item: Pytest function item
 
         :returns: PytestCase instance or None if targets not defined
-
         """
         count = cls.get_param(item, 'count', 1)
 
@@ -176,7 +173,6 @@ class PytestCase:
         :param app_dirs: App folder paths to check
 
         :returns: Skip reason string if not all binaries are built, None otherwise
-
         """
         if app_dirs is None:
             # ignore this feature
@@ -219,7 +215,6 @@ class GroupedPytestCases:
         """Groups test cases by target and environment markers.
 
         :returns: Dictionary of GroupKey to list of PytestCases
-
         """
         grouped: t.Dict[GroupKey, t.List[PytestCase]] = defaultdict(list)
         for case in self.cases:
@@ -231,7 +226,6 @@ class GroupedPytestCases:
         """Generates a human-readable string representation of grouped test cases.
 
         :returns: String representation of grouped test cases
-
         """
         lines: t.List[str] = []
         for key, cases in self.grouped_cases.items():
@@ -283,7 +277,6 @@ class GroupedPytestCases:
                 matrix: ${{fromJson( this_output_as_env_var )}}
 
         :returns: JSON string suitable for GitHub Actions matrix strategy
-
         """
         include_list = []
         for key, cases in self.grouped_cases.items():
@@ -304,6 +297,5 @@ class GroupedPytestCases:
         :returns: GitLab CI configuration string
 
         :raises: NotImplementedError
-
         """
         raise NotImplementedError

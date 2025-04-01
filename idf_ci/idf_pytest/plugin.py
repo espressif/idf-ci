@@ -44,7 +44,6 @@ class IdfPytestPlugin:
             separated targets, or 'all'
         :param sdkconfig_name: Filter tests whose apps are built with this sdkconfig
             name
-
         """
         self.cli_target = cli_target
         self.sdkconfig_name = sdkconfig_name
@@ -57,7 +56,6 @@ class IdfPytestPlugin:
         """Get all test cases being tested, sorted by case ID.
 
         :returns: Sorted list of test cases
-
         """
         cases = []
         for item in self._testing_items:
@@ -74,7 +72,6 @@ class IdfPytestPlugin:
         :param item: The pytest test item
 
         :returns: PytestCase object or None if not found
-
         """
         return item.stash.get(IDF_CI_PYTEST_CASE_KEY, None)
 
@@ -91,7 +88,6 @@ class IdfPytestPlugin:
         :returns: Target string
 
         :raises ValueError: If target parameter is not defined
-
         """
         target_value = getattr(request, 'param', None)
         if not target_value:
@@ -106,7 +102,6 @@ class IdfPytestPlugin:
         :param request: Pytest fixture request
 
         :returns: Configuration string, defaults to 'default' if not specified
-
         """
         return getattr(request, 'param', None) or 'default'
 
@@ -136,7 +131,6 @@ class IdfPytestPlugin:
         :returns: Valid build directory name
 
         :raises ValueError: If no valid build directory is found
-
         """
         check_dirs = []
         build_dir_arg = request.config.getoption('build_dir')
@@ -175,7 +169,6 @@ class IdfPytestPlugin:
         dependencies by automatically mocking them.
 
         :param module_path: Path to the module being collected
-
         """
         while True:
             try:
@@ -199,7 +192,6 @@ class IdfPytestPlugin:
 
         :param config: Pytest configuration
         :param items: Collected test items
-
         """
         # Add markers definitions
         config.addinivalue_line('markers', 'host_test: this test case runs on host machines')
@@ -281,7 +273,6 @@ def pytest_addoption(parser: pytest.Parser):
     """Add custom command line options for IDF pytest plugin.
 
     :param parser: Pytest command line parser
-
     """
     # CLI values
     idf_ci_group = parser.getgroup('idf_ci')
@@ -303,7 +294,6 @@ def pytest_configure(config: Config):
     """Configure the pytest environment for IDF tests.
 
     :param config: Pytest configuration object
-
     """
     setup_logging(config.getoption('log_cli_level'))
 
@@ -327,7 +317,6 @@ def pytest_unconfigure(config: Config):
     """Clean up the IDF pytest plugin when pytest is shutting down.
 
     :param config: Pytest configuration object
-
     """
     plugin = config.stash.get(IDF_CI_PLUGIN_KEY, None)
     if plugin:
