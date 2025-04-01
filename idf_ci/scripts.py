@@ -16,14 +16,57 @@ from .settings import CiSettings
 logger = logging.getLogger(__name__)
 
 
+def _set_args(
+    modified_files: t.Optional[t.List[str]] = None,
+    modified_components: t.Optional[t.List[str]] = None,
+    filter_expr: UndefinedOr[t.Optional[str]] = UNDEF,
+) -> t.Tuple[
+    t.Optional[t.List[str]],
+    t.Optional[t.List[str]],
+    t.Optional[str],
+]:
+    """Set values according to the environment variables, .toml settings, and defaults."""
+    env = GitlabEnvVars()
+    settings = CiSettings()
+
+    # build and run all pytest cases
+    if env.select_all_pytest_cases:
+        return None, None, None
+
+    # modified_files, args > env vars
+    if modified_files is None and is_defined_and_satisfies(env.CHANGED_FILES_SEMICOLON_SEPARATED):
+        modified_files = env.CHANGED_FILES_SEMICOLON_SEPARATED.split(';')  # type: ignore
+
+    # modified_components, args > settings
+    if modified_files is not None and modified_components is None:
+        modified_components = sorted(settings.get_modified_components(modified_files))
+
+    # filter_expr, args > env vars
+    if is_undefined(filter_expr):
+        filter_expr = env.IDF_CI_SELECT_BY_FILTER_EXPR
+
+    if is_defined_and_satisfies(filter_expr):
+        logger.info(
+            'Running with quick test filter: %s. Skipping dependency-driven build. Build and test only filtered cases.',
+            filter_expr,
+        )
+        modified_files = None
+        modified_components = None
+
+    return modified_files, modified_components, filter_expr  # type: ignore
+
+
 def get_all_apps(
     paths: t.List[str],
     target: str = 'all',
     *,
+    # args that may be set by env vars or .idf_ci.toml
     modified_files: t.Optional[t.List[str]] = None,
     modified_components: t.Optional[t.List[str]] = None,
-    marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
     filter_expr: UndefinedOr[t.Optional[str]] = UNDEF,
+    # args that may be set by target
+    marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
+    # additional args
     default_build_targets: UndefinedOr[t.List[str]] = UNDEF,
 ) -> t.Tuple[t.Set[App], t.Set[App]]:
     """Get test-related and non-test-related applications.
@@ -38,25 +81,11 @@ def get_all_apps(
 
     :returns: Tuple of (test_related_apps, non_test_related_apps)
     """
-    # Respect some environment variables
-    if GitlabEnvVars().select_all_pytest_cases:
-        modified_files = None
-        modified_components = None
-        marker_expr = None
-        filter_expr = None
-    else:
-        if is_undefined(filter_expr):
-            filter_expr = GitlabEnvVars().IDF_CI_SELECT_BY_FILTER_EXPR
-
-        if is_defined_and_satisfies(filter_expr):
-            logger.info(
-                'Running with quick test filter: %s. '
-                'Skipping dependency-driven build. '
-                'Build and test only filtered cases.',
-                filter_expr,
-            )
-            modified_files = None
-            modified_components = None
+    modified_files, modified_components, filter_expr = _set_args(
+        modified_files=modified_files,
+        modified_components=modified_components,
+        filter_expr=filter_expr,
+    )
 
     apps = []
     for _t in target.split(','):
@@ -98,8 +127,8 @@ def get_all_apps(
             )
 
     # Create dictionaries mapping app info to test cases
-    def get_app_dict(cases):
-        return {(case_app.path, case_app.target, case_app.config): case for case in cases for case_app in case.apps}
+    def get_app_dict(_cases):
+        return {(case_app.path, case_app.target, case_app.config): _case for _case in _cases for case_app in _case.apps}
 
     pytest_dict = get_app_dict(cases)
     modified_pytest_dict = get_app_dict(modified_pytest_cases)
