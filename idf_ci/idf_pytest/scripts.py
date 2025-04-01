@@ -44,7 +44,7 @@ def get_pytest_cases(
         marker_expr = 'host_test' if 'linux' in target else 'not host_test'
 
     if is_undefined(filter_expr):
-        filter_expr = GitlabEnvVars().DYNAMIC_PIPELINE_FILTER_EXPR
+        filter_expr = GitlabEnvVars().IDF_CI_SELECT_BY_FILTER_EXPR
 
     plugin = IdfPytestPlugin(
         cli_target=target,

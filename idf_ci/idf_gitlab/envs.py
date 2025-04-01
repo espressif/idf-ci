@@ -29,30 +29,19 @@ class GitlabEnvVars(BaseSettings):
     # other env vars used
     IDF_PATH: str = ''
 
-    # Possibly Set by idf-ci
-    IS_FULL_TEST_PIPELINE: UndefinedOr[bool] = UNDEF
-    IS_MR_PIPELINE: UndefinedOr[bool] = UNDEF
-    IS_DEBUG_PIPELINE: UndefinedOr[bool] = UNDEF
-
-    DYNAMIC_PIPELINE_FILTER_EXPR: UndefinedOr[str] = UNDEF
+    # Possibly Set by `idf-ci gitlab dynamic-pipeline-variables`
+    IDF_CI_IS_DEBUG_PIPELINE: UndefinedOr[bool] = UNDEF
+    IDF_CI_SELECT_BY_FILTER_EXPR: UndefinedOr[str] = UNDEF
+    IDF_CI_SELECT_ALL_PYTEST_CASES: UndefinedOr[bool] = UNDEF
 
     @property
-    def is_full_pipeline(self) -> bool:
-        """Determine if this is a full pipeline run.
-
-        A full pipeline run is determined by:
-
-        1. IS_FULL_TEST_PIPELINE is set to "1"
-        2. IS_MR_PIPELINE is set to "0"
+    def select_all_pytest_cases(self) -> bool:
+        """Determine if all pytest cases should be selected.
 
         :returns: True if this is a full pipeline run, False otherwise
         """
-        if is_defined_and_satisfies(self.IS_FULL_TEST_PIPELINE, lambda x: x == '1'):
-            logger.info('Running in full pipeline mode since IS_FULL_TEST_PIPELINE is set to "1"')
-            return True
-
-        if is_defined_and_satisfies(self.IS_MR_PIPELINE, lambda x: x == '0'):
-            logger.info('Running in full pipeline mode since IS_MR_PIPELINE is set to "0"')
+        if is_defined_and_satisfies(self.IDF_CI_SELECT_ALL_PYTEST_CASES, lambda x: x == '1'):
+            logger.info('Selecting all pytest cases since `IDF_CI_SELECT_ALL_PYTEST_CASES=1`')
             return True
 
         return False
