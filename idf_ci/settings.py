@@ -59,7 +59,6 @@ class TomlConfigSettingsSource(InitSettingsSource):
 
         :param provided: Explicit path provided when instantiating this class.
         :param filename: Name of the file to search for.
-
         """
         if provided:
             provided_p = Path(provided)
@@ -181,7 +180,6 @@ class CiSettings(BaseSettings):
         """Check if the code is running in a CI environment.
 
         :returns: True if in CI environment, False otherwise
-
         """
         return any(os.getenv(env) is not None for env in self.ci_detection_envs)
 
@@ -190,7 +188,6 @@ class CiSettings(BaseSettings):
         """Get all component mapping regexes as compiled pattern objects.
 
         :returns: Set of compiled regex patterns
-
         """
         return {re.compile(regex) for regex in self.component_mapping_regexes + self.extend_component_mapping_regexes}
 
@@ -200,7 +197,6 @@ class CiSettings(BaseSettings):
         :param modified_files: Iterable of file paths that have been modified
 
         :returns: Set of component names that have been modified
-
         """
         modified_components = set()
 
@@ -229,7 +225,6 @@ class CiSettings(BaseSettings):
 
         :returns: List of App objects representing successfully built applications, or
             None if no files found
-
         """
         found_files = list(Path('.').glob('app_info_*.txt'))
         if not found_files:

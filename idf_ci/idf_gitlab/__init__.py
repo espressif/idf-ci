@@ -10,4 +10,4 @@ __all__ = [
 
 from .api import ArtifactManager
 from .envs import GitlabEnvVars
-from .utils import dynamic_pipeline_variables
+from .scripts import dynamic_pipeline_variables

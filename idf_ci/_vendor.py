@@ -22,7 +22,6 @@ def translate(pat, *, recursive=False, include_hidden=False, seps=None):
     If a sequence of separator characters is given to `seps`, they will be used to split
     the pattern into segments and match path separators. If not given, os.path.sep and
     os.path.altsep (where available) are used.
-
     """
     if not seps:
         if os.path.altsep:

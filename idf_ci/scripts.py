@@ -37,17 +37,16 @@ def get_all_apps(
     :param default_build_targets: Default build targets to use
 
     :returns: Tuple of (test_related_apps, non_test_related_apps)
-
     """
     # Respect some environment variables
-    if GitlabEnvVars().is_full_pipeline:
+    if GitlabEnvVars().select_all_pytest_cases:
         modified_files = None
         modified_components = None
         marker_expr = None
         filter_expr = None
     else:
         if is_undefined(filter_expr):
-            filter_expr = GitlabEnvVars().DYNAMIC_PIPELINE_FILTER_EXPR
+            filter_expr = GitlabEnvVars().IDF_CI_SELECT_BY_FILTER_EXPR
 
         if is_defined_and_satisfies(filter_expr):
             logger.info(
@@ -158,7 +157,6 @@ def build(
     :param filter_expr: Filter expression
 
     :returns: Tuple of (built apps, build return code)
-
     """
     modified_components = None
     if modified_files is not None:

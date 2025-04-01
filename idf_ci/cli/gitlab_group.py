@@ -36,7 +36,6 @@ def download_artifacts(artifact_type, commit_sha, branch, folder):
     This command downloads artifacts from either GitLab's built-in storage or S3
     storage, depending on the configuration. The artifacts are downloaded to the
     specified folder (or current directory if not specified).
-
     """
     manager = ArtifactManager()
     manager.download_artifacts(
@@ -69,7 +68,6 @@ def upload_artifacts(artifact_type, commit_sha, folder):
     :param commit_sha: Commit SHA to upload artifacts to
     :param artifact_type: Type of artifacts to upload (debug, flash, metrics)
     :param folder: Directory containing artifacts to upload
-
     """
     manager = ArtifactManager()
     manager.upload_artifacts(
