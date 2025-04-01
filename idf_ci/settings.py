@@ -133,6 +133,8 @@ class CiSettings(BaseSettings):
     preserve_test_related_apps: bool = True
     preserve_non_test_related_apps: bool = False
 
+    extra_default_build_targets: t.List[str] = []
+
     # env vars
     ci_detection_envs: t.List[str] = [
         'CI',
