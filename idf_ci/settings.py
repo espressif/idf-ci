@@ -109,6 +109,32 @@ class GitlabSettings(BaseSettings):
         'pipeline.env',  # pipeline.env
     ]
 
+    build_apps_count_per_job: int = 60
+    build_jobs_jinja_template: str = """
+build_apps:
+  extends:
+    - .default_build_template
+{%- if parallel_count > 1 %}
+  parallel: {{ parallel_count }}
+{%- endif %}
+  timeout: 1h
+  variables:
+    IDF_CCACHE_ENABLE: "1"
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: generate_build_child_pipeline
+  script:
+    - idf-ci build run
+""".strip()
+    build_child_pipeline_yaml_jinja_template: str = """
+{{ build_jobs_yaml }}
+
+{{ generate_test_child_pipeline_yaml }}
+
+{{ test_child_pipeline_job }}
+""".strip()
+    build_child_pipeline_yaml_filename: str = 'build_child_pipeline.yml'
+
 
 class CiSettings(BaseSettings):
     CONFIG_FILE_PATH: t.ClassVar[t.Optional[Path]] = None
@@ -135,7 +161,7 @@ class CiSettings(BaseSettings):
     collected_non_test_related_apps_filepath: str = 'non_test_related_apps.txt'
 
     preserve_test_related_apps: bool = True
-    preserve_non_test_related_apps: bool = False
+    preserve_non_test_related_apps: bool = True
 
     extra_default_build_targets: t.List[str] = []
 

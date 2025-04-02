@@ -6,10 +6,12 @@ from pathlib import Path
 
 import pytest
 from conftest import create_project
-from idf_build_apps.constants import SUPPORTED_TARGETS
+from idf_build_apps import CMakeApp
+from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
 
-from idf_ci import get_all_apps
+from idf_ci import CiSettings, get_all_apps
 from idf_ci.cli import click_cli
+from idf_ci.idf_gitlab.pipeline import dump_apps_to_txt
 
 
 @pytest.mark.skipif(os.getenv('IDF_PATH') is None, reason='IDF_PATH is set')
@@ -25,7 +27,7 @@ class TestGetAllApps:
         create_project('foo', tmp_path)
         create_project('bar', tmp_path)
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)])
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)])
 
         assert len(test_related_apps) == 0
         assert len(non_test_related_apps) == 2 * len(SUPPORTED_TARGETS)
@@ -57,7 +59,7 @@ class TestGetAllApps:
             )
         create_project('bar', tmp_path)
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
 
         assert len(test_related_apps) == 2
         assert len(non_test_related_apps) == 2 * len(SUPPORTED_TARGETS) - 2
@@ -80,19 +82,19 @@ class TestGetAllApps:
                 """)
             )
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='esp32s2,esp32s3')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='esp32s2,esp32s3')
         assert len(test_related_apps) == 2
         assert len(non_test_related_apps) == 0
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='esp32,esp32s3,esp32')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='esp32,esp32s3,esp32')
         assert len(test_related_apps) == 2
         assert len(non_test_related_apps) == 0
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
         assert len(test_related_apps) == 3
         assert len(non_test_related_apps) == len(SUPPORTED_TARGETS) - 3
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='foo,bar')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='foo,bar')
         assert len(test_related_apps) == 0
         assert len(non_test_related_apps) == 0
 
@@ -117,18 +119,18 @@ class TestGetAllApps:
             encoding='utf-8',
         )
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
         assert len(test_related_apps) == 2  # foo-esp32, bar-esp32
         assert len(non_test_related_apps) == 2 * len(SUPPORTED_TARGETS) - 2
 
         test_related_apps, non_test_related_apps = get_all_apps(
-            [str(tmp_path)], target='all', modified_files=[], modified_components=[]
+            paths=[str(tmp_path)], target='all', modified_files=[], modified_components=[]
         )
         assert len(test_related_apps) == 0
         assert len(non_test_related_apps) == 0
 
         test_related_apps, non_test_related_apps = get_all_apps(
-            [str(tmp_path)],
+            paths=[str(tmp_path)],
             target='all',
             modified_files=[str(tmp_path / 'test_modified_pytest_script.py')],
             modified_components=[],
@@ -161,20 +163,86 @@ class TestGetAllApps:
                 """)
             )
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
 
         assert len(test_related_apps) == 0
         assert len(non_test_related_apps) == len(SUPPORTED_TARGETS)
 
         # by default, linux is not built
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all', marker_expr='host_test')
+        test_related_apps, non_test_related_apps = get_all_apps(
+            paths=[str(tmp_path)], target='all', marker_expr='host_test'
+        )
         assert len(test_related_apps) == 1
         assert len(non_test_related_apps) == len(SUPPORTED_TARGETS) - 1
 
         # specify linux
         test_related_apps, non_test_related_apps = get_all_apps(
-            [str(tmp_path)],
+            paths=[str(tmp_path)],
             target='linux',
         )
         assert len(test_related_apps) == 1
         assert len(non_test_related_apps) == 0
+
+    def test_collected_apps_files_found(self, tmp_path: Path) -> None:
+        # Create projects first
+        create_project('foo', tmp_path)
+        create_project('bar', tmp_path)
+
+        settings = CiSettings()
+
+        # Create test-related apps file
+        test_app = CMakeApp(  # type: ignore[call-arg]
+            app_dir=os.path.join(str(tmp_path), 'foo'),
+            target='esp32',
+            config_name='default',
+            build_system='cmake',
+            build_status=BuildStatus.SUCCESS,
+        )
+
+        dump_apps_to_txt([test_app], settings.collected_test_related_apps_filepath)
+
+        # Create non-test-related apps file
+        non_test_app = CMakeApp(  # type: ignore[call-arg]
+            app_dir=os.path.join(str(tmp_path), 'bar'),
+            target='esp32s2',
+            config_name='default',
+            build_system='cmake',
+            build_status=BuildStatus.SUCCESS,
+        )
+
+        dump_apps_to_txt([non_test_app], settings.collected_non_test_related_apps_filepath)
+
+        # Test the get_all_apps function
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
+
+        # Verify that the apps were read from the files
+        assert len(test_related_apps) == 1
+        assert len(non_test_related_apps) == 1
+
+        # Verify the content of the apps
+        assert test_related_apps[0].app_dir == os.path.join(str(tmp_path), 'foo')
+        assert test_related_apps[0].target == 'esp32'
+        assert test_related_apps[0].config_name == 'default'
+
+        assert non_test_related_apps[0].app_dir == os.path.join(str(tmp_path), 'bar')
+        assert non_test_related_apps[0].target == 'esp32s2'
+        assert non_test_related_apps[0].config_name == 'default'
+
+        # Test with specific target to ensure the cached apps are still used
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='esp32')
+
+        # Should still return both apps because the cached files override target-specific filtering
+        assert len(test_related_apps) == 1
+        assert len(non_test_related_apps) == 1
+
+        # remove the test-related apps file and test again
+        os.remove(settings.collected_test_related_apps_filepath)
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
+        assert len(test_related_apps) == 0
+        assert len(non_test_related_apps) == 1
+
+        # remove all files and test again
+        os.remove(settings.collected_non_test_related_apps_filepath)
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
+        assert len(test_related_apps) == 0
+        assert len(non_test_related_apps) == len(SUPPORTED_TARGETS) * 2

@@ -26,7 +26,7 @@ def get_pytest_cases(
     target: str = 'all',
     sdkconfig_name: t.Optional[str] = None,
     marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
-    filter_expr: UndefinedOr[t.Optional[str]] = UNDEF,
+    filter_expr: t.Optional[str] = None,
 ) -> t.List[PytestCase]:
     """Collect pytest test cases from specified paths.
 
@@ -45,7 +45,7 @@ def get_pytest_cases(
     if is_undefined(marker_expr):
         marker_expr = 'host_test' if 'linux' in target else 'not host_test'
 
-    if is_undefined(filter_expr):
+    if filter_expr is None:
         filter_expr = GitlabEnvVars().IDF_CI_SELECT_BY_FILTER_EXPR
 
     plugin = IdfPytestPlugin(
@@ -66,7 +66,7 @@ def get_pytest_cases(
 
     if marker_expr:
         args.extend(['-m', f'{marker_expr}'])
-    if not is_undefined(filter_expr):
+    if filter_expr:
         args.extend(['-k', f'{filter_expr}'])
 
     logger.debug('Collecting pytest test cases with args: %s', args)

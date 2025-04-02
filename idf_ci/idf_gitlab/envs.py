@@ -7,14 +7,12 @@ from pydantic_settings import (
     BaseSettings,
 )
 
-from idf_ci._compat import UNDEF, UndefinedOr, is_defined_and_satisfies
-
 logger = logging.getLogger(__name__)
 
 
 class GitlabEnvVars(BaseSettings):
     # Pipeline Control Variables
-    CHANGED_FILES_SEMICOLON_SEPARATED: UndefinedOr[str] = UNDEF
+    CHANGED_FILES_SEMICOLON_SEPARATED: t.Optional[str] = None
 
     # GitLab API Authentication
     GITLAB_HTTPS_SERVER: str = 'https://gitlab.com'
@@ -30,9 +28,9 @@ class GitlabEnvVars(BaseSettings):
     IDF_PATH: str = ''
 
     # Possibly Set by `idf-ci gitlab dynamic-pipeline-variables`
-    IDF_CI_IS_DEBUG_PIPELINE: UndefinedOr[bool] = UNDEF
-    IDF_CI_SELECT_BY_FILTER_EXPR: UndefinedOr[str] = UNDEF
-    IDF_CI_SELECT_ALL_PYTEST_CASES: UndefinedOr[bool] = UNDEF
+    IDF_CI_IS_DEBUG_PIPELINE: t.Optional[bool] = None
+    IDF_CI_SELECT_BY_FILTER_EXPR: t.Optional[str] = None
+    IDF_CI_SELECT_ALL_PYTEST_CASES: t.Optional[bool] = None
 
     @property
     def select_all_pytest_cases(self) -> bool:
@@ -40,8 +38,20 @@ class GitlabEnvVars(BaseSettings):
 
         :returns: True if this is a full pipeline run, False otherwise
         """
-        if is_defined_and_satisfies(self.IDF_CI_SELECT_ALL_PYTEST_CASES, lambda x: x == '1'):
+        if self.IDF_CI_SELECT_ALL_PYTEST_CASES == '1':
             logger.info('Selecting all pytest cases since `IDF_CI_SELECT_ALL_PYTEST_CASES=1`')
             return True
 
         return False
+
+    @property
+    def select_by_filter_expr(self) -> t.Optional[str]:
+        """Get the filter expression for pytest cases.
+
+        :returns: The filter expression if set, None otherwise
+        """
+        if self.IDF_CI_SELECT_BY_FILTER_EXPR:
+            logger.info('Selecting pytest cases with filter expression: %s', self.IDF_CI_SELECT_BY_FILTER_EXPR)
+            return self.IDF_CI_SELECT_BY_FILTER_EXPR
+
+        return None

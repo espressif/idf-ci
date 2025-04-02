@@ -38,6 +38,7 @@ repos:
           - types-PyYAML
           - minio
           - python-gitlab
+          - jinja2
   - repo: https://github.com/LilSpazJoekp/docstrfmt
     rev: v1.10.0
     hooks:
