@@ -16,7 +16,7 @@ from .settings import CiSettings
 logger = logging.getLogger(__name__)
 
 
-def _set_args(
+def preprocess_args(
     modified_files: t.Optional[t.List[str]] = None,
     modified_components: t.Optional[t.List[str]] = None,
     filter_expr: UndefinedOr[t.Optional[str]] = UNDEF,
@@ -26,6 +26,8 @@ def _set_args(
     t.Optional[t.List[str]],
     t.Optional[str],
     t.List[str],
+    t.Optional[t.List[App]],
+    t.Optional[t.List[App]],
 ]:
     """Set values according to the environment variables, .toml settings, and defaults."""
     env = GitlabEnvVars()
@@ -62,13 +64,23 @@ def _set_args(
         modified_files = None
         modified_components = None
 
-    return modified_files, modified_components, filter_expr, default_build_targets  # type: ignore
+    # `test_related_apps`, settings
+    test_related_apps, non_test_related_apps = settings.get_collected_apps_list()
+
+    return (  # type: ignore
+        modified_files,
+        modified_components,
+        filter_expr,
+        default_build_targets,
+        test_related_apps,
+        non_test_related_apps,
+    )
 
 
 def get_all_apps(
-    paths: t.List[str],
-    target: str = 'all',
     *,
+    paths: t.Optional[t.List[str]] = None,
+    target: str = 'all',
     # args that may be set by env vars or .idf_ci.toml
     modified_files: t.Optional[t.List[str]] = None,
     modified_components: t.Optional[t.List[str]] = None,
@@ -78,7 +90,7 @@ def get_all_apps(
     marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
     # additional args
     compare_manifest_sha_filepath: t.Optional[str] = None,
-) -> t.Tuple[t.Set[App], t.Set[App]]:
+) -> t.Tuple[t.List[App], t.List[App]]:
     """Get test-related and non-test-related applications.
 
     :param paths: List of paths to search for applications
@@ -93,12 +105,24 @@ def get_all_apps(
 
     :returns: Tuple of (test_related_apps, non_test_related_apps)
     """
-    modified_files, modified_components, filter_expr, default_build_targets = _set_args(
+    (
+        modified_files,
+        modified_components,
+        filter_expr,
+        default_build_targets,
+        test_related_apps,
+        non_test_related_apps,
+    ) = preprocess_args(
         modified_files=modified_files,
         modified_components=modified_components,
         filter_expr=filter_expr,
         default_build_targets=default_build_targets,
     )
+
+    if test_related_apps is not None and non_test_related_apps is not None:
+        return test_related_apps, non_test_related_apps
+
+    paths = paths or ['.']
 
     apps = []
     for _t in target.split(','):
@@ -117,9 +141,9 @@ def get_all_apps(
             )
         )
 
-    cases = get_pytest_cases(paths, target, marker_expr=marker_expr, filter_expr=filter_expr)
+    cases = get_pytest_cases(paths=paths, target=target, marker_expr=marker_expr, filter_expr=filter_expr)
     if not cases:
-        return set(), set(apps)
+        return [], sorted(apps)
 
     # Get modified pytest cases if any
     modified_pytest_cases = []
@@ -129,8 +153,8 @@ def get_all_apps(
         ]
         if modified_pytest_scripts:
             modified_pytest_cases = get_pytest_cases(
-                modified_pytest_scripts,
-                target,
+                paths=modified_pytest_scripts,
+                target=target,
                 marker_expr=marker_expr,
                 filter_expr=filter_expr,
             )
@@ -142,37 +166,38 @@ def get_all_apps(
     pytest_dict = get_app_dict(cases)
     modified_pytest_dict = get_app_dict(modified_pytest_cases)
 
-    test_related_apps = set()
-    non_test_related_apps = set()
+    test_apps = set()
+    non_test_apps = set()
 
     for app in apps:
         app_key = (os.path.abspath(app.app_dir), app.target, app.config_name or 'default')
         # override build_status if test script got modified
         case = modified_pytest_dict.get(app_key)
         if case:
-            test_related_apps.add(app)
+            test_apps.add(app)
             app.build_status = BuildStatus.SHOULD_BE_BUILT
             logger.debug('Found app: %s - required by modified test case %s', app, case.path)
         elif app.build_status != BuildStatus.SKIPPED:
             case = pytest_dict.get(app_key)
             if case:
-                test_related_apps.add(app)
+                test_apps.add(app)
                 # build or not should be decided by the build stage
                 logger.debug('Found test-related app: %s - required by %s', app, case.path)
             else:
-                non_test_related_apps.add(app)
+                non_test_apps.add(app)
                 logger.debug('Found non-test-related app: %s', app)
 
-    return test_related_apps, non_test_related_apps
+    return sorted(test_apps), sorted(non_test_apps)
 
 
 def build(
-    paths: t.List[str],
-    target: str,
     *,
+    paths: t.Optional[t.List[str]] = None,
+    target: str = 'all',
     parallel_count: int = 1,
     parallel_index: int = 1,
     modified_files: t.Optional[t.List[str]] = None,
+    modified_components: t.Optional[t.List[str]] = None,
     only_test_related: bool = False,
     only_non_test_related: bool = False,
     dry_run: bool = False,
@@ -187,6 +212,7 @@ def build(
     :param parallel_count: Total number of parallel jobs
     :param parallel_index: Index of current parallel job (1-based)
     :param modified_files: List of modified files
+    :param modified_components: List of modified components
     :param only_test_related: Only build test-related applications
     :param only_non_test_related: Only build non-test-related applications
     :param dry_run: Do not actually build, just simulate
@@ -196,15 +222,15 @@ def build(
 
     :returns: Tuple of (built apps, build return code)
     """
-    modified_components = None
-    if modified_files is not None:
-        modified_components = sorted(CiSettings().get_modified_components(modified_files))
-        logger.debug('Modified files: %s', modified_files)
-        logger.debug('Modified components: %s', modified_components)
+    # call it here again for a future usage in `build_apps`
+    _, modified_components, _, _, _, _ = preprocess_args(
+        modified_files=modified_files,
+        modified_components=modified_components,
+    )
 
     test_related_apps, non_test_related_apps = get_all_apps(
-        paths,
-        target,
+        paths=paths,
+        target=target,
         modified_files=modified_files,
         modified_components=modified_components,
         marker_expr=marker_expr,
@@ -218,11 +244,11 @@ def build(
         app.preserve = CiSettings().preserve_non_test_related_apps
 
     if not only_test_related and not only_non_test_related:
-        apps = sorted(test_related_apps.union(non_test_related_apps))
+        apps = sorted([*test_related_apps, *non_test_related_apps])
     elif only_test_related:
-        apps = sorted(test_related_apps)
+        apps = test_related_apps
     else:
-        apps = sorted(non_test_related_apps)
+        apps = non_test_related_apps
 
     ret = build_apps(
         apps,

@@ -55,8 +55,8 @@ def run(
 
     start_time = time.time()
     apps, ret = build_cmd(
-        paths,
-        target,
+        paths=paths,
+        target=target,
         parallel_count=parallel_count,
         parallel_index=parallel_index,
         modified_files=modified_files,

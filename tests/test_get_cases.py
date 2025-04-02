@@ -51,7 +51,7 @@ class TestGetPytestCases:
     def test_get_single_specific(self, tmp_path: Path) -> None:
         script = tmp_path / 'test_get_single_specific.py'
         script.write_text(self.TEMPLATE_SCRIPT)
-        cases = get_pytest_cases([str(tmp_path)], 'esp32')
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32')
 
         assert len(cases) == 1
         assert cases[0].targets == ['esp32']
@@ -60,31 +60,31 @@ class TestGetPytestCases:
     def test_get_multi_specific(self, tmp_path: Path) -> None:
         script = tmp_path / 'test_get_multi_specific.py'
         script.write_text(self.TEMPLATE_SCRIPT)
-        cases = get_pytest_cases([str(tmp_path)], 'esp32s2,esp32s2,esp32s3')
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32s2,esp32s2,esp32s3')
 
         assert len(cases) == 1
         assert cases[0].targets == ['esp32s2', 'esp32s2', 'esp32s3']
         assert cases[0].name == 'test_foo_multi'
 
-        cases = get_pytest_cases([str(tmp_path)], 'esp32s3,esp32s2,esp32s2')  # order matters
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32s3,esp32s2,esp32s2')  # order matters
         assert len(cases) == 0
 
     def test_get_by_filter(self, tmp_path: Path) -> None:
         script = tmp_path / 'test_get_by_filter.py'
         script.write_text(self.TEMPLATE_SCRIPT)
-        cases = get_pytest_cases([str(tmp_path)], 'linux', filter_expr='foo')
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='linux', filter_expr='foo')
 
         assert len(cases) == 1
         assert cases[0].name == 'test_foo_host'
 
-        cases = get_pytest_cases([str(tmp_path)], 'esp32', filter_expr='foo')
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32', filter_expr='foo')
         assert len(cases) == 1
         assert cases[0].name == 'test_foo_single'
 
     def test_get_all(self, tmp_path: Path) -> None:
         script = tmp_path / 'test_get_multi_all.py'
         script.write_text(self.TEMPLATE_SCRIPT)
-        cases = get_pytest_cases([str(tmp_path)])
+        cases = get_pytest_cases(paths=[str(tmp_path)])
 
         assert len(cases) == 4
         assert cases[0].name == 'test_foo_multi'
@@ -122,26 +122,26 @@ class TestGetPytestCases:
             """)
         )
 
-        cases = get_pytest_cases([str(tmp_path)], 'esp32', sdkconfig_name='foo')
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32', sdkconfig_name='foo')
         assert len(cases) == 1
         assert cases[0].caseid == 'esp32.foo.test_filter_with_sdkconfig_name_single_dut'
         assert cases[0].apps[0].build_dir == str(tmp_path / 'build_esp32_foo')
 
-        cases = get_pytest_cases([str(tmp_path)], 'esp32,esp32', sdkconfig_name='foo')
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32,esp32', sdkconfig_name='foo')
         assert len(cases) == 1
 
-        cases = get_pytest_cases([str(tmp_path)], 'esp32,esp32', sdkconfig_name='bar')
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32,esp32', sdkconfig_name='bar')
         assert len(cases) == 2
 
     def test_host_test(self, tmp_path: Path) -> None:
         script = tmp_path / 'test_host_test.py'
         script.write_text(self.TEMPLATE_SCRIPT)
 
-        cases = get_pytest_cases([str(tmp_path)], 'linux')
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='linux')
         assert len(cases) == 1
         assert cases[0].name == 'test_foo_host'
 
-        cases = get_pytest_cases([str(tmp_path)], 'all', marker_expr='host_test')
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='all', marker_expr='host_test')
         assert len(cases) == 2
         assert cases[0].name == 'test_foo_qemu'
         assert cases[1].name == 'test_foo_host'
@@ -161,7 +161,7 @@ class TestGetPytestCases:
             """)
         )
 
-        cases = get_pytest_cases([str(tmp_path)], 'esp32s3,esp32s3')
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32s3,esp32s3')
         assert len(cases) == 1
         assert cases[0].caseid == "('esp32s3', 'esp32s3').('foo', 'foo').test_multi_dut_with_custom_app_path"
         assert cases[0].apps[0].build_dir == str(tmp_path / 'subdir' / 'build_esp32s3_foo')
@@ -176,5 +176,5 @@ class TestGetPytestCases:
             """)
         )
 
-        cases = get_pytest_cases([str(tmp_path)])
+        cases = get_pytest_cases(paths=[str(tmp_path)])
         assert len(cases) == 0  # since target is required

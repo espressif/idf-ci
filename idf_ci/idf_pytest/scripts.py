@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 
 
 def get_pytest_cases(
-    paths: t.List[str],
-    target: str = 'all',
     *,
+    paths: t.Optional[t.List[str]] = None,
+    target: str = 'all',
     sdkconfig_name: t.Optional[str] = None,
     marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
     filter_expr: UndefinedOr[t.Optional[str]] = UNDEF,
@@ -40,6 +40,8 @@ def get_pytest_cases(
 
     :raises RuntimeError: If pytest collection fails
     """
+    paths = paths or ['.']
+
     if is_undefined(marker_expr):
         marker_expr = 'host_test' if 'linux' in target else 'not host_test'
 
