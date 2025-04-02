@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 ########################
 def _semicolon_separated_list(ctx, param, value):  # noqa: ARG001
     if value is None:
-        return UNDEF
+        return None
 
     if not isinstance(value, str):
         raise click.BadParameter('Value must be a string')

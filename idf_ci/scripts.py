@@ -8,7 +8,6 @@ import typing as t
 from idf_build_apps import App, build_apps, find_apps
 from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
 
-from . import get_pytest_cases
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
 from .idf_gitlab.envs import GitlabEnvVars
 from .settings import CiSettings
@@ -120,6 +119,12 @@ def get_all_apps(
     )
 
     if test_related_apps is not None and non_test_related_apps is not None:
+        for app in test_related_apps:
+            app.preserve = CiSettings().preserve_test_related_apps
+
+        for app in non_test_related_apps:
+            app.preserve = CiSettings().preserve_non_test_related_apps
+
         return test_related_apps, non_test_related_apps
 
     paths = paths or ['.']
@@ -141,8 +146,13 @@ def get_all_apps(
             )
         )
 
+    # avoid circular import
+    from .idf_pytest import get_pytest_cases
+
     cases = get_pytest_cases(paths=paths, target=target, marker_expr=marker_expr, filter_expr=filter_expr)
     if not cases:
+        for app in apps:
+            app.preserve = CiSettings().preserve_non_test_related_apps
         return [], sorted(apps)
 
     # Get modified pytest cases if any
@@ -186,6 +196,12 @@ def get_all_apps(
             else:
                 non_test_apps.add(app)
                 logger.debug('Found non-test-related app: %s', app)
+
+    for app in test_apps:
+        app.preserve = CiSettings().preserve_test_related_apps
+
+    for app in non_test_apps:
+        app.preserve = CiSettings().preserve_non_test_related_apps
 
     return sorted(test_apps), sorted(non_test_apps)
 
@@ -236,12 +252,6 @@ def build(
         marker_expr=marker_expr,
         filter_expr=filter_expr,
     )
-
-    for app in test_related_apps:
-        app.preserve = CiSettings().preserve_test_related_apps
-
-    for app in non_test_related_apps:
-        app.preserve = CiSettings().preserve_non_test_related_apps
 
     if not only_test_related and not only_non_test_related:
         apps = sorted([*test_related_apps, *non_test_related_apps])

@@ -45,3 +45,15 @@ class GitlabEnvVars(BaseSettings):
             return True
 
         return False
+
+    @property
+    def select_by_filter_expr(self) -> t.Optional[str]:
+        """Get the filter expression for pytest cases.
+
+        :returns: The filter expression if set, None otherwise
+        """
+        if is_defined_and_satisfies(self.IDF_CI_SELECT_BY_FILTER_EXPR):
+            logger.info('Selecting pytest cases with filter expression: %s', self.IDF_CI_SELECT_BY_FILTER_EXPR)
+            return self.IDF_CI_SELECT_BY_FILTER_EXPR  # type: ignore
+
+        return None
