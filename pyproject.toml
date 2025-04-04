@@ -29,6 +29,7 @@ dependencies = [
     # file format
     "tomlkit", # we need both read and write
     "pyyaml",
+    "jinja2",
     # ci related
     "python-gitlab",
     "minio",

@@ -25,7 +25,7 @@ class TestGetAllApps:
         create_project('foo', tmp_path)
         create_project('bar', tmp_path)
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)])
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)])
 
         assert len(test_related_apps) == 0
         assert len(non_test_related_apps) == 2 * len(SUPPORTED_TARGETS)
@@ -57,7 +57,7 @@ class TestGetAllApps:
             )
         create_project('bar', tmp_path)
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
 
         assert len(test_related_apps) == 2
         assert len(non_test_related_apps) == 2 * len(SUPPORTED_TARGETS) - 2
@@ -80,19 +80,19 @@ class TestGetAllApps:
                 """)
             )
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='esp32s2,esp32s3')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='esp32s2,esp32s3')
         assert len(test_related_apps) == 2
         assert len(non_test_related_apps) == 0
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='esp32,esp32s3,esp32')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='esp32,esp32s3,esp32')
         assert len(test_related_apps) == 2
         assert len(non_test_related_apps) == 0
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
         assert len(test_related_apps) == 3
         assert len(non_test_related_apps) == len(SUPPORTED_TARGETS) - 3
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='foo,bar')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='foo,bar')
         assert len(test_related_apps) == 0
         assert len(non_test_related_apps) == 0
 
@@ -117,18 +117,18 @@ class TestGetAllApps:
             encoding='utf-8',
         )
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
         assert len(test_related_apps) == 2  # foo-esp32, bar-esp32
         assert len(non_test_related_apps) == 2 * len(SUPPORTED_TARGETS) - 2
 
         test_related_apps, non_test_related_apps = get_all_apps(
-            [str(tmp_path)], target='all', modified_files=[], modified_components=[]
+            paths=[str(tmp_path)], target='all', modified_files=[], modified_components=[]
         )
         assert len(test_related_apps) == 0
         assert len(non_test_related_apps) == 0
 
         test_related_apps, non_test_related_apps = get_all_apps(
-            [str(tmp_path)],
+            paths=[str(tmp_path)],
             target='all',
             modified_files=[str(tmp_path / 'test_modified_pytest_script.py')],
             modified_components=[],
@@ -161,19 +161,21 @@ class TestGetAllApps:
                 """)
             )
 
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all')
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
 
         assert len(test_related_apps) == 0
         assert len(non_test_related_apps) == len(SUPPORTED_TARGETS)
 
         # by default, linux is not built
-        test_related_apps, non_test_related_apps = get_all_apps([str(tmp_path)], target='all', marker_expr='host_test')
+        test_related_apps, non_test_related_apps = get_all_apps(
+            paths=[str(tmp_path)], target='all', marker_expr='host_test'
+        )
         assert len(test_related_apps) == 1
         assert len(non_test_related_apps) == len(SUPPORTED_TARGETS) - 1
 
         # specify linux
         test_related_apps, non_test_related_apps = get_all_apps(
-            [str(tmp_path)],
+            paths=[str(tmp_path)],
             target='linux',
         )
         assert len(test_related_apps) == 1
