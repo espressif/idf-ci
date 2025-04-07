@@ -69,7 +69,6 @@ class TestUploadDownloadArtifacts:
         return client
 
     def test_cli_upload_download_artifacts(self, s3_client, runner, tmp_path, sample_artifacts_dir):
-        """Test the upload_artifacts CLI command."""
         # Mock git functions that would be called
         commit_sha = 'cli_test_sha_123'
 
