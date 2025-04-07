@@ -113,7 +113,8 @@ class GitlabSettings(BaseSettings):
     build_jobs_jinja_template: str = """
 build_apps:
   extends:
-    - .default_build_template
+    - .default_settings
+  stage: build
 {%- if parallel_count > 1 %}
   parallel: {{ parallel_count }}
 {%- endif %}
@@ -126,14 +127,35 @@ build_apps:
   script:
     - idf-ci build run
 """.strip()
+    generate_test_child_pipeline_job_jinja_template: str = """
+generate_test_child_pipeline:
+  extends:
+    - .default_settings
+  stage: build
+  artifacts:
+    paths:
+      - {{ test_child_pipeline_yaml_filename }}
+  script:
+    - idf-ci gitlab test-child-pipeline
+
+test-child-pipeline:
+  stage: target_test
+  needs:
+    - generate_test_child_pipeline
+  variables:
+    PARENT_PIPELINE_ID: $PARENT_PIPELINE_ID
+  trigger:
+    include:
+      - artifact: {{ test_child_pipeline_yaml_filename }}
+        job: generate_test_child_pipeline
+    strategy: depend""".strip()
     build_child_pipeline_yaml_jinja_template: str = """
 {{ build_jobs_yaml }}
 
 {{ generate_test_child_pipeline_yaml }}
-
-{{ test_child_pipeline_job }}
 """.strip()
     build_child_pipeline_yaml_filename: str = 'build_child_pipeline.yml'
+    test_child_pipeline_yaml_filename: str = 'test_child_pipeline.yml'
 
 
 class CiSettings(BaseSettings):
