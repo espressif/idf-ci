@@ -109,6 +109,32 @@ class GitlabSettings(BaseSettings):
         'pipeline.env',  # pipeline.env
     ]
 
+    build_apps_count_per_job: int = 60
+    build_jobs_jinja_template: str = """
+build_apps:
+  extends:
+    - .default_build_template
+{%- if parallel_count > 1 %}
+  parallel: {{ parallel_count }}
+{%- endif %}
+  timeout: 1h
+  variables:
+    IDF_CCACHE_ENABLE: "1"
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: generate_build_child_pipeline
+  script:
+    - idf-ci build run
+""".strip()
+    build_child_pipeline_yaml_jinja_template: str = """
+{{ build_jobs_yaml }}
+
+{{ generate_test_child_pipeline_yaml }}
+
+{{ test_child_pipeline_job }}
+""".strip()
+    build_child_pipeline_yaml_filename: str = 'build_child_pipeline.yml'
+
 
 class CiSettings(BaseSettings):
     CONFIG_FILE_PATH: t.ClassVar[t.Optional[Path]] = None
@@ -130,8 +156,14 @@ class CiSettings(BaseSettings):
 
     # build related settings
     built_app_list_filepatterns: t.List[str] = ['app_info_*.txt']
+
+    collected_test_related_apps_filepath: str = 'test_related_apps.txt'
+    collected_non_test_related_apps_filepath: str = 'non_test_related_apps.txt'
+
     preserve_test_related_apps: bool = True
-    preserve_non_test_related_apps: bool = False
+    preserve_non_test_related_apps: bool = True
+
+    extra_default_build_targets: t.List[str] = []
 
     # env vars
     ci_detection_envs: t.List[str] = [
@@ -220,34 +252,89 @@ class CiSettings(BaseSettings):
 
         return modified_components
 
-    def get_apps_list(self) -> t.Optional[t.List[App]]:
+    @classmethod
+    def _read_apps_from_file(cls, filename: PathLike) -> t.Optional[t.List[App]]:
+        """Helper method to read apps from a file.
+
+        :param filename: Name of the file to read
+
+        :returns: List of App objects read from the file, or None if no file found
+        """
+        if not Path(filename).is_file():
+            logger.debug(f'No file found: {filename}')
+            return None
+
+        apps: t.List[App] = []
+        with open(filename) as fr:
+            for line in fr.readlines():
+                line = line.strip()
+                if not line:
+                    continue
+
+                app = json_to_app(line)
+                apps.append(app)
+                logger.debug('App found: %s', app.build_path)
+
+        if not apps:
+            logger.warning(f'No apps found in file: {filename}, returning empty list')
+
+        return apps
+
+    @classmethod
+    def _read_apps_from_filepatterns(cls, patterns: t.List[str]) -> t.Optional[t.List[App]]:
+        """Helper method to read apps from files matching given patterns.
+
+        :param patterns: List of file patterns to search for
+
+        :returns: List of App objects read from the files, or None if no files found
+        """
+        found_files = []
+        for filepattern in patterns:
+            found_files.extend(list(Path('.').glob(filepattern)))
+
+        if not found_files:
+            logger.debug(f'No files found for patterns: {patterns}')
+            return None
+
+        apps: t.List[App] = []
+        for filepattern in patterns:
+            for filepath in Path('.').glob(filepattern):
+                apps.extend(cls._read_apps_from_file(filepath) or [])
+
+        if not apps:
+            logger.warning(f'No apps found for patterns: {patterns}, returning empty list')
+
+        return apps
+
+    def get_collected_apps_list(self) -> t.Tuple[t.Optional[t.List[App]], t.Optional[t.List[App]]]:
+        """Get the lists of collected test-related and non-test-related applications.
+
+        :returns: A tuple containing (test_related_apps, non_test_related_apps), or None
+            if no files found
+        """
+        # Read apps from files
+        test_related_apps = self._read_apps_from_file(self.collected_test_related_apps_filepath)
+        non_test_related_apps = self._read_apps_from_file(self.collected_non_test_related_apps_filepath)
+
+        # either all are None or all are lists
+        if test_related_apps is None and non_test_related_apps is None:
+            return None, None
+
+        return test_related_apps or [], non_test_related_apps or []
+
+    def get_built_apps_list(self) -> t.Optional[t.List[App]]:
         """Get the list of successfully built applications from the app info files.
 
         :returns: List of App objects representing successfully built applications, or
             None if no files found
         """
-        found_files = list(Path('.').glob('app_info_*.txt'))
-        if not found_files:
-            logger.debug('No built app list files found')
+        # Read apps from files
+        apps = self._read_apps_from_filepatterns(self.built_app_list_filepatterns)
+
+        if apps is None:
             return None
 
-        logger.debug('Found built app list files: %s', [str(p) for p in found_files])
+        # Filter for successful builds
+        built_apps = [app for app in apps if app.build_status == BuildStatus.SUCCESS]
 
-        apps: t.List[App] = []
-        for filepattern in self.built_app_list_filepatterns:
-            for filepath in Path('.').glob(filepattern):
-                with open(filepath) as fr:
-                    for line in fr.readlines():
-                        line = line.strip()
-                        if not line:
-                            continue
-
-                        app = json_to_app(line)
-                        if app.build_status == BuildStatus.SUCCESS:
-                            apps.append(app)
-                            logger.debug('App found: %s', app.build_path)
-
-        if not apps:
-            logger.warning(f'No apps found in the built app list files: {found_files}')
-
-        return apps
+        return built_apps

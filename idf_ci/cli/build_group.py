@@ -6,7 +6,6 @@ import time
 
 import click
 
-from idf_ci._compat import is_undefined
 from idf_ci.scripts import build as build_cmd
 
 from ._options import (
@@ -50,13 +49,10 @@ def run(
     filter_expr,
 ):
     """Execute the build process for applications"""
-    if is_undefined(modified_files):
-        modified_files = None
-
     start_time = time.time()
     apps, ret = build_cmd(
-        paths,
-        target,
+        paths=paths,
+        target=target,
         parallel_count=parallel_count,
         parallel_index=parallel_index,
         modified_files=modified_files,

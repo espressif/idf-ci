@@ -29,6 +29,7 @@ dependencies = [
     # file format
     "tomlkit", # we need both read and write
     "pyyaml",
+    "jinja2",
     # ci related
     "python-gitlab",
     "minio",
@@ -125,13 +126,18 @@ follow_untyped_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-p no:idf-ci -p pytester"
+addopts = "-p no:idf-ci -p pytester --cov idf_ci/ --cov-report term-missing:skip-covered"
 
 filterwarnings = [
     "ignore::FutureWarning",
 ]
 
 junit_family = "xunit1"
+
+[tool.coverage.run]
+omit = [
+    "idf_ci/_vendor.py",
+]
 
 [tool.commitizen]
 name = "cz_conventional_commits"

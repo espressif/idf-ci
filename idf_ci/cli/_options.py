@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 ########################
 def _semicolon_separated_list(ctx, param, value):  # noqa: ARG001
     if value is None:
-        return UNDEF
+        return None
 
     if not isinstance(value, str):
         raise click.BadParameter('Value must be a string')
@@ -64,7 +64,7 @@ def option_parallel(func):
 
 def option_pytest(func):
     func = click.option('-m', '--marker-expr', default=UNDEF, help='Pytest marker expression, "-m" option')(func)
-    func = click.option('-k', '--filter-expr', default=UNDEF, help='Pytest filter expression, "-k" option')(func)
+    func = click.option('-k', '--filter-expr', help='Pytest filter expression, "-k" option')(func)
     return func
 
 

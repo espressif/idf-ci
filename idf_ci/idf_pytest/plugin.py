@@ -47,7 +47,7 @@ class IdfPytestPlugin:
         """
         self.cli_target = cli_target
         self.sdkconfig_name = sdkconfig_name
-        self.apps = CiSettings().get_apps_list()
+        self.apps = CiSettings().get_built_apps_list()
 
         self._testing_items: t.Set[pytest.Item] = set()
 
