@@ -81,7 +81,7 @@ def build_child_pipeline(
         fw.write(
             build_child_pipeline_template.render(
                 build_jobs_yaml=build_jobs_template.render(
-                    parallel_count=parallel_count,
+                    parallel_count=parallel_count, ci_artifacts_paths=settings.gitlab.ci_artifacts_filepatterns
                 ),
                 generate_test_child_pipeline_yaml=generate_test_child_pipeline_template.render(
                     test_child_pipeline_yaml_filename=settings.gitlab.test_child_pipeline_yaml_filename,

@@ -101,12 +101,9 @@ class GitlabSettings(BaseSettings):
     metrics_artifacts_filepatterns: t.List[str] = [
         '**/build*/size.json',  # size_json_filename
     ]
-    # TODO use it in ci job
     ci_artifacts_filepatterns: t.List[str] = [
         'app_info_*.txt',  # collect_app_info_filename
-        'presigned_urls.json',
         'build_summary_*.xml',  # junitxml
-        'pipeline.env',  # pipeline.env
     ]
 
     build_apps_count_per_job: int = 60
@@ -124,6 +121,13 @@ build_apps:
   needs:
     - pipeline: $PARENT_PIPELINE_ID
       job: generate_build_child_pipeline
+{%- if ci_artifacts_paths %}
+  artifacts:
+    paths:
+    {%- for path in ci_artifacts_paths %}
+      - {{ path }}
+    {%- endfor %}
+{%- endif %}
   script:
     - idf-ci build run
 """.strip()
@@ -132,6 +136,8 @@ generate_test_child_pipeline:
   extends:
     - .default_settings
   stage: build
+  needs:
+    - build_apps
   artifacts:
     paths:
       - {{ test_child_pipeline_yaml_filename }}
