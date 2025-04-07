@@ -16,8 +16,8 @@ repos:
           - --license-filepath
           - license_header.txt        # defaults to: LICENSE.txt
           - --use-current-year
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: 'v0.11.2'
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: 'v0.11.4'
     hooks:
       - id: ruff
         args: ['--fix']
