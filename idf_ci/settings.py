@@ -81,6 +81,8 @@ class TomlConfigSettingsSource(InitSettingsSource):
 
 class GitlabSettings(BaseSettings):
     project: str = 'espressif/esp-idf'
+    """GitLab project path in the format 'owner/repo'."""
+
     debug_artifacts_filepatterns: t.List[str] = [
         '**/build*/bootloader/*.map',
         '**/build*/bootloader/*.elf',
@@ -88,6 +90,8 @@ class GitlabSettings(BaseSettings):
         '**/build*/*.elf',
         '**/build*/build.log',  # build_log_filename
     ]
+    """List of glob patterns for debug artifacts to collect."""
+
     flash_artifacts_filepatterns: t.List[str] = [
         '**/build*/bootloader/*.bin',
         '**/build*/*.bin',
@@ -98,15 +102,22 @@ class GitlabSettings(BaseSettings):
         '**/build*/sdkconfig',
         '**/build*/project_description.json',
     ]
+    """List of glob patterns for flash artifacts to collect."""
+
     metrics_artifacts_filepatterns: t.List[str] = [
         '**/build*/size.json',  # size_json_filename
     ]
+    """List of glob patterns for metrics artifacts to collect."""
+
     ci_artifacts_filepatterns: t.List[str] = [
         'app_info_*.txt',  # collect_app_info_filename
         'build_summary_*.xml',  # junitxml
     ]
+    """List of glob patterns for CI artifacts to collect."""
 
     build_apps_count_per_job: int = 60
+    """Maximum number of apps to build in a single job."""
+
     build_jobs_jinja_template: str = """
 build_apps:
   extends:
@@ -131,6 +142,8 @@ build_apps:
   script:
     - idf-ci build run
 """.strip()
+    """Jinja2 template for build jobs configuration."""
+
     generate_test_child_pipeline_job_jinja_template: str = """
 generate_test_child_pipeline:
   extends:
@@ -155,23 +168,34 @@ test-child-pipeline:
       - artifact: {{ test_child_pipeline_yaml_filename }}
         job: generate_test_child_pipeline
     strategy: depend""".strip()
+    """Jinja2 template for generating test child pipeline job configuration."""
+
     build_child_pipeline_yaml_jinja_template: str = """
 {{ build_jobs_yaml }}
 
 {{ generate_test_child_pipeline_yaml }}
 """.strip()
+    """Jinja2 template for the build child pipeline YAML content."""
+
     build_child_pipeline_yaml_filename: str = 'build_child_pipeline.yml'
+    """Filename for the build child pipeline YAML file."""
+
     test_child_pipeline_yaml_filename: str = 'test_child_pipeline.yml'
+    """Filename for the test child pipeline YAML file."""
 
 
 class CiSettings(BaseSettings):
     CONFIG_FILE_PATH: t.ClassVar[t.Optional[Path]] = None
+    """Path to the configuration file to be used (class variable)."""
 
     component_mapping_regexes: t.List[str] = [
         '/components/(.+)/',
         '/common_components/(.+)/',
     ]
+    """List of regex patterns to extract component names from file paths."""
+
     extend_component_mapping_regexes: t.List[str] = []
+    """Additional component mapping regex patterns to extend the default list."""
 
     component_ignored_file_extensions: t.List[str] = [
         '.md',
@@ -180,18 +204,29 @@ class CiSettings(BaseSettings):
         '.yml',
         '.py',
     ]
+    """File extensions to ignore when mapping files to components."""
+
     extend_component_ignored_file_extensions: t.List[str] = []
+    """Additional file extensions to ignore."""
 
     # build related settings
     built_app_list_filepatterns: t.List[str] = ['app_info_*.txt']
+    """Glob patterns for files containing built app information."""
 
     collected_test_related_apps_filepath: str = 'test_related_apps.txt'
+    """Path to file containing test-related apps."""
+
     collected_non_test_related_apps_filepath: str = 'non_test_related_apps.txt'
+    """Path to file containing non-test-related apps."""
 
     preserve_test_related_apps: bool = True
+    """Whether to preserve test-related apps."""
+
     preserve_non_test_related_apps: bool = True
+    """Whether to preserve non-test-related apps."""
 
     extra_default_build_targets: t.List[str] = []
+    """Additional build targets to include by default."""
 
     # env vars
     ci_detection_envs: t.List[str] = [
@@ -206,11 +241,17 @@ class CiSettings(BaseSettings):
         'SEMAPHORE',
         'TEAMCITY_VERSION',
     ]
+    """Environment variables used to detect if running in CI."""
+
     local_runtime_envs: t.Dict[str, t.Any] = {}
+    """Environment variables to set in local development."""
+
     ci_runtime_envs: t.Dict[str, t.Any] = {}
+    """Environment variables to set in CI environment."""
 
     # gitlab subsection
     gitlab: GitlabSettings = GitlabSettings()
+    """GitLab-specific settings."""
 
     @classmethod
     def settings_customise_sources(

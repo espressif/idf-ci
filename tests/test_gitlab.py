@@ -83,12 +83,9 @@ Some other text
     ],
 )
 def test_dynamic_pipeline_variables(monkeypatch, env_vars, expected):
-    """Test dynamic_pipeline_variables function with different environment configurations."""
-    # Clear existing environment variables
     for env_var in [var for var in os.environ if var.startswith(('CI_', 'IDF_CI_'))]:
         monkeypatch.delenv(env_var, raising=False)
 
-    # Set test environment variables
     for key, value in env_vars.items():
         monkeypatch.setenv(key, value)
 
@@ -97,8 +94,6 @@ def test_dynamic_pipeline_variables(monkeypatch, env_vars, expected):
 
 
 def test_dynamic_pipeline_variables_no_env_vars(monkeypatch):
-    """Test dynamic_pipeline_variables with empty environment variables."""
-    # Clear all relevant environment variables
     for env_var in [var for var in os.environ if var.startswith(('CI_', 'IDF_CI_'))]:
         monkeypatch.delenv(env_var, raising=False)
 

@@ -57,7 +57,6 @@ def test_multi_dut(dut) -> None:
 
 @pytest.fixture
 def sample_test_file():
-    """Create a temporary test file for testing the collector."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create pytest.ini with env_markers
         with open(os.path.join(tmpdir, 'pytest.ini'), 'w') as f:
