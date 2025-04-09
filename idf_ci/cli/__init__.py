@@ -26,16 +26,13 @@ logger = logging.getLogger(__name__)
     type=click.Path(dir_okay=False, file_okay=True, exists=True),
     help='Path to the idf-ci config file',
 )
-@click.option(
-    '--verbose',
-    '-v',
-    default=0,
-    count=True,
-    help='Increase verbosity, can be used multiple times. -v for info, -vv for debug, not set for warning',
-)
-def click_cli(config_file, verbose):
+@click.option('--debug', is_flag=True, default=False, help='Enable debug logging')
+def click_cli(config_file, debug):
     """ESP-IDF CI CLI Tool."""
-    setup_logging(logging.WARNING if verbose == 0 else logging.INFO if verbose == 1 else logging.DEBUG)
+    if debug:
+        setup_logging(logging.DEBUG)
+    else:
+        setup_logging()
 
     if config_file:
         logger.debug(f'Using config file: {config_file}')

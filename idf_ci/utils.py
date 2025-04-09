@@ -44,13 +44,13 @@ def to_list(s):
     return [s]
 
 
-def setup_logging(level: t.Optional[int] = logging.WARNING) -> None:
+def setup_logging(level: t.Optional[int] = logging.INFO) -> None:
     """Setup logging
 
     :param level: logging level
     """
     if level is None:
-        level = logging.WARNING
+        level = logging.INFO
 
     package_logger = logging.getLogger(__package__)
     package_logger.setLevel(level)

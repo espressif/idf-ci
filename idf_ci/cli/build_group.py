@@ -59,7 +59,6 @@ def run(
         only_test_related=only_test_related,
         only_non_test_related=only_non_test_related,
         dry_run=dry_run,
-        verbose=ctx.parent.parent.params['verbose'],
         marker_expr=marker_expr,
         filter_expr=filter_expr,
     )
