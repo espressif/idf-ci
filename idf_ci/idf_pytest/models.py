@@ -8,6 +8,7 @@ from collections import defaultdict
 from functools import lru_cache
 from typing import NamedTuple
 
+import yaml
 from _pytest.python import Function
 from pytest_embedded.plugin import parse_multi_dut_args
 from pytest_embedded.utils import targets_to_marker
@@ -294,8 +295,37 @@ class GroupedPytestCases:
     def output_as_gitlab_ci(self) -> str:
         """Generates CI configuration for GitLab CI.
 
-        :returns: GitLab CI configuration string
+        .. note::
 
-        :raises: NotImplementedError
+            parallel:matrix does not support array as value. we generate all jobs here
+
+        Example output:
+
+        .. code-block:: yaml
+
+            .test_default_settings:
+                script:
+                    - pytest ${nodes}
+
+            esp32 - generic:
+                extends:
+                    - .test_default_settings
+                tags:
+                    - esp32
+                    - generic
+                variables:
+                    nodes: "nodeid1 nodeid2"
+
+        :returns: GitLab CI configuration string
         """
-        raise NotImplementedError
+        jobs = {}
+        for key, cases in self.grouped_cases.items():
+            jobs[f'{key.target_selector} - {key.env_selector}'] = {
+                'extends': ['.test_default_settings'],
+                'tags': sorted(key.runner_tags),
+                'variables': {
+                    'nodes': ' '.join([c.item.nodeid for c in cases]),
+                },
+            }
+
+        return yaml.safe_dump(jobs)
