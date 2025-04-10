@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.1.9 (2025-04-10)
+
+### Feat
+
+- support idf-ci gitlab test-child-pipeline
+- support idf-ci test collect --format gitlab
+- generate build child pipeline, upload ci artifacts
+- generate full build child pipeline
+- support gitlab child pipeline
+- support `collected_test_related_apps_filepath` and `collected_non_test_related_apps_filepath`
+- support `extra_default_build_targets` in .idf_ci.toml
+- support generate more gitlab env vars
+- support gitlab artifacts download/upload
+- support -m -k in both `idf-ci build run` and `idf-ci test collect`
+- support local env vars in .idf_ci.toml
+
+### Refactor
+
+- make undefined complete
+- small improvements and docstring improvements
+
 ## v0.1.8 (2025-03-24)
 
 ### Fix
