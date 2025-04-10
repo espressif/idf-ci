@@ -92,6 +92,8 @@ class GitlabSettings(BaseSettings):
     ]
     """List of glob patterns for debug artifacts to collect."""
 
+    known_failure_cases_bucket_name: str = 'ignore-test-result-files'
+
     flash_artifacts_filepatterns: t.List[str] = [
         '**/build*/bootloader/*.bin',
         '**/build*/*.bin',
@@ -109,45 +111,85 @@ class GitlabSettings(BaseSettings):
     ]
     """List of glob patterns for metrics artifacts to collect."""
 
-    ci_artifacts_filepatterns: t.List[str] = [
+    ci_build_default_template_name: str = '.default_build_settings'
+    """Default template name for CI build jobs."""
+
+    ci_test_default_template_name: str = '.default_test_settings'
+    """Default template name for CI test jobs."""
+
+    ci_build_artifacts_filepatterns: t.List[str] = [
         'app_info_*.txt',  # collect_app_info_filename
         'build_summary_*.xml',  # junitxml
     ]
-    """List of glob patterns for CI artifacts to collect."""
+    """List of glob patterns for CI build jobs artifacts to collect."""
+
+    ci_test_artifacts_filepatterns: t.List[str] = [
+        'pytest-embedded/',
+        'XUNIT_RESULT*.xml',
+    ]
+    """List of glob patterns for CI test jobs artifacts to collect."""
 
     build_apps_count_per_job: int = 60
     """Maximum number of apps to build in a single job."""
 
+    test_cases_count_per_job: int = 30
+
     build_jobs_jinja_template: str = """
 build_apps:
+{%- if job_extends %}
   extends:
-    - .default_settings
+    {%- for extend in job_extends %}
+    - {{ extend }}
+    {%- endfor %}
+{%- endif %}
   stage: build
 {%- if parallel_count > 1 %}
   parallel: {{ parallel_count }}
 {%- endif %}
-  timeout: 1h
-  variables:
-    IDF_CCACHE_ENABLE: "1"
   needs:
     - pipeline: $PARENT_PIPELINE_ID
       job: generate_build_child_pipeline
-{%- if ci_artifacts_paths %}
+{%- if artifact_paths %}
   artifacts:
     paths:
-    {%- for path in ci_artifacts_paths %}
+    {%- for path in artifact_paths %}
       - {{ path }}
     {%- endfor %}
 {%- endif %}
-  script:
-    - idf-ci build run
 """.strip()
     """Jinja2 template for build jobs configuration."""
+
+    test_jobs_jinja_template: str = """
+{% for job in jobs %}
+{{ job['name'] }}:
+{%- if job['extends'] %}
+  extends:
+    {%- for extend in job['extends'] %}
+    - {{ extend }}
+    {%- endfor %}
+{%- endif %}
+  stage: target_test
+  tags: {{ job['tags'] }}
+{%- if job['parallel_count'] > 1 %}
+  parallel: {{ job['parallel_count'] }}
+{%- endif %}
+{%- if job['artifact_paths'] %}
+  artifacts:
+    paths:
+    {%- for path in job['artifact_paths'] %}
+      - {{ path }}
+    {%- endfor %}
+{%- endif %}
+  variables:
+    nodes: {{ job['nodes'] }}
+{% endfor %}
+""".strip()
+    """Jinja2 template for test jobs configuration."""
 
     generate_test_child_pipeline_job_jinja_template: str = """
 generate_test_child_pipeline:
   extends:
-    - .default_settings
+    - {{ ci_build_default_template_name }}
   stage: build
   needs:
     - build_apps
@@ -167,7 +209,8 @@ test-child-pipeline:
     include:
       - artifact: {{ test_child_pipeline_yaml_filename }}
         job: generate_test_child_pipeline
-    strategy: depend""".strip()
+    strategy: depend
+""".strip()
     """Jinja2 template for generating test child pipeline job configuration."""
 
     build_child_pipeline_yaml_jinja_template: str = """
@@ -176,6 +219,11 @@ test-child-pipeline:
 {{ generate_test_child_pipeline_yaml }}
 """.strip()
     """Jinja2 template for the build child pipeline YAML content."""
+
+    test_child_pipeline_yaml_jinja_template: str = """
+{{ test_jobs_yaml }}
+""".strip()
+    """Jinja2 template for the test child pipeline YAML content."""
 
     build_child_pipeline_yaml_filename: str = 'build_child_pipeline.yml'
     """Filename for the build child pipeline YAML file."""

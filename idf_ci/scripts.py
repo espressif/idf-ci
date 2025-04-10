@@ -10,7 +10,7 @@ from idf_build_apps import App, build_apps, find_apps
 from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
 
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies
-from .idf_gitlab.envs import GitlabEnvVars
+from .envs import GitlabEnvVars
 from .settings import CiSettings
 
 logger = logging.getLogger(__name__)

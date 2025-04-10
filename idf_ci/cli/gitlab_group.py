@@ -4,9 +4,11 @@
 import click
 
 from idf_ci.cli._options import option_modified_files, option_paths
+from idf_ci.idf_gitlab import ArtifactManager, create_s3_client
 from idf_ci.idf_gitlab import build_child_pipeline as build_child_pipeline_cmd
 from idf_ci.idf_gitlab import dynamic_pipeline_variables as dynamic_pipeline_variables_cmd
-from idf_ci.idf_gitlab.api import ArtifactManager
+from idf_ci.idf_gitlab import test_child_pipeline as test_child_pipeline_cmd
+from idf_ci.settings import CiSettings
 
 
 @click.group()
@@ -47,18 +49,20 @@ def dynamic_pipeline_variables():
 )
 @click.argument('yaml_output', required=False)
 def build_child_pipeline(paths, modified_files, compare_manifest_sha_filepath, yaml_output):
-    """Generate build child pipeline yaml file.
-
-    This command generates a GitLab child pipeline YAML file for building apps. The
-    command will determine which apps to build based on environment variables and
-    settings defined in the GitlabEnvVars and CiSettings classes.
-    """
+    """Generate build child pipeline yaml file."""
     build_child_pipeline_cmd(
         paths=paths,
         modified_files=modified_files,
         compare_manifest_sha_filepath=compare_manifest_sha_filepath,
         yaml_output=yaml_output,
     )
+
+
+@gitlab.command()
+@click.argument('yaml_output', required=False)
+def test_child_pipeline(yaml_output):
+    """Generate test child pipeline yaml file."""
+    test_child_pipeline_cmd(yaml_output)
 
 
 @gitlab.command()
@@ -116,3 +120,20 @@ def upload_artifacts(artifact_type, commit_sha, folder):
         artifact_type=artifact_type,
         folder=folder,
     )
+
+
+@gitlab.command()
+@click.argument('filename', required=True)
+def download_known_failure_cases_file(filename):
+    """Download known failure cases file from S3 storage."""
+    s3_client = create_s3_client()
+
+    settings = CiSettings()
+    if s3_client:
+        s3_client.fget_object(
+            settings.gitlab.known_failure_cases_bucket_name,
+            filename,
+            filename,
+        )
+    else:
+        raise ValueError('Configure S3 storage to download artifacts')

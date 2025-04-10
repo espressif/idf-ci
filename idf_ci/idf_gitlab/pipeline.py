@@ -9,7 +9,8 @@ import typing as t
 from idf_build_apps import App
 from jinja2 import Environment
 
-from idf_ci.idf_gitlab.envs import GitlabEnvVars
+from idf_ci.envs import GitlabEnvVars
+from idf_ci.idf_pytest import GroupedPytestCases, get_pytest_cases
 from idf_ci.scripts import get_all_apps
 from idf_ci.settings import CiSettings
 
@@ -40,8 +41,6 @@ def build_child_pipeline(
         yaml_output = settings.gitlab.build_child_pipeline_yaml_filename
 
     # Check if we should run quick pipeline
-    test_related_apps: t.List[App] = []
-    non_test_related_apps: t.List[App] = []
     if envs.select_by_filter_expr:
         # we only build test related apps
         test_related_apps, _ = get_all_apps(
@@ -49,6 +48,7 @@ def build_child_pipeline(
             marker_expr='not host_test',
             filter_expr=envs.select_by_filter_expr,
         )
+        non_test_related_apps: t.List[App] = []
         dump_apps_to_txt(test_related_apps, settings.collected_test_related_apps_filepath)
     else:
         test_related_apps, non_test_related_apps = get_all_apps(
@@ -81,10 +81,69 @@ def build_child_pipeline(
         fw.write(
             build_child_pipeline_template.render(
                 build_jobs_yaml=build_jobs_template.render(
-                    parallel_count=parallel_count, ci_artifacts_paths=settings.gitlab.ci_artifacts_filepatterns
+                    parallel_count=parallel_count,
+                    artifact_paths=settings.gitlab.ci_build_artifacts_filepatterns,
+                    job_extends=[settings.gitlab.ci_build_default_template_name],
                 ),
                 generate_test_child_pipeline_yaml=generate_test_child_pipeline_template.render(
                     test_child_pipeline_yaml_filename=settings.gitlab.test_child_pipeline_yaml_filename,
                 ),
+            )
+        )
+
+
+def test_child_pipeline(yaml_output):
+    """This function is used to generate the child pipeline for test jobs.
+
+    Suppose the ci_build_artifacts_filepatterns is downloaded already
+
+    .. note::
+
+        parallel:matrix does not support array as value, we generate all jobs here
+
+    Example output:
+
+    .. code-block:: yaml
+
+        .default_test_settings:
+            script:
+                - pytest ${nodes}
+
+        esp32 - generic:
+            extends:
+                - .default_test_settings
+            tags:
+                - esp32
+                - generic
+            variables:
+                nodes: "nodeid1 nodeid2"
+    """
+    settings = CiSettings()
+    if yaml_output is None:
+        yaml_output = settings.gitlab.test_child_pipeline_yaml_filename
+
+    group = GroupedPytestCases(get_pytest_cases())
+
+    jobs = []
+
+    test_jobs_template = Environment().from_string(settings.gitlab.test_jobs_jinja_template)
+    for key, cases in group.grouped_cases.items():
+        jobs.append(
+            {
+                'name': f'{key.target_selector} - {key.env_selector}',
+                'extends': [settings.gitlab.ci_test_default_template_name],
+                'tags': sorted(key.runner_tags),
+                'artifact_paths': settings.gitlab.ci_test_artifacts_filepatterns,
+                'nodes': ' '.join([c.item.nodeid for c in cases]),
+                'parallel_count': len(cases) // settings.gitlab.test_cases_count_per_job + 1,
+            }
+        )
+
+    test_child_pipeline_template = Environment().from_string(settings.gitlab.test_child_pipeline_yaml_jinja_template)
+
+    with open(yaml_output, 'w') as fw:
+        fw.write(
+            test_child_pipeline_template.render(
+                test_jobs_yaml=test_jobs_template.render(jobs=jobs),
             )
         )

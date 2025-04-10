@@ -3,13 +3,14 @@
 
 __all__ = [
     'ArtifactManager',
-    'GitlabEnvVars',
     'build_child_pipeline',
+    'create_s3_client',
     'dynamic_pipeline_variables',
+    'test_child_pipeline',
 ]
 
 
 from .api import ArtifactManager
-from .envs import GitlabEnvVars
-from .pipeline import build_child_pipeline
+from .pipeline import build_child_pipeline, test_child_pipeline
+from .s3 import create_s3_client
 from .scripts import dynamic_pipeline_variables

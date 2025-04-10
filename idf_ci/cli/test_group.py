@@ -33,7 +33,7 @@ def init(path: str):
 @click.option(
     '--format',
     '_format',
-    type=click.Choice(['raw', 'github', 'gitlab']),
+    type=click.Choice(['raw', 'github']),
     default='raw',
     help='Output format',
 )
@@ -66,8 +66,6 @@ def collect(
         result = grouped_cases.output_as_string()
     elif _format == 'github':
         result = grouped_cases.output_as_github_ci()
-    elif _format == 'gitlab':
-        result = grouped_cases.output_as_gitlab_ci()
     else:
         raise ValueError(f'Unknown output format: {_format}')
 
