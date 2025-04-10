@@ -3,7 +3,6 @@
 import logging
 import os
 import re
-import sys
 import typing as t
 from pathlib import Path
 
@@ -14,6 +13,7 @@ from pydantic_settings import (
     InitSettingsSource,
     PydanticBaseSettingsSource,
 )
+from tomlkit import load
 
 from idf_ci._compat import PathLike
 
@@ -39,16 +39,8 @@ class TomlConfigSettingsSource(InitSettingsSource):
         if not path or not path.is_file():
             return {}
 
-        if sys.version_info < (3, 11):
-            from tomlkit import load
-
-            with open(path) as f:
-                return load(f)
-        else:
-            import tomllib
-
-            with open(path, 'rb') as f:
-                return tomllib.load(f)
+        with open(path) as f:
+            return load(f)
 
     @staticmethod
     def _pick_toml_file(provided: t.Optional[PathLike], filename: str) -> t.Optional[Path]:
@@ -79,11 +71,8 @@ class TomlConfigSettingsSource(InitSettingsSource):
         return None
 
 
-class GitlabSettings(BaseSettings):
-    project: str = 'espressif/esp-idf'
-    """GitLab project path in the format 'owner/repo'."""
-
-    debug_artifacts_filepatterns: t.List[str] = [
+class ArtifactSettings(BaseSettings):
+    debug_filepatterns: t.List[str] = [
         '**/build*/bootloader/*.map',
         '**/build*/bootloader/*.elf',
         '**/build*/*.map',
@@ -92,9 +81,7 @@ class GitlabSettings(BaseSettings):
     ]
     """List of glob patterns for debug artifacts to collect."""
 
-    known_failure_cases_bucket_name: str = 'ignore-test-result-files'
-
-    flash_artifacts_filepatterns: t.List[str] = [
+    flash_filepatterns: t.List[str] = [
         '**/build*/bootloader/*.bin',
         '**/build*/*.bin',
         '**/build*/partition_table/*.bin',
@@ -106,96 +93,73 @@ class GitlabSettings(BaseSettings):
     ]
     """List of glob patterns for flash artifacts to collect."""
 
-    metrics_artifacts_filepatterns: t.List[str] = [
+    metrics_filepatterns: t.List[str] = [
         '**/build*/size.json',  # size_json_filename
     ]
     """List of glob patterns for metrics artifacts to collect."""
 
-    ci_build_default_template_name: str = '.default_build_settings'
-    """Default template name for CI build jobs."""
-
-    ci_test_default_template_name: str = '.default_test_settings'
-    """Default template name for CI test jobs."""
-
-    ci_build_artifacts_filepatterns: t.List[str] = [
+    build_job_filepatterns: t.List[str] = [
         'app_info_*.txt',  # collect_app_info_filename
         'build_summary_*.xml',  # junitxml
     ]
     """List of glob patterns for CI build jobs artifacts to collect."""
 
-    ci_test_artifacts_filepatterns: t.List[str] = [
+    test_job_filepatterns: t.List[str] = [
         'pytest-embedded/',
         'XUNIT_RESULT*.xml',
     ]
     """List of glob patterns for CI test jobs artifacts to collect."""
 
-    build_apps_count_per_job: int = 60
+
+class BuildPipelineSettings(BaseSettings):
+    default_template_name: str = '.default_build_settings'
+    """Default template name for CI build jobs."""
+
+    default_template_jinja: str = """
+{{ settings.gitlab.build_pipeline.default_template_name }}:
+  stage: build
+  timeout: 1h
+  artifacts:
+    paths:
+    {%- for path in settings.gitlab.artifact.build_job_filepatterns %}
+      - {{ path }}
+    {%- endfor %}
+    expire_in: 1 week
+    when: always
+  script:
+    - idf-ci build run
+      --parallel-count ${CI_NODE_TOTAL:-1}
+      --parallel-index ${CI_NODE_INDEX:-1}
+""".strip()
+    """Default template for CI test jobs."""
+
+    runs_per_job: int = 60
     """Maximum number of apps to build in a single job."""
 
-    test_cases_count_per_job: int = 30
-
-    build_jobs_jinja_template: str = """
+    jobs_jinja: str = """
 build_apps:
-{%- if job_extends %}
-  extends:
-    {%- for extend in job_extends %}
-    - {{ extend }}
-    {%- endfor %}
-{%- endif %}
-  stage: build
+  extends: {{ settings.gitlab.build_pipeline.default_template_name }}
 {%- if parallel_count > 1 %}
   parallel: {{ parallel_count }}
 {%- endif %}
   needs:
     - pipeline: $PARENT_PIPELINE_ID
       job: generate_build_child_pipeline
-{%- if artifact_paths %}
-  artifacts:
-    paths:
-    {%- for path in artifact_paths %}
-      - {{ path }}
-    {%- endfor %}
-{%- endif %}
 """.strip()
     """Jinja2 template for build jobs configuration."""
 
-    test_jobs_jinja_template: str = """
-{% for job in jobs %}
-{{ job['name'] }}:
-{%- if job['extends'] %}
-  extends:
-    {%- for extend in job['extends'] %}
-    - {{ extend }}
-    {%- endfor %}
-{%- endif %}
-  stage: target_test
-  tags: {{ job['tags'] }}
-{%- if job['parallel_count'] > 1 %}
-  parallel: {{ job['parallel_count'] }}
-{%- endif %}
-{%- if job['artifact_paths'] %}
-  artifacts:
-    paths:
-    {%- for path in job['artifact_paths'] %}
-      - {{ path }}
-    {%- endfor %}
-{%- endif %}
-  variables:
-    nodes: {{ job['nodes'] }}
-{% endfor %}
-""".strip()
-    """Jinja2 template for test jobs configuration."""
+    yaml_jinja: str = """
+{{ default_template }}
 
-    generate_test_child_pipeline_job_jinja_template: str = """
+{{ jobs }}
+
 generate_test_child_pipeline:
-  extends:
-    - {{ ci_build_default_template_name }}
-  stage: build
+  extends: {{ settings.gitlab.build_pipeline.default_template_name }}
   needs:
     - build_apps
   artifacts:
     paths:
-      - {{ test_child_pipeline_yaml_filename }}
+      - {{ settings.gitlab.test_pipeline.yaml_filename }}
   script:
     - idf-ci gitlab test-child-pipeline
 
@@ -207,29 +171,84 @@ test-child-pipeline:
     PARENT_PIPELINE_ID: $PARENT_PIPELINE_ID
   trigger:
     include:
-      - artifact: {{ test_child_pipeline_yaml_filename }}
+      - artifact: {{ settings.gitlab.test_pipeline.yaml_filename }}
         job: generate_test_child_pipeline
     strategy: depend
 """.strip()
-    """Jinja2 template for generating test child pipeline job configuration."""
-
-    build_child_pipeline_yaml_jinja_template: str = """
-{{ build_jobs_yaml }}
-
-{{ generate_test_child_pipeline_yaml }}
-""".strip()
     """Jinja2 template for the build child pipeline YAML content."""
 
-    test_child_pipeline_yaml_jinja_template: str = """
-{{ test_jobs_yaml }}
+    yaml_filename: str = 'build_child_pipeline.yml'
+    """Filename for the build child pipeline YAML file."""
+
+
+class TestPipelineSettings(BuildPipelineSettings):
+    default_template_name: str = '.default_test_settings'
+    """Default template name for CI test jobs."""
+
+    default_template_jinja: str = """
+{{ settings.gitlab.test_pipeline.default_template_name }}:
+  stage: target_test
+  timeout: 1h
+  artifacts:
+    paths:
+    {%- for path in settings.gitlab.artifact.test_job_filepatterns %}
+      - {{ path }}
+    {%- endfor %}
+    expire_in: 1 week
+    when: always
+  variables:
+    PYTEST_EXTRA_FLAGS: ""
+  script:
+    - idf-ci gitlab download-known-failure-cases-file ${KNOWN_FAILURE_CASES_FILE_NAME}
+    - pytest ${nodes}
+      --parallel-count ${CI_NODE_TOTAL:-1}
+      --parallel-index ${CI_NODE_INDEX:-1}
+      --junitxml XUNIT_RESULT_${CI_JOB_NAME_SLUG}.xml
+      --ignore-result-files ${KNOWN_FAILURE_CASES_FILE_NAME}
+      ${PYTEST_EXTRA_FLAGS}
+""".strip()
+    """Default template for CI test jobs."""
+
+    runs_per_job: int = 30
+    """Maximum number of test cases to run in a single job."""
+
+    jobs_jinja: str = """
+{% for job in jobs %}
+{{ job['name'] }}:
+  extends: {{ settings.gitlab.test_pipeline.default_template_name }}
+  tags: {{ job['tags'] }}
+{%- if job['parallel_count'] > 1 %}
+  parallel: {{ job['parallel_count'] }}
+{%- endif %}
+  variables:
+    nodes: {{ job['nodes'] }}
+{% endfor %}
+""".strip()
+    """Jinja2 template for test jobs configuration."""
+
+    yaml_jinja: str = """
+{{ default_template }}
+
+{{ jobs }}
 """.strip()
     """Jinja2 template for the test child pipeline YAML content."""
 
-    build_child_pipeline_yaml_filename: str = 'build_child_pipeline.yml'
-    """Filename for the build child pipeline YAML file."""
-
-    test_child_pipeline_yaml_filename: str = 'test_child_pipeline.yml'
+    yaml_filename: str = 'test_child_pipeline.yml'
     """Filename for the test child pipeline YAML file."""
+
+
+class GitlabSettings(BaseSettings):
+    project: str = 'espressif/esp-idf'
+    """GitLab project path in the format 'owner/repo'."""
+
+    known_failure_cases_bucket_name: str = 'ignore-test-result-files'
+    """Bucket name for storing known failure cases."""
+
+    artifact: ArtifactSettings = ArtifactSettings()
+
+    build_pipeline: BuildPipelineSettings = BuildPipelineSettings()
+
+    test_pipeline: TestPipelineSettings = TestPipelineSettings()
 
 
 class CiSettings(BaseSettings):

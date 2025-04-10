@@ -34,13 +34,15 @@ class TestUploadDownloadArtifacts:
             textwrap.dedent("""
                 [gitlab]
                 project = "espressif/esp-idf"
-                debug_artifacts_filepatterns = [
+
+                [gitlab.artifact]
+                debug_filepatterns = [
                     '**/build*/build.log',  # build_log_filename
                 ]
-                flash_artifacts_filepatterns = [
+                flash_filepatterns = [
                     '**/build*/*.bin',
                 ]
-                metrics_artifacts_filepatterns = [
+                metrics_filepatterns = [
                     '**/build*/size.json',  # size_json_filename
                 ]
             """)

@@ -17,3 +17,9 @@ The following sections describe all configuration options available in the CI co
 .. autopydantic_settings:: idf_ci.settings.CiSettings
 
 .. autopydantic_settings:: idf_ci.settings.GitlabSettings
+
+.. autopydantic_settings:: idf_ci.settings.ArtifactSettings
+
+.. autopydantic_settings:: idf_ci.settings.BuildPipelineSettings
+
+.. autopydantic_settings:: idf_ci.settings.TestPipelineSettings

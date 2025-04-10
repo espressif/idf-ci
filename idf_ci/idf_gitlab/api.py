@@ -81,19 +81,19 @@ class ArtifactManager:
         """
         if artifact_type:
             if artifact_type == 'flash':
-                return self.settings.gitlab.flash_artifacts_filepatterns
+                return self.settings.gitlab.artifact.flash_filepatterns
             elif artifact_type == 'debug':
-                return self.settings.gitlab.debug_artifacts_filepatterns
+                return self.settings.gitlab.artifact.debug_filepatterns
             elif artifact_type == 'metrics':
-                return self.settings.gitlab.metrics_artifacts_filepatterns
+                return self.settings.gitlab.artifact.metrics_filepatterns
             else:
                 raise ValueError(f'Invalid artifact type: {artifact_type}')
         else:
             # If no type specified, include all patterns
             return (
-                self.settings.gitlab.flash_artifacts_filepatterns
-                + self.settings.gitlab.debug_artifacts_filepatterns
-                + self.settings.gitlab.metrics_artifacts_filepatterns
+                self.settings.gitlab.artifact.flash_filepatterns
+                + self.settings.gitlab.artifact.debug_filepatterns
+                + self.settings.gitlab.artifact.metrics_filepatterns
             )
 
     def download_artifacts(
