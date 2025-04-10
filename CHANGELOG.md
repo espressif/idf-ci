@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.10 (2025-04-10)
+
+### Refactor
+
+- settings sub sections
+
 ## v0.1.9 (2025-04-10)
 
 ### Feat

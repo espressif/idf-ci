@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "idf-ci"
-version = "0.1.9"
+version = "0.1.10"
 description = "The python library for CI/CD of ESP-IDF projects"
 readme = "README.md"
 requires-python = ">=3.7"
