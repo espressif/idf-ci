@@ -38,7 +38,7 @@ def build_child_pipeline(
         compare_manifest_sha_filepath = None
 
     if yaml_output is None:
-        yaml_output = settings.gitlab.build_child_pipeline_yaml_filename
+        yaml_output = settings.gitlab.build_pipeline.yaml_filename
 
     # Check if we should run quick pipeline
     if envs.select_by_filter_expr:
@@ -61,7 +61,7 @@ def build_child_pipeline(
         dump_apps_to_txt(non_test_related_apps, settings.collected_non_test_related_apps_filepath)
 
     apps_total = len(test_related_apps) + len(non_test_related_apps)
-    parallel_count = apps_total // settings.gitlab.build_apps_count_per_job + 1
+    parallel_count = apps_total // settings.gitlab.build_pipeline.runs_per_job + 1
 
     logger.info(
         'Found %d apps, %d test related apps, %d non-test related apps',
@@ -71,23 +71,21 @@ def build_child_pipeline(
     )
     logger.info('Parallel count: %d', parallel_count)
 
-    build_jobs_template = Environment().from_string(settings.gitlab.build_jobs_jinja_template)
-    generate_test_child_pipeline_template = Environment().from_string(
-        settings.gitlab.generate_test_child_pipeline_job_jinja_template
-    )
-    build_child_pipeline_template = Environment().from_string(settings.gitlab.build_child_pipeline_yaml_jinja_template)
+    default_template = Environment().from_string(settings.gitlab.build_pipeline.default_template_jinja)
+    build_jobs_template = Environment().from_string(settings.gitlab.build_pipeline.jobs_jinja)
+    build_child_pipeline_template = Environment().from_string(settings.gitlab.build_pipeline.yaml_jinja)
 
     with open(yaml_output, 'w') as fw:
         fw.write(
             build_child_pipeline_template.render(
-                build_jobs_yaml=build_jobs_template.render(
+                default_template=default_template.render(
+                    settings=settings,
+                ),
+                jobs=build_jobs_template.render(
+                    settings=settings,
                     parallel_count=parallel_count,
-                    artifact_paths=settings.gitlab.ci_build_artifacts_filepatterns,
-                    job_extends=[settings.gitlab.ci_build_default_template_name],
                 ),
-                generate_test_child_pipeline_yaml=generate_test_child_pipeline_template.render(
-                    test_child_pipeline_yaml_filename=settings.gitlab.test_child_pipeline_yaml_filename,
-                ),
+                settings=settings,
             )
         )
 
@@ -120,30 +118,34 @@ def test_child_pipeline(yaml_output):
     """
     settings = CiSettings()
     if yaml_output is None:
-        yaml_output = settings.gitlab.test_child_pipeline_yaml_filename
+        yaml_output = settings.gitlab.test_pipeline.yaml_filename
 
     group = GroupedPytestCases(get_pytest_cases())
 
     jobs = []
-
-    test_jobs_template = Environment().from_string(settings.gitlab.test_jobs_jinja_template)
     for key, cases in group.grouped_cases.items():
         jobs.append(
             {
                 'name': f'{key.target_selector} - {key.env_selector}',
-                'extends': [settings.gitlab.ci_test_default_template_name],
                 'tags': sorted(key.runner_tags),
-                'artifact_paths': settings.gitlab.ci_test_artifacts_filepatterns,
                 'nodes': ' '.join([c.item.nodeid for c in cases]),
-                'parallel_count': len(cases) // settings.gitlab.test_cases_count_per_job + 1,
+                'parallel_count': len(cases) // settings.gitlab.test_pipeline.runs_per_job + 1,
             }
         )
 
-    test_child_pipeline_template = Environment().from_string(settings.gitlab.test_child_pipeline_yaml_jinja_template)
+    default_template = Environment().from_string(settings.gitlab.test_pipeline.default_template_jinja)
+    test_jobs_template = Environment().from_string(settings.gitlab.test_pipeline.jobs_jinja)
+    test_child_pipeline_template = Environment().from_string(settings.gitlab.test_pipeline.yaml_jinja)
 
     with open(yaml_output, 'w') as fw:
         fw.write(
             test_child_pipeline_template.render(
-                test_jobs_yaml=test_jobs_template.render(jobs=jobs),
+                default_template=default_template.render(
+                    settings=settings,
+                ),
+                jobs=test_jobs_template.render(
+                    jobs=jobs,
+                    settings=settings,
+                ),
             )
         )
