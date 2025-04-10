@@ -11,9 +11,9 @@ from pathlib import Path
 from gitlab import Gitlab
 from gitlab.v4.objects import MergeRequest
 
+from ..envs import GitlabEnvVars
 from ..settings import CiSettings
 from ..utils import get_current_branch
-from .envs import GitlabEnvVars
 from .s3 import create_s3_client, download_from_s3, upload_to_s3
 
 logger = logging.getLogger(__name__)

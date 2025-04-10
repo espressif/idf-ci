@@ -11,8 +11,8 @@ import pytest
 from _pytest.config import ExitCode
 
 from idf_ci._compat import UNDEF, UndefinedOr, is_undefined
+from idf_ci.envs import GitlabEnvVars
 
-from ..idf_gitlab.envs import GitlabEnvVars
 from ..utils import remove_subfolders, setup_logging
 from .models import PytestCase
 from .plugin import IdfPytestPlugin

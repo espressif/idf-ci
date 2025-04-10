@@ -12,7 +12,7 @@ import minio
 import urllib3
 
 from .._vendor import translate
-from .envs import GitlabEnvVars
+from ..envs import GitlabEnvVars
 
 logger = logging.getLogger(__name__)
 

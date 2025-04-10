@@ -10,7 +10,7 @@ from idf_build_apps import App, build_apps, find_apps
 from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
 
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies
-from .idf_gitlab.envs import GitlabEnvVars
+from .envs import GitlabEnvVars
 from .settings import CiSettings
 
 logger = logging.getLogger(__name__)
@@ -229,7 +229,6 @@ def build(
     only_test_related: bool = False,
     only_non_test_related: bool = False,
     dry_run: bool = False,
-    verbose: t.Optional[int] = None,
     marker_expr: UndefinedOr[str] = UNDEF,
     filter_expr: t.Optional[str] = None,
 ) -> t.Tuple[t.List[App], int]:
@@ -244,7 +243,6 @@ def build(
     :param only_test_related: Only build test-related applications
     :param only_non_test_related: Only build non-test-related applications
     :param dry_run: Do not actually build, just simulate
-    :param verbose: Verbosity level
     :param marker_expr: Pytest marker expression
     :param filter_expr: Filter expression
 
@@ -286,6 +284,5 @@ def build(
         dry_run=dry_run,
         modified_files=processed_args.modified_files,
         modified_components=processed_args.modified_components,
-        verbose=verbose,
     )
     return apps, ret

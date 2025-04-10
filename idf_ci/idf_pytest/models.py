@@ -290,12 +290,3 @@ class GroupedPytestCases:
             )
 
         return json.dumps({'include': include_list})
-
-    def output_as_gitlab_ci(self) -> str:
-        """Generates CI configuration for GitLab CI.
-
-        :returns: GitLab CI configuration string
-
-        :raises: NotImplementedError
-        """
-        raise NotImplementedError
