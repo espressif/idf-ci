@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.11 (2025-04-14)
+
+### Fix
+
+- default test stage
+- small fixes on the default values of ci settings
+
 ## v0.1.10 (2025-04-10)
 
 ### Refactor
