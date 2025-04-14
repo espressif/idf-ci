@@ -189,7 +189,7 @@ class TestPipelineSettings(BuildPipelineSettings):
 
     default_template_jinja: str = """
 {{ settings.gitlab.test_pipeline.default_template_name }}:
-  stage: target_test
+  stage: test
   timeout: 1h
   artifacts:
     paths:
