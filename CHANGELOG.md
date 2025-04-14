@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.12 (2025-04-14)
+
+### Feat
+
+- support build job tag defined in settings
+
 ## v0.1.11 (2025-04-14)
 
 ### Fix
