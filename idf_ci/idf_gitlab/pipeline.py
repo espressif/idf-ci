@@ -147,5 +147,6 @@ def test_child_pipeline(yaml_output):
                     jobs=jobs,
                     settings=settings,
                 ),
+                settings=settings,
             )
         )

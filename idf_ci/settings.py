@@ -112,14 +112,19 @@ class ArtifactSettings(BaseSettings):
 
 
 class BuildPipelineSettings(BaseSettings):
+    workflow_name: str = 'Build Child Pipeline'
+    """Name for the GitLab CI workflow."""
+
     default_template_name: str = '.default_build_settings'
     """Default template name for CI build jobs."""
+
+    job_tags: t.List[str] = ['build']
+    """List of tags for CI build jobs."""
 
     default_template_jinja: str = """
 {{ settings.gitlab.build_pipeline.default_template_name }}:
   stage: build
-  tags:
-    - build
+  tags: {{ settings.gitlab.build_pipeline.job_tags }}
   timeout: 1h
   artifacts:
     paths:
@@ -147,10 +152,17 @@ build_apps:
   needs:
     - pipeline: $PARENT_PIPELINE_ID
       job: generate_build_child_pipeline
+    - pipeline: $PARENT_PIPELINE_ID
+      job: pipeline_variables
 """.strip()
     """Jinja2 template for build jobs configuration."""
 
     yaml_jinja: str = """
+workflow:
+  name: {{ settings.gitlab.build_pipeline.workflow_name }}
+  rules:
+    - when: always
+
 {{ default_template }}
 
 {{ jobs }}
@@ -184,8 +196,14 @@ test-child-pipeline:
 
 
 class TestPipelineSettings(BuildPipelineSettings):
+    workflow_name: str = 'Test Child Pipeline'
+    """Name for the GitLab CI workflow."""
+
     default_template_name: str = '.default_test_settings'
     """Default template name for CI test jobs."""
+
+    job_tags: t.List[str] = []
+    """Unused. tags are set by test cases."""
 
     default_template_jinja: str = """
 {{ settings.gitlab.test_pipeline.default_template_name }}:
@@ -229,6 +247,11 @@ class TestPipelineSettings(BuildPipelineSettings):
     """Jinja2 template for test jobs configuration."""
 
     yaml_jinja: str = """
+workflow:
+  name: {{ settings.gitlab.test_pipeline.workflow_name }}
+  rules:
+    - when: always
+
 {{ default_template }}
 
 {{ jobs }}
