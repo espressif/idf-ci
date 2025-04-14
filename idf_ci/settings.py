@@ -118,6 +118,8 @@ class BuildPipelineSettings(BaseSettings):
     default_template_jinja: str = """
 {{ settings.gitlab.build_pipeline.default_template_name }}:
   stage: build
+  tags:
+    - build
   timeout: 1h
   artifacts:
     paths:
@@ -164,7 +166,7 @@ generate_test_child_pipeline:
     - idf-ci gitlab test-child-pipeline
 
 test-child-pipeline:
-  stage: target_test
+  stage: test
   needs:
     - generate_test_child_pipeline
   variables:
