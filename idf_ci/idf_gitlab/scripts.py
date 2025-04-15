@@ -36,7 +36,7 @@ def dynamic_pipeline_variables() -> t.Dict[str, str]:
         res['IDF_CI_REAL_COMMIT_SHA'] = os.environ['CI_MERGE_REQUEST_SOURCE_BRANCH_SHA']
         logger.info('Setting `IDF_CI_REAL_COMMIT_SHA` to `CI_MERGE_REQUEST_SOURCE_BRANCH_SHA`')
 
-    if os.getenv('CI_PYTHON_CONSTRAINT_BRANCH') is not None:
+    if os.getenv('CI_PYTHON_CONSTRAINT_BRANCH'):
         res['IDF_CI_SELECT_ALL_PYTEST_CASES'] = '1'
         logger.info(
             'Setting `IDF_CI_SELECT_ALL_PYTEST_CASES=1` since pipeline is triggered with a python constraint branch'
