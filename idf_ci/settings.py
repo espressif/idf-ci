@@ -157,7 +157,12 @@ build_apps:
 """.strip()
     """Jinja2 template for build jobs configuration."""
 
+    pre_yaml_jinja: str = ''
+    """yaml content to be injected before the yaml template."""
+
     yaml_jinja: str = """
+{{ settings.gitlab.build_pipeline.pre_yaml_jinja }}
+
 workflow:
   name: {{ settings.gitlab.build_pipeline.workflow_name }}
   rules:
@@ -247,6 +252,8 @@ class TestPipelineSettings(BuildPipelineSettings):
     """Jinja2 template for test jobs configuration."""
 
     yaml_jinja: str = """
+{{ settings.gitlab.test_pipeline.pre_yaml_jinja }}
+
 workflow:
   name: {{ settings.gitlab.test_pipeline.workflow_name }}
   rules:
