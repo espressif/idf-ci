@@ -214,6 +214,24 @@ class IdfPytestPlugin:
 
         deselected_items: t.List[Function] = []
 
+        # Filter by nightly_run marker
+        if os.getenv('INCLUDE_NIGHTLY_RUN') == '1':
+            # Include both nightly_run and non-nightly_run cases
+            pass
+        else:  # Determine if we should select nightly_run tests or non-nightly_run tests
+            nightly_or_not = os.getenv('NIGHTLY_RUN') == '1'
+            filtered_items = []
+            for item in items:
+                case = self.get_case_by_item(item)
+                if case is None:
+                    continue
+
+                if ('nightly_run' in case.all_markers) == nightly_or_not:
+                    filtered_items.append(item)
+                else:
+                    deselected_items.append(item)
+            items[:] = filtered_items
+
         # Filter by target
         if self.cli_target != 'all':
             filtered_items = []
