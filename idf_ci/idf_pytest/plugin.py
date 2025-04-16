@@ -193,9 +193,6 @@ class IdfPytestPlugin:
         :param config: Pytest configuration
         :param items: Collected test items
         """
-        # Add markers definitions
-        config.addinivalue_line('markers', 'host_test: this test case runs on host machines')
-
         # Create PytestCase objects for all items
         for item in items:
             item.stash[IDF_CI_PYTEST_CASE_KEY] = PytestCase.from_item(item)
@@ -329,6 +326,10 @@ def pytest_configure(config: Config):
     plugin = IdfPytestPlugin(cli_target=cli_target, sdkconfig_name=sdkconfig_name)
     config.stash[IDF_CI_PLUGIN_KEY] = plugin
     config.pluginmanager.register(plugin)
+
+    # Add markers definitions
+    config.addinivalue_line('markers', 'host_test: this test case runs on host machines')
+    config.addinivalue_line('markers', 'nightly_run: this test case is a nightly run')
 
 
 def pytest_unconfigure(config: Config):
