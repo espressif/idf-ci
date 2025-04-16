@@ -16,7 +16,7 @@ from idf_ci.idf_gitlab.scripts import dynamic_pipeline_variables
             {'CI_COMMIT_SHA': '12345abcde'},
             {
                 'IDF_CI_SELECT_ALL_PYTEST_CASES': '1',
-                'IDF_CI_REAL_COMMIT_SHA': '12345abcde',
+                'PIPELINE_COMMIT_SHA': '12345abcde',
             },
         ),
         # MR pipeline with python constraint branch
@@ -29,7 +29,7 @@ from idf_ci.idf_gitlab.scripts import dynamic_pipeline_variables
             },
             {
                 'IDF_CI_SELECT_ALL_PYTEST_CASES': '1',
-                'IDF_CI_REAL_COMMIT_SHA': 'abcdef12345',
+                'PIPELINE_COMMIT_SHA': 'abcdef12345',
             },
         ),
         # MR pipeline with BUILD_AND_TEST_ALL_APPS label
@@ -42,7 +42,7 @@ from idf_ci.idf_gitlab.scripts import dynamic_pipeline_variables
             },
             {
                 'IDF_CI_SELECT_ALL_PYTEST_CASES': '1',
-                'IDF_CI_REAL_COMMIT_SHA': 'abcdef12345',
+                'PIPELINE_COMMIT_SHA': 'abcdef12345',
             },
         ),
         # MR pipeline with Test Case Filters in description
@@ -66,7 +66,7 @@ Some other text
             {
                 'IDF_CI_SELECT_BY_FILTER_EXPR': 'filter1 or filter2',
                 'IDF_CI_IS_DEBUG_PIPELINE': '1',
-                'IDF_CI_REAL_COMMIT_SHA': 'abcdef12345',
+                'PIPELINE_COMMIT_SHA': 'abcdef12345',
             },
         ),
         # MR pipeline with no special conditions
@@ -77,7 +77,7 @@ Some other text
                 'CI_MERGE_REQUEST_SOURCE_BRANCH_SHA': 'abcdef12345',
             },
             {
-                'IDF_CI_REAL_COMMIT_SHA': 'abcdef12345',
+                'PIPELINE_COMMIT_SHA': 'abcdef12345',
             },
         ),
     ],

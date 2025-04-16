@@ -27,7 +27,7 @@ def dynamic_pipeline_variables() -> t.Dict[str, str]:
 
       Build and test only the test cases that match the filter expression (pytest -k)
 
-    - IDF_CI_REAL_COMMIT_SHA
+    - PIPELINE_COMMIT_SHA
 
       Real commit SHA, instead of the merged result commit SHA
 
@@ -48,13 +48,13 @@ def dynamic_pipeline_variables() -> t.Dict[str, str]:
         logger.info('Setting `IDF_CI_SELECT_ALL_PYTEST_CASES=1` since running in a non-MR pipeline')
 
         if os.getenv('CI_COMMIT_SHA'):
-            res['IDF_CI_REAL_COMMIT_SHA'] = os.environ['CI_COMMIT_SHA']
-            logger.info('Setting `IDF_CI_REAL_COMMIT_SHA` to `CI_COMMIT_SHA` since running in a non-MR pipeline')
+            res['PIPELINE_COMMIT_SHA'] = os.environ['CI_COMMIT_SHA']
+            logger.info('Setting `PIPELINE_COMMIT_SHA` to `CI_COMMIT_SHA` since running in a non-MR pipeline')
         return res
 
     if os.getenv('CI_MERGE_REQUEST_SOURCE_BRANCH_SHA'):
-        res['IDF_CI_REAL_COMMIT_SHA'] = os.environ['CI_MERGE_REQUEST_SOURCE_BRANCH_SHA']
-        logger.info('Setting `IDF_CI_REAL_COMMIT_SHA` to `CI_MERGE_REQUEST_SOURCE_BRANCH_SHA`')
+        res['PIPELINE_COMMIT_SHA'] = os.environ['CI_MERGE_REQUEST_SOURCE_BRANCH_SHA']
+        logger.info('Setting `PIPELINE_COMMIT_SHA` to `CI_MERGE_REQUEST_SOURCE_BRANCH_SHA`')
 
     if os.getenv('CI_PYTHON_CONSTRAINT_BRANCH'):
         res['IDF_CI_SELECT_ALL_PYTEST_CASES'] = '1'
