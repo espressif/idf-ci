@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.13 (2025-04-16)
+
+### Feat
+
+- support `pre_yaml_jinja` for injecting
+- support nightly run pipeline
+
+### Refactor
+
+- revert the rename from PIPELINE_COMMIT_SHA to IDF_CI_REAL_COMMIT_SHA
+
+### Fix
+
+- using default `.post` stage
+- detection of CI_PYTHON_CONSTRAINT_BRANCH must be valid string
+
 ## v0.1.12 (2025-04-14)
 
 ### Feat
