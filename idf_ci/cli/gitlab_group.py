@@ -17,24 +17,18 @@ def gitlab():
     pass
 
 
-_DYNAMIC_PIPELINE_VARIABLES_HELP = """Output dynamic pipeline variables.
+@gitlab.command()
+def dynamic_pipeline_variables():
+    """Output dynamic pipeline variables.
 
     Analyzes the current GitLab pipeline environment and determines what variables to
     set for controlling pipeline behavior. Outputs variables in the format KEY="VALUE"
     for each determined variable, which can be used with GitLab's `export` feature.
 
-    Variables may include:
+    As for the generated variables, please refer to the following link:
 
-    \b
-    - IDF_CI_IS_DEBUG_PIPELINE: Set to '1' for debug pipelines
-    - IDF_CI_SELECT_ALL_PYTEST_CASES: Set to '1' to run all pytest cases
-    - IDF_CI_SELECT_BY_FILTER_EXPR: Set to filter expression for pytest cases
-    - IDF_CI_REAL_COMMIT_SHA: Set to the real commit SHA to use
-"""
-
-
-@gitlab.command(help=_DYNAMIC_PIPELINE_VARIABLES_HELP)
-def dynamic_pipeline_variables():
+    https://docs.espressif.com/projects/idf-ci/en/latest/references/api/idf_ci.idf_gitlab.html#idf_ci.idf_gitlab.dynamic_pipeline_variables
+    """
     for k, v in dynamic_pipeline_variables_cmd().items():
         click.echo(f'{k}="{v}"')
 
