@@ -178,7 +178,7 @@ generate_test_child_pipeline:
     - idf-ci gitlab test-child-pipeline
 
 test-child-pipeline:
-  stage: test
+  stage: .post
   needs:
     - generate_test_child_pipeline
   variables:
