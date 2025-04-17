@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.14 (2025-04-17)
+
+### Fix
+
+- add marker `nightly_run` at init phase
+
 ## v0.1.13 (2025-04-16)
 
 ### Feat
