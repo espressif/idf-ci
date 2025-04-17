@@ -178,3 +178,17 @@ class TestGetPytestCases:
 
         cases = get_pytest_cases(paths=[str(tmp_path)])
         assert len(cases) == 0  # since target is required
+
+    def test_qemu_caseid(self, tmp_path: Path) -> None:
+        script = tmp_path / 'test_qemu_caseid.py'
+        script.write_text(self.TEMPLATE_SCRIPT)
+
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32', marker_expr='qemu')
+        assert len(cases) == 1
+        assert cases[0].name == 'test_foo_qemu'
+        assert cases[0].caseid == 'esp32_qemu.default.test_foo_qemu'
+
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32')
+        assert len(cases) == 1
+        assert cases[0].name == 'test_foo_single'
+        assert cases[0].caseid == 'esp32.default.test_foo_single'

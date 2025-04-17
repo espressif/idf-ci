@@ -146,10 +146,11 @@ class PytestCase:
 
     @property
     def caseid(self) -> str:
-        if self.is_single_dut:
-            return f'{self.targets[0]}.{self.configs[0]}.{self.name}'
-        else:
-            return f'{tuple(self.targets)}.{tuple(self.configs)}.{self.name}'
+        target_str = self.targets[0] if self.is_single_dut else str(tuple(self.targets))
+        if 'qemu' in self.all_markers:
+            target_str += '_qemu'
+        configs = self.configs[0] if self.is_single_dut else tuple(self.configs)
+        return f'{target_str}.{configs}.{self.name}'
 
     @property
     def is_single_dut(self) -> bool:
