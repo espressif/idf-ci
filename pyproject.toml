@@ -34,7 +34,7 @@ dependencies = [
     "python-gitlab",
     "minio",
     # build related
-    "idf-build-apps~=2.9",
+    "idf-build-apps~=2.10",
     # test related
     "pytest-embedded-idf[serial]~=1.16",
     "pytest-embedded-jtag~=1.16",

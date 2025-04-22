@@ -115,14 +115,11 @@ class BuildPipelineSettings(BaseSettings):
     workflow_name: str = 'Build Child Pipeline'
     """Name for the GitLab CI workflow."""
 
-    default_template_name: str = '.default_build_settings'
+    job_template_name: str = '.default_build_settings'
     """Default template name for CI build jobs."""
 
-    job_tags: t.List[str] = ['build']
-    """List of tags for CI build jobs."""
-
-    default_template_jinja: str = """
-{{ settings.gitlab.build_pipeline.default_template_name }}:
+    job_template_jinja: str = """
+{{ settings.gitlab.build_pipeline.job_template_name }}:
   stage: build
   tags: {{ settings.gitlab.build_pipeline.job_tags }}
   timeout: 1h
@@ -140,12 +137,15 @@ class BuildPipelineSettings(BaseSettings):
 """.strip()
     """Default template for CI test jobs."""
 
+    job_tags: t.List[str] = ['build']
+    """List of tags for CI build jobs."""
+
     runs_per_job: int = 60
     """Maximum number of apps to build in a single job."""
 
     jobs_jinja: str = """
 build_apps:
-  extends: {{ settings.gitlab.build_pipeline.default_template_name }}
+  extends: {{ settings.gitlab.build_pipeline.job_template_name }}
 {%- if parallel_count > 1 %}
   parallel: {{ parallel_count }}
 {%- endif %}
@@ -168,12 +168,14 @@ workflow:
   rules:
     - when: always
 
-{{ default_template }}
+{%- if settings.gitlab.build_pipeline.job_template_jinja %}
+{{ job_template }}
+{%- endif %}
 
 {{ jobs }}
 
 generate_test_child_pipeline:
-  extends: {{ settings.gitlab.build_pipeline.default_template_name }}
+  extends: {{ settings.gitlab.build_pipeline.job_template_name }}
   needs:
     - build_apps
   artifacts:
@@ -204,14 +206,14 @@ class TestPipelineSettings(BuildPipelineSettings):
     workflow_name: str = 'Test Child Pipeline'
     """Name for the GitLab CI workflow."""
 
-    default_template_name: str = '.default_test_settings'
+    job_template_name: str = '.default_test_settings'
     """Default template name for CI test jobs."""
 
     job_tags: t.List[str] = []
     """Unused. tags are set by test cases."""
 
-    default_template_jinja: str = """
-{{ settings.gitlab.test_pipeline.default_template_name }}:
+    job_template_jinja: str = """
+{{ settings.gitlab.test_pipeline.job_template_name }}:
   stage: test
   timeout: 1h
   artifacts:
@@ -224,12 +226,10 @@ class TestPipelineSettings(BuildPipelineSettings):
   variables:
     PYTEST_EXTRA_FLAGS: ""
   script:
-    - idf-ci gitlab download-known-failure-cases-file ${KNOWN_FAILURE_CASES_FILE_NAME}
     - pytest ${nodes}
       --parallel-count ${CI_NODE_TOTAL:-1}
       --parallel-index ${CI_NODE_INDEX:-1}
       --junitxml XUNIT_RESULT_${CI_JOB_NAME_SLUG}.xml
-      --ignore-result-files ${KNOWN_FAILURE_CASES_FILE_NAME}
       ${PYTEST_EXTRA_FLAGS}
 """.strip()
     """Default template for CI test jobs."""
@@ -240,7 +240,7 @@ class TestPipelineSettings(BuildPipelineSettings):
     jobs_jinja: str = """
 {% for job in jobs %}
 {{ job['name'] }}:
-  extends: {{ settings.gitlab.test_pipeline.default_template_name }}
+  extends: {{ settings.gitlab.test_pipeline.job_template_name }}
   tags: {{ job['tags'] }}
 {%- if job['parallel_count'] > 1 %}
   parallel: {{ job['parallel_count'] }}
@@ -259,7 +259,9 @@ workflow:
   rules:
     - when: always
 
+{%- if settings.gitlab.test_pipeline.job_template_jinja %}
 {{ default_template }}
+{%- endif %}
 
 {{ jobs }}
 """.strip()

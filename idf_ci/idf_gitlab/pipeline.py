@@ -71,14 +71,14 @@ def build_child_pipeline(
     )
     logger.info('Parallel count: %d', parallel_count)
 
-    default_template = Environment().from_string(settings.gitlab.build_pipeline.default_template_jinja)
+    job_template = Environment().from_string(settings.gitlab.build_pipeline.job_template_jinja)
     build_jobs_template = Environment().from_string(settings.gitlab.build_pipeline.jobs_jinja)
     build_child_pipeline_template = Environment().from_string(settings.gitlab.build_pipeline.yaml_jinja)
 
     with open(yaml_output, 'w') as fw:
         fw.write(
             build_child_pipeline_template.render(
-                default_template=default_template.render(
+                job_template=job_template.render(
                     settings=settings,
                 ),
                 jobs=build_jobs_template.render(
