@@ -37,15 +37,15 @@ class TestUploadDownloadArtifacts:
                 [gitlab]
                 project = "espressif/esp-idf"
 
-                [gitlab.artifact.s3.debug]
+                [gitlab.artifacts.s3.debug]
                 bucket = "test-bucket"
                 patterns = ["**/build*/build.log"]
 
-                [gitlab.artifact.s3.flash]
+                [gitlab.artifacts.s3.flash]
                 bucket = "test-bucket"
                 patterns = ["**/build*/*.bin"]
 
-                [gitlab.artifact.s3.metrics]
+                [gitlab.artifacts.s3.metrics]
                 bucket = "test-bucket"
                 patterns = ["**/build*/size.json"]
             """)

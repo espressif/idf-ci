@@ -79,17 +79,17 @@ class ArtifactManager:
         :raises ValueError: If the artifact type is invalid
         """
         if artifact_type:
-            if artifact_type not in self.settings.gitlab.artifact.available_s3_types:
+            if artifact_type not in self.settings.gitlab.artifacts.available_s3_types:
                 raise ValueError(
                     f'Invalid artifact type: {artifact_type}. '
-                    f'Available types: {self.settings.gitlab.artifact.available_s3_types}'
+                    f'Available types: {self.settings.gitlab.artifacts.available_s3_types}'
                 )
-            config = self.settings.gitlab.artifact.s3[artifact_type]
+            config = self.settings.gitlab.artifacts.s3[artifact_type]
             return {config['bucket']: config['patterns']}
         else:
             # If no type specified, return all configurations grouped by bucket
             bucket_patterns: t.Dict[str, t.List[str]] = {}
-            for config in self.settings.gitlab.artifact.s3.values():
+            for config in self.settings.gitlab.artifacts.s3.values():
                 bucket = config['bucket']
                 if bucket not in bucket_patterns:
                     bucket_patterns[bucket] = []

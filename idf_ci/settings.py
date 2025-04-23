@@ -78,7 +78,7 @@ class S3FilePatternConfig(TypedDict):
     """List of glob patterns for files to collect."""
 
 
-class ArtifactSettings(BaseSettings):
+class ArtifactsSettings(BaseSettings):
     ### in s3 buckets ###
     s3: t.Dict[str, S3FilePatternConfig] = {
         'debug': {
@@ -150,7 +150,7 @@ class BuildPipelineSettings(BaseSettings):
   timeout: 1h
   artifacts:
     paths:
-    {%- for path in settings.gitlab.artifact.build_job_filepatterns %}
+    {%- for path in settings.gitlab.artifacts.build_job_filepatterns %}
       - {{ path }}
     {%- endfor %}
     expire_in: 1 week
@@ -243,7 +243,7 @@ class TestPipelineSettings(BuildPipelineSettings):
   timeout: 1h
   artifacts:
     paths:
-    {%- for path in settings.gitlab.artifact.test_job_filepatterns %}
+    {%- for path in settings.gitlab.artifacts.test_job_filepatterns %}
       - {{ path }}
     {%- endfor %}
     expire_in: 1 week
@@ -303,7 +303,7 @@ class GitlabSettings(BaseSettings):
     known_failure_cases_bucket_name: str = 'ignore-test-result-files'
     """Bucket name for storing known failure cases."""
 
-    artifact: ArtifactSettings = ArtifactSettings()
+    artifacts: ArtifactsSettings = ArtifactsSettings()
 
     build_pipeline: BuildPipelineSettings = BuildPipelineSettings()
 
