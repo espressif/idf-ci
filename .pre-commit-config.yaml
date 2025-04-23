@@ -28,17 +28,18 @@ repos:
       - id: mypy
         args: ['--warn-unused-ignores']
         additional_dependencies:
-          - pydantic-settings
           - click
-          - pytest
-          - tomlkit
           - idf-build-apps~=2.8
-          - pytest-embedded~=1.16
-          - rich
-          - types-PyYAML
-          - minio
-          - python-gitlab
           - jinja2
+          - minio
+          - pydantic-settings
+          - pytest
+          - pytest-embedded~=1.16
+          - python-gitlab
+          - rich
+          - tomlkit
+          - types-PyYAML
+          - types-requests
   - repo: https://github.com/LilSpazJoekp/docstrfmt
     rev: v1.10.0
     hooks:

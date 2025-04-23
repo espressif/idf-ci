@@ -15,7 +15,7 @@ from pydantic_settings import (
 )
 from tomlkit import load
 
-from idf_ci._compat import PathLike
+from idf_ci._compat import PathLike, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -71,32 +71,49 @@ class TomlConfigSettingsSource(InitSettingsSource):
         return None
 
 
-class ArtifactSettings(BaseSettings):
-    debug_filepatterns: t.List[str] = [
-        '**/build*/bootloader/*.map',
-        '**/build*/bootloader/*.elf',
-        '**/build*/*.map',
-        '**/build*/*.elf',
-        '**/build*/build.log',  # build_log_filename
-    ]
-    """List of glob patterns for debug artifacts to collect."""
+class S3FilePatternConfig(TypedDict):
+    bucket: str
 
-    flash_filepatterns: t.List[str] = [
-        '**/build*/bootloader/*.bin',
-        '**/build*/*.bin',
-        '**/build*/partition_table/*.bin',
-        '**/build*/flasher_args.json',
-        '**/build*/flash_project_args',
-        '**/build*/config/sdkconfig.json',
-        '**/build*/sdkconfig',
-        '**/build*/project_description.json',
-    ]
-    """List of glob patterns for flash artifacts to collect."""
+    patterns: t.List[str]
+    """List of glob patterns for files to collect."""
 
-    metrics_filepatterns: t.List[str] = [
-        '**/build*/size.json',  # size_json_filename
-    ]
-    """List of glob patterns for metrics artifacts to collect."""
+
+class ArtifactsSettings(BaseSettings):
+    ### in s3 buckets ###
+    s3: t.Dict[str, S3FilePatternConfig] = {
+        'debug': {
+            'bucket': 'idf-artifacts',
+            'patterns': [
+                '**/build*/bootloader/*.map',
+                '**/build*/bootloader/*.elf',
+                '**/build*/*.map',
+                '**/build*/*.elf',
+                '**/build*/build.log',  # build_log_filename
+            ],
+        },
+        'flash': {
+            'bucket': 'idf-artifacts',
+            'patterns': [
+                '**/build*/bootloader/*.bin',
+                '**/build*/*.bin',
+                '**/build*/partition_table/*.bin',
+                '**/build*/flasher_args.json',
+                '**/build*/flash_project_args',
+                '**/build*/config/sdkconfig.json',
+                '**/build*/sdkconfig',
+                '**/build*/project_description.json',
+            ],
+        },
+        'metrics': {
+            'bucket': 'idf-metrics',
+            'patterns': [
+                '**/build*/size.json',  # size_json_filename
+            ],
+        },
+    }
+    """Dictionary mapping artifact types to their bucket and file patterns."""
+
+    ### not in s3 buckets ###
 
     build_job_filepatterns: t.List[str] = [
         'app_info_*.txt',  # collect_app_info_filename
@@ -110,25 +127,30 @@ class ArtifactSettings(BaseSettings):
     ]
     """List of glob patterns for CI test jobs artifacts to collect."""
 
+    @property
+    def available_s3_types(self) -> t.List[str]:
+        """Get list of available S3 artifact types.
+
+        :returns: List of artifact type names
+        """
+        return sorted(self.s3.keys())
+
 
 class BuildPipelineSettings(BaseSettings):
     workflow_name: str = 'Build Child Pipeline'
     """Name for the GitLab CI workflow."""
 
-    default_template_name: str = '.default_build_settings'
+    job_template_name: str = '.default_build_settings'
     """Default template name for CI build jobs."""
 
-    job_tags: t.List[str] = ['build']
-    """List of tags for CI build jobs."""
-
-    default_template_jinja: str = """
-{{ settings.gitlab.build_pipeline.default_template_name }}:
+    job_template_jinja: str = """
+{{ settings.gitlab.build_pipeline.job_template_name }}:
   stage: build
   tags: {{ settings.gitlab.build_pipeline.job_tags }}
   timeout: 1h
   artifacts:
     paths:
-    {%- for path in settings.gitlab.artifact.build_job_filepatterns %}
+    {%- for path in settings.gitlab.artifacts.build_job_filepatterns %}
       - {{ path }}
     {%- endfor %}
     expire_in: 1 week
@@ -140,12 +162,15 @@ class BuildPipelineSettings(BaseSettings):
 """.strip()
     """Default template for CI test jobs."""
 
+    job_tags: t.List[str] = ['build']
+    """List of tags for CI build jobs."""
+
     runs_per_job: int = 60
     """Maximum number of apps to build in a single job."""
 
     jobs_jinja: str = """
 build_apps:
-  extends: {{ settings.gitlab.build_pipeline.default_template_name }}
+  extends: {{ settings.gitlab.build_pipeline.job_template_name }}
 {%- if parallel_count > 1 %}
   parallel: {{ parallel_count }}
 {%- endif %}
@@ -168,12 +193,14 @@ workflow:
   rules:
     - when: always
 
-{{ default_template }}
+{%- if settings.gitlab.build_pipeline.job_template_jinja %}
+{{ job_template }}
+{%- endif %}
 
 {{ jobs }}
 
 generate_test_child_pipeline:
-  extends: {{ settings.gitlab.build_pipeline.default_template_name }}
+  extends: {{ settings.gitlab.build_pipeline.job_template_name }}
   needs:
     - build_apps
   artifacts:
@@ -204,19 +231,19 @@ class TestPipelineSettings(BuildPipelineSettings):
     workflow_name: str = 'Test Child Pipeline'
     """Name for the GitLab CI workflow."""
 
-    default_template_name: str = '.default_test_settings'
+    job_template_name: str = '.default_test_settings'
     """Default template name for CI test jobs."""
 
     job_tags: t.List[str] = []
     """Unused. tags are set by test cases."""
 
-    default_template_jinja: str = """
-{{ settings.gitlab.test_pipeline.default_template_name }}:
+    job_template_jinja: str = """
+{{ settings.gitlab.test_pipeline.job_template_name }}:
   stage: test
   timeout: 1h
   artifacts:
     paths:
-    {%- for path in settings.gitlab.artifact.test_job_filepatterns %}
+    {%- for path in settings.gitlab.artifacts.test_job_filepatterns %}
       - {{ path }}
     {%- endfor %}
     expire_in: 1 week
@@ -224,12 +251,10 @@ class TestPipelineSettings(BuildPipelineSettings):
   variables:
     PYTEST_EXTRA_FLAGS: ""
   script:
-    - idf-ci gitlab download-known-failure-cases-file ${KNOWN_FAILURE_CASES_FILE_NAME}
     - pytest ${nodes}
       --parallel-count ${CI_NODE_TOTAL:-1}
       --parallel-index ${CI_NODE_INDEX:-1}
       --junitxml XUNIT_RESULT_${CI_JOB_NAME_SLUG}.xml
-      --ignore-result-files ${KNOWN_FAILURE_CASES_FILE_NAME}
       ${PYTEST_EXTRA_FLAGS}
 """.strip()
     """Default template for CI test jobs."""
@@ -240,7 +265,7 @@ class TestPipelineSettings(BuildPipelineSettings):
     jobs_jinja: str = """
 {% for job in jobs %}
 {{ job['name'] }}:
-  extends: {{ settings.gitlab.test_pipeline.default_template_name }}
+  extends: {{ settings.gitlab.test_pipeline.job_template_name }}
   tags: {{ job['tags'] }}
 {%- if job['parallel_count'] > 1 %}
   parallel: {{ job['parallel_count'] }}
@@ -259,7 +284,9 @@ workflow:
   rules:
     - when: always
 
+{%- if settings.gitlab.test_pipeline.job_template_jinja %}
 {{ default_template }}
+{%- endif %}
 
 {{ jobs }}
 """.strip()
@@ -276,7 +303,7 @@ class GitlabSettings(BaseSettings):
     known_failure_cases_bucket_name: str = 'ignore-test-result-files'
     """Bucket name for storing known failure cases."""
 
-    artifact: ArtifactSettings = ArtifactSettings()
+    artifacts: ArtifactsSettings = ArtifactsSettings()
 
     build_pipeline: BuildPipelineSettings = BuildPipelineSettings()
 

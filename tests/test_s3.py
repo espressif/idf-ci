@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
+import json
 import logging
 import os
 import shutil
@@ -8,6 +9,7 @@ import textwrap
 
 import minio
 import pytest
+import requests
 
 from idf_ci.cli import click_cli
 from idf_ci.idf_gitlab.s3 import create_s3_client
@@ -35,20 +37,20 @@ class TestUploadDownloadArtifacts:
                 [gitlab]
                 project = "espressif/esp-idf"
 
-                [gitlab.artifact]
-                debug_filepatterns = [
-                    '**/build*/build.log',  # build_log_filename
-                ]
-                flash_filepatterns = [
-                    '**/build*/*.bin',
-                ]
-                metrics_filepatterns = [
-                    '**/build*/size.json',  # size_json_filename
-                ]
+                [gitlab.artifacts.s3.debug]
+                bucket = "test-bucket"
+                patterns = ["**/build*/build.log"]
+
+                [gitlab.artifacts.s3.flash]
+                bucket = "test-bucket"
+                patterns = ["**/build*/*.bin"]
+
+                [gitlab.artifacts.s3.metrics]
+                bucket = "test-bucket"
+                patterns = ["**/build*/size.json"]
             """)
         )
 
-        monkeypatch.setenv('IDF_S3_BUCKET', 'test-bucket')
         monkeypatch.setenv('IDF_S3_SERVER', 'http://localhost:9100')
         monkeypatch.setenv('IDF_S3_ACCESS_KEY', 'minioadmin')
         monkeypatch.setenv('IDF_S3_SECRET_KEY', 'minioadmin')
@@ -110,3 +112,47 @@ class TestUploadDownloadArtifacts:
         assert result.exit_code == 0
         assert sorted(os.listdir(sample_artifacts_dir)) == ['test.bin']
         assert open(sample_artifacts_dir / 'test.bin').read() == 'Binary content'
+
+    def test_cli_generate_presigned_json(self, runner):
+        # Mock git functions that would be called
+        commit_sha = 'cli_test_sha_123'
+
+        # First upload some artifacts
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--type',
+                'flash',
+            ],
+        )
+        assert result.exit_code == 0
+
+        # Generate presigned URLs
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'generate-presigned-json',
+                '--commit-sha',
+                commit_sha,
+                '--type',
+                'flash',
+                '--expire-in-days',
+                '1',
+            ],
+        )
+        assert result.exit_code == 0
+
+        # Parse the output JSON
+        presigned_urls = json.loads(result.output)
+        assert len(presigned_urls) == 1
+        assert 'app/build_esp32_build/test.bin' in presigned_urls
+
+        # Verify the presigned URL is valid by downloading the file
+        response = requests.get(presigned_urls['app/build_esp32_build/test.bin'])
+        assert response.status_code == 200
+        assert response.text == 'Binary content'
