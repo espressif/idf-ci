@@ -23,9 +23,6 @@ class GitlabEnvVars(BaseSettings):
     """Access token for GitLab API authentication."""
 
     # S3 Storage Configuration
-    IDF_S3_BUCKET: str = 'idf-artifacts'
-    """S3 bucket name for storing artifacts."""
-
     IDF_S3_SERVER: t.Optional[str] = None
     """S3 server endpoint URL."""
 

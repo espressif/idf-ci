@@ -27,7 +27,6 @@ def create_s3_client() -> t.Optional[minio.Minio]:
     if not all(
         [
             env.IDF_S3_SERVER,
-            env.IDF_S3_BUCKET,
             env.IDF_S3_ACCESS_KEY,
             env.IDF_S3_SECRET_KEY,
         ]
@@ -63,6 +62,8 @@ def create_s3_client() -> t.Optional[minio.Minio]:
 
 def download_from_s3(
     s3_client: minio.Minio,
+    *,
+    bucket: str,
     s3_prefix: str,
     rel_to_idf: str,
     patterns: t.List[str],
@@ -70,6 +71,7 @@ def download_from_s3(
     """Download artifacts from S3 storage and place them in-place relative to IDF_PATH.
 
     :param s3_client: Configured Minio client instance
+    :param bucket: S3 bucket name
     :param s3_prefix: Prefix to use for S3 object names
     :param rel_to_idf: Input directory path
     :param patterns: List of glob patterns to match files against
@@ -85,7 +87,7 @@ def download_from_s3(
     patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
 
     for obj in s3_client.list_objects(
-        env.IDF_S3_BUCKET,
+        bucket,
         prefix=s3_folder,
         recursive=True,
     ):
@@ -96,7 +98,7 @@ def download_from_s3(
                 continue
 
             logger.debug(f'Downloading {obj.object_name} to {output_path}')
-            s3_client.fget_object(env.IDF_S3_BUCKET, obj.object_name, str(output_path))
+            s3_client.fget_object(bucket, obj.object_name, str(output_path))
         except minio.error.S3Error as e:
             logger.error(f'Error downloading from S3: {e}')
             raise
@@ -104,6 +106,8 @@ def download_from_s3(
 
 def upload_to_s3(
     s3_client: minio.Minio,
+    *,
+    bucket: str,
     prefix: str,
     from_path: Path,
     patterns: t.List[str],
@@ -111,12 +115,13 @@ def upload_to_s3(
     """Upload files to S3 storage that match the given patterns.
 
     :param s3_client: Configured Minio client instance
+    :param bucket: S3 bucket name
     :param prefix: Prefix to use for S3 object names
     :param from_path: upload directory path
     :param patterns: List of patterns to match files against
     """
     env = GitlabEnvVars()
-    logger.debug(f'Uploading objects to S3 bucket with prefix {prefix}')
+    logger.debug(f'Uploading objects to S3 bucket {bucket} with prefix {prefix}')
 
     # Use glob to find all matching files recursively
     for pattern in patterns:
@@ -134,7 +139,7 @@ def upload_to_s3(
 
             try:
                 s3_client.fput_object(
-                    env.IDF_S3_BUCKET,
+                    bucket,
                     s3_path,
                     str(file_path),
                 )

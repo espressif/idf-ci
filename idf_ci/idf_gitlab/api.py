@@ -3,7 +3,6 @@
 
 import logging
 import os
-import sys
 import typing as t
 from functools import lru_cache
 from pathlib import Path
@@ -17,12 +16,6 @@ from ..utils import get_current_branch
 from .s3 import create_s3_client, download_from_s3, upload_to_s3
 
 logger = logging.getLogger(__name__)
-
-
-if sys.version_info < (3, 8):
-    from typing_extensions import Literal
-else:
-    from typing import Literal
 
 
 class ArtifactManager:
@@ -72,35 +65,41 @@ class ArtifactManager:
             raise ValueError(f'No open merge request found for branch {branch}')
         return mrs[0]
 
-    def _get_patterns_by_type(self, artifact_type: t.Optional[str]) -> t.List[str]:
-        """Get file patterns based on the artifact type.
+    def _get_upload_details_by_type(self, artifact_type: t.Optional[str]) -> t.Dict[str, t.List[str]]:
+        """Get file patterns grouped by bucket name based on the artifact type.
 
         :param artifact_type: Type of artifacts to download (debug, flash, metrics)
 
-        :returns: List of file patterns
+        :returns: Dictionary mapping bucket names to lists of patterns
+
+        :raises ValueError: If the artifact type is invalid
         """
         if artifact_type:
-            if artifact_type == 'flash':
-                return self.settings.gitlab.artifact.flash_filepatterns
-            elif artifact_type == 'debug':
-                return self.settings.gitlab.artifact.debug_filepatterns
-            elif artifact_type == 'metrics':
-                return self.settings.gitlab.artifact.metrics_filepatterns
-            else:
-                raise ValueError(f'Invalid artifact type: {artifact_type}')
+            if artifact_type not in self.settings.gitlab.artifact.available_s3_types:
+                raise ValueError(
+                    f'Invalid artifact type: {artifact_type}. '
+                    f'Available types: {self.settings.gitlab.artifact.available_s3_types}'
+                )
+            config = self.settings.gitlab.artifact.s3[artifact_type]
+            return {config['bucket']: config['patterns']}
         else:
-            # If no type specified, include all patterns
-            return (
-                self.settings.gitlab.artifact.flash_filepatterns
-                + self.settings.gitlab.artifact.debug_filepatterns
-                + self.settings.gitlab.artifact.metrics_filepatterns
-            )
+            # If no type specified, return all configurations grouped by bucket
+            bucket_patterns: t.Dict[str, t.List[str]] = {}
+            for config in self.settings.gitlab.artifact.s3.values():
+                bucket = config['bucket']
+                if bucket not in bucket_patterns:
+                    bucket_patterns[bucket] = []
+                bucket_patterns[bucket].extend(config['patterns'])
+
+            if not bucket_patterns:
+                raise ValueError('No S3 buckets configured')
+            return bucket_patterns
 
     def download_artifacts(
         self,
         commit_sha: t.Optional[str] = None,
         branch: t.Optional[str] = None,
-        artifact_type: t.Optional[Literal['debug', 'flash', 'metrics']] = None,
+        artifact_type: t.Optional[str] = None,
         folder: t.Optional[str] = None,
     ) -> None:
         """Download artifacts from a pipeline.
@@ -147,12 +146,14 @@ class ArtifactManager:
             s3_prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
             logger.info(f'Downloading artifacts from s3 under {s3_prefix}')
 
-            download_from_s3(
-                s3_client=s3_client,
-                s3_prefix=s3_prefix,
-                rel_to_idf=str(from_path.relative_to(env.IDF_PATH)),
-                patterns=self._get_patterns_by_type(artifact_type),
-            )
+            for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
+                download_from_s3(
+                    s3_client=s3_client,
+                    bucket=bucket,
+                    s3_prefix=s3_prefix,
+                    rel_to_idf=str(from_path.relative_to(env.IDF_PATH)),
+                    patterns=patterns,
+                )
         else:
             # TODO:
             # - get the latest pipeline for the commit
@@ -165,7 +166,7 @@ class ArtifactManager:
         self,
         *,
         commit_sha: str,
-        artifact_type: t.Optional[Literal['debug', 'flash', 'metrics']] = None,
+        artifact_type: t.Optional[str] = None,
         folder: t.Optional[str] = None,
     ) -> None:
         """Upload artifacts to S3 storage.
@@ -194,9 +195,11 @@ class ArtifactManager:
         s3_prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
         logger.info(f'Uploading artifacts under {from_path} to s3 prefix {s3_prefix}')
 
-        upload_to_s3(
-            s3_client=s3_client,
-            prefix=s3_prefix,
-            from_path=from_path,
-            patterns=self._get_patterns_by_type(artifact_type),
-        )
+        for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
+            upload_to_s3(
+                s3_client=s3_client,
+                bucket=bucket,
+                prefix=s3_prefix,
+                from_path=from_path,
+                patterns=patterns,
+            )

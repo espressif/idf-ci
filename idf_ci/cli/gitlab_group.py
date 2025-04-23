@@ -63,7 +63,7 @@ def test_child_pipeline(yaml_output):
 @click.option(
     '--type',
     'artifact_type',
-    type=click.Choice(['debug', 'flash', 'metrics']),
+    type=click.Choice(CiSettings().gitlab.artifact.available_s3_types),
     help='Type of artifacts to download. If not specified, downloads all types.',
 )
 @click.option('--commit-sha', help='Commit SHA to download artifacts from.')
@@ -89,7 +89,7 @@ def download_artifacts(artifact_type, commit_sha, branch, folder):
 @click.option(
     '--type',
     'artifact_type',
-    type=click.Choice(['debug', 'flash', 'metrics']),
+    type=click.Choice(CiSettings().gitlab.artifact.available_s3_types),
     help='Type of artifacts to upload',
 )
 @click.option(

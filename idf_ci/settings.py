@@ -15,7 +15,7 @@ from pydantic_settings import (
 )
 from tomlkit import load
 
-from idf_ci._compat import PathLike
+from idf_ci._compat import PathLike, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -71,32 +71,49 @@ class TomlConfigSettingsSource(InitSettingsSource):
         return None
 
 
+class S3FilePatternConfig(TypedDict):
+    bucket: str
+
+    patterns: t.List[str]
+    """List of glob patterns for files to collect."""
+
+
 class ArtifactSettings(BaseSettings):
-    debug_filepatterns: t.List[str] = [
-        '**/build*/bootloader/*.map',
-        '**/build*/bootloader/*.elf',
-        '**/build*/*.map',
-        '**/build*/*.elf',
-        '**/build*/build.log',  # build_log_filename
-    ]
-    """List of glob patterns for debug artifacts to collect."""
+    ### in s3 buckets ###
+    s3: t.Dict[str, S3FilePatternConfig] = {
+        'debug': {
+            'bucket': 'idf-artifacts',
+            'patterns': [
+                '**/build*/bootloader/*.map',
+                '**/build*/bootloader/*.elf',
+                '**/build*/*.map',
+                '**/build*/*.elf',
+                '**/build*/build.log',  # build_log_filename
+            ],
+        },
+        'flash': {
+            'bucket': 'idf-artifacts',
+            'patterns': [
+                '**/build*/bootloader/*.bin',
+                '**/build*/*.bin',
+                '**/build*/partition_table/*.bin',
+                '**/build*/flasher_args.json',
+                '**/build*/flash_project_args',
+                '**/build*/config/sdkconfig.json',
+                '**/build*/sdkconfig',
+                '**/build*/project_description.json',
+            ],
+        },
+        'metrics': {
+            'bucket': 'idf-metrics',
+            'patterns': [
+                '**/build*/size.json',  # size_json_filename
+            ],
+        },
+    }
+    """Dictionary mapping artifact types to their bucket and file patterns."""
 
-    flash_filepatterns: t.List[str] = [
-        '**/build*/bootloader/*.bin',
-        '**/build*/*.bin',
-        '**/build*/partition_table/*.bin',
-        '**/build*/flasher_args.json',
-        '**/build*/flash_project_args',
-        '**/build*/config/sdkconfig.json',
-        '**/build*/sdkconfig',
-        '**/build*/project_description.json',
-    ]
-    """List of glob patterns for flash artifacts to collect."""
-
-    metrics_filepatterns: t.List[str] = [
-        '**/build*/size.json',  # size_json_filename
-    ]
-    """List of glob patterns for metrics artifacts to collect."""
+    ### not in s3 buckets ###
 
     build_job_filepatterns: t.List[str] = [
         'app_info_*.txt',  # collect_app_info_filename
@@ -109,6 +126,14 @@ class ArtifactSettings(BaseSettings):
         'XUNIT_RESULT*.xml',
     ]
     """List of glob patterns for CI test jobs artifacts to collect."""
+
+    @property
+    def available_s3_types(self) -> t.List[str]:
+        """Get list of available S3 artifact types.
+
+        :returns: List of artifact type names
+        """
+        return sorted(self.s3.keys())
 
 
 class BuildPipelineSettings(BaseSettings):

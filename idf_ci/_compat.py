@@ -2,7 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import sys
 import typing as t
+
+if sys.version_info < (3, 8):
+    from typing_extensions import TypedDict
+else:
+    from typing import TypedDict  # noqa
 
 PathLike = t.Union[str, os.PathLike]
 

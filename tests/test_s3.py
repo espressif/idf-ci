@@ -36,15 +36,11 @@ class TestUploadDownloadArtifacts:
                 project = "espressif/esp-idf"
 
                 [gitlab.artifact]
-                debug_filepatterns = [
-                    '**/build*/build.log',  # build_log_filename
-                ]
-                flash_filepatterns = [
-                    '**/build*/*.bin',
-                ]
-                metrics_filepatterns = [
-                    '**/build*/size.json',  # size_json_filename
-                ]
+                s3_filepatterns = {
+                    debug = { bucket = "test-bucket", patterns = ["**/build*/build.log"] },
+                    flash = { bucket = "test-bucket", patterns = ["**/build*/*.bin"] },
+                    metrics = { bucket = "test-bucket", patterns = ["**/build*/size.json"] }
+                }
             """)
         )
 
