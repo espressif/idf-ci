@@ -5,7 +5,7 @@ import json
 import click
 
 from idf_ci.cli._options import option_modified_files, option_paths
-from idf_ci.idf_gitlab import ArtifactManager, create_s3_client
+from idf_ci.idf_gitlab import ArtifactManager
 from idf_ci.idf_gitlab import build_child_pipeline as build_child_pipeline_cmd
 from idf_ci.idf_gitlab import dynamic_pipeline_variables as dynamic_pipeline_variables_cmd
 from idf_ci.idf_gitlab import test_child_pipeline as test_child_pipeline_cmd
@@ -69,8 +69,13 @@ def test_child_pipeline(yaml_output):
 )
 @click.option('--commit-sha', help='Commit SHA to download artifacts from.')
 @click.option('--branch', help='Git branch to get the latest pipeline from.')
+@click.option(
+    '--presigned-json',
+    type=click.Path(dir_okay=False, file_okay=True, exists=True),
+    help='Path to the presigned.json file.',
+)
 @click.argument('folder', required=False)
-def download_artifacts(artifact_type, commit_sha, branch, folder):
+def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json):
     """Download artifacts from a GitLab pipeline.
 
     This command downloads artifacts from either GitLab's built-in storage or S3
@@ -83,6 +88,7 @@ def download_artifacts(artifact_type, commit_sha, branch, folder):
         branch=branch,
         artifact_type=artifact_type,
         folder=folder,
+        presigned_json=presigned_json,
     )
 
 
@@ -162,7 +168,7 @@ def generate_presigned_json(commit_sha, artifact_type, expire_in_days, folder):
 @click.argument('filename', required=True)
 def download_known_failure_cases_file(filename):
     """Download known failure cases file from S3 storage."""
-    s3_client = create_s3_client()
+    s3_client = ArtifactManager().s3_client
 
     settings = CiSettings()
     if s3_client:

@@ -4,7 +4,6 @@
 __all__ = [
     'ArtifactManager',
     'build_child_pipeline',
-    'create_s3_client',
     'dynamic_pipeline_variables',
     'test_child_pipeline',
 ]
@@ -12,5 +11,4 @@ __all__ = [
 
 from .api import ArtifactManager
 from .pipeline import build_child_pipeline, test_child_pipeline
-from .s3 import create_s3_client
 from .scripts import dynamic_pipeline_variables

@@ -12,7 +12,8 @@ import pytest
 import requests
 
 from idf_ci.cli import click_cli
-from idf_ci.idf_gitlab.s3 import create_s3_client
+from idf_ci.idf_gitlab import ArtifactManager
+from idf_ci.idf_gitlab.api import S3Error
 
 
 # to run this test, don't forget to run "docker compose up -d" in the root directory of the project
@@ -58,8 +59,10 @@ class TestUploadDownloadArtifacts:
         monkeypatch.setenv('IDF_PATH', tmp_dir)
 
     @pytest.fixture
-    def s3_client(self):
-        client = create_s3_client()
+    def s3_client(self) -> minio.Minio:
+        client = ArtifactManager().s3_client
+        assert client is not None
+
         # Drop and recreate bucket before test
         try:
             for obj in client.list_objects('test-bucket', recursive=True):
@@ -72,7 +75,7 @@ class TestUploadDownloadArtifacts:
         client.make_bucket('test-bucket')
         return client
 
-    def test_cli_upload_download_artifacts(self, s3_client, runner, tmp_path, sample_artifacts_dir):
+    def test_cli_upload_download_artifacts(self, s3_client, runner, tmp_path, sample_artifacts_dir, monkeypatch):
         # Mock git functions that would be called
         commit_sha = 'cli_test_sha_123'
 
@@ -113,6 +116,37 @@ class TestUploadDownloadArtifacts:
         assert sorted(os.listdir(sample_artifacts_dir)) == ['test.bin']
         assert open(sample_artifacts_dir / 'test.bin').read() == 'Binary content'
 
+        # generate presigned URL
+        presigned_urls = ArtifactManager().generate_presigned_json(
+            commit_sha=commit_sha,
+            artifact_type='flash',
+        )
+
+        # Save presigned URLs to a file
+        presigned_json_path = os.path.join(tmp_path, 'presigned.json')
+        with open(presigned_json_path, 'w') as f:
+            json.dump(presigned_urls, f)
+
+        # Remove S3 credentials
+        monkeypatch.delenv('IDF_S3_ACCESS_KEY')
+
+        # Try to download using presigned.json
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'download-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--presigned-json',
+                presigned_json_path,
+                str(tmp_path),
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert os.path.exists(os.path.join(tmp_path, 'app/build_esp32_build/test.bin'))
+
     def test_cli_generate_presigned_json(self, runner):
         # Mock git functions that would be called
         commit_sha = 'cli_test_sha_123'
@@ -141,8 +175,6 @@ class TestUploadDownloadArtifacts:
                 commit_sha,
                 '--type',
                 'flash',
-                '--expire-in-days',
-                '1',
             ],
         )
         assert result.exit_code == 0
@@ -156,3 +188,47 @@ class TestUploadDownloadArtifacts:
         response = requests.get(presigned_urls['app/build_esp32_build/test.bin'])
         assert response.status_code == 200
         assert response.text == 'Binary content'
+
+    def test_download_without_s3_credentials(self, runner, tmp_path, monkeypatch):
+        # Remove S3 credentials
+        monkeypatch.delenv('IDF_S3_ACCESS_KEY')
+
+        # Try to download artifacts
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'download-artifacts',
+                '--commit-sha',
+                'test_sha',
+                '--type',
+                'flash',
+                str(tmp_path),
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert isinstance(result.exception, S3Error)
+        assert 'Configure S3 storage to download artifacts' in result.exception.args
+
+    def test_upload_without_s3_credentials(self, runner, tmp_path, monkeypatch):
+        # Remove S3 credentials
+        monkeypatch.delenv('IDF_S3_ACCESS_KEY')
+
+        # Try to upload artifacts
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                'test_sha',
+                '--type',
+                'flash',
+                str(tmp_path),
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert isinstance(result.exception, S3Error)
+        assert 'Configure S3 storage to upload artifacts' in result.exception.args
