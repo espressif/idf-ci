@@ -1,25 +1,57 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
-
+import glob
+import json
 import logging
 import os
 import re
 import typing as t
+from dataclasses import dataclass
 from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
 
 import minio
+import requests
+import urllib3
 from gitlab import Gitlab
-from gitlab.v4.objects import MergeRequest
+from minio import Minio
 
+from .._compat import UNDEF, is_undefined
 from .._vendor import translate
 from ..envs import GitlabEnvVars
 from ..settings import CiSettings
 from ..utils import get_current_branch
-from .s3 import create_s3_client, download_from_s3, upload_to_s3
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ArtifactParams:
+    """Common parameters for artifact operations."""
+
+    commit_sha: t.Optional[str] = None
+    artifact_type: t.Optional[str] = None
+    folder: t.Optional[str] = None
+    presigned_json: t.Optional[str] = None
+    expire_in_days: int = 4
+
+    def __post_init__(self):
+        if self.folder is None:
+            self.folder = os.getcwd()
+        self.from_path = Path(self.folder)
+
+
+class ArtifactError(Exception):
+    """Base exception for artifact-related errors."""
+
+
+class S3Error(ArtifactError):
+    """Exception raised for S3-related errors."""
+
+
+class PresignedUrlError(ArtifactError):
+    """Exception raised for presigned URL-related errors."""
 
 
 class ArtifactManager:
@@ -40,6 +72,8 @@ class ArtifactManager:
         self.env = GitlabEnvVars()
         self.settings = CiSettings()
 
+        self._s3_client: t.Optional[Minio] = UNDEF  # type: ignore
+
     @property
     @lru_cache()
     def gl(self):
@@ -57,17 +91,20 @@ class ArtifactManager:
             raise ValueError(f'Project {self.settings.gitlab.project} not found')
         return project
 
-    def get_mr_obj_by_branch(self, branch: str) -> MergeRequest:
-        """Get a merge request by its branch name.
+    def _get_commit_sha(self, commit_sha: t.Optional[str], branch: t.Optional[str]) -> str:
+        if commit_sha:
+            return commit_sha
 
-        :param branch: Branch name of the merge request to get
+        if branch is None:
+            branch = get_current_branch()
+            logger.debug(f'Using current branch: {branch}')
+        else:
+            logger.debug(f'Using specified branch: {branch}')
 
-        :returns: The merge request object
-        """
         mrs = self.project.mergerequests.list(state='opened', source_branch=branch)
         if not mrs:
             raise ValueError(f'No open merge request found for branch {branch}')
-        return mrs[0]
+        return next(mrs[0].commits()).id
 
     def _get_upload_details_by_type(self, artifact_type: t.Optional[str]) -> t.Dict[str, t.List[str]]:
         """Get file patterns grouped by bucket name based on the artifact type.
@@ -99,12 +136,122 @@ class ArtifactManager:
                 raise ValueError('No S3 buckets configured')
             return bucket_patterns
 
+    @property
+    def s3_client(self) -> t.Optional[minio.Minio]:
+        """Get or create the S3 client."""
+        if is_undefined(self._s3_client):
+            self._s3_client = self._create_s3_client()
+        return self._s3_client
+
+    def _create_s3_client(self) -> t.Optional[minio.Minio]:
+        if not all(
+            [
+                self.env.IDF_S3_SERVER,
+                self.env.IDF_S3_ACCESS_KEY,
+                self.env.IDF_S3_SECRET_KEY,
+            ]
+        ):
+            logger.info('S3 credentials not available. Skipping S3 features...')
+            return None
+
+        if self.env.IDF_S3_SERVER.startswith('https://'):
+            host = self.env.IDF_S3_SERVER.replace('https://', '')
+            secure = True
+        elif self.env.IDF_S3_SERVER.startswith('http://'):
+            host = self.env.IDF_S3_SERVER.replace('http://', '')
+            secure = False
+        else:
+            raise ValueError('Please provide a http or https server URL for S3')
+
+        return minio.Minio(
+            host,
+            access_key=self.env.IDF_S3_ACCESS_KEY,
+            secret_key=self.env.IDF_S3_SECRET_KEY,
+            secure=secure,
+            http_client=urllib3.PoolManager(
+                num_pools=10,
+                timeout=urllib3.Timeout.DEFAULT_TIMEOUT,
+                retries=urllib3.Retry(
+                    total=5,
+                    backoff_factor=0.2,
+                    status_forcelist=[500, 502, 503, 504],
+                ),
+            ),
+        )
+
+    def _get_s3_path(self, prefix: str, from_path: Path) -> str:
+        rel_path = str(from_path.relative_to(self.env.IDF_PATH))
+        return f'{prefix}{rel_path}' if rel_path != '.' else prefix
+
+    def _download_from_s3(
+        self,
+        s3_client: minio.Minio,
+        *,
+        bucket: str,
+        prefix: str,
+        from_path: Path,
+        patterns: t.List[str],
+    ) -> None:
+        s3_path = self._get_s3_path(prefix, from_path)
+        patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
+
+        for obj in s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
+            output_path = Path(self.env.IDF_PATH) / obj.object_name.replace(prefix, '')
+            if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
+                continue
+
+            logger.debug(f'Downloading {obj.object_name} to {output_path}')
+            s3_client.fget_object(bucket, obj.object_name, str(output_path))
+
+    def _upload_to_s3(
+        self,
+        s3_client: minio.Minio,
+        *,
+        bucket: str,
+        prefix: str,
+        from_path: Path,
+        patterns: t.List[str],
+    ) -> None:
+        for pattern in patterns:
+            abs_pattern = os.path.join(str(from_path), pattern)
+            for file_str in glob.glob(abs_pattern, recursive=True):
+                file_path = Path(file_str)
+                if not file_path.is_file():
+                    continue
+
+                s3_path = self._get_s3_path(prefix, file_path)
+                logger.debug(f'Uploading {file_path} to {s3_path}')
+                s3_client.fput_object(bucket, s3_path, str(file_path))
+
+    def _download_from_presigned_json(self, presigned_json: str, from_path: Path, patterns: t.List[str]) -> None:
+        with open(presigned_json) as f:
+            presigned_urls = json.load(f)
+
+        patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
+
+        for rel_path, url in presigned_urls.items():
+            output_path = from_path / rel_path
+            if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
+                continue
+
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            response = requests.get(url, stream=True)
+            if response.status_code != 200:
+                raise PresignedUrlError(f'Failed to download {rel_path}: {response.status_code}')
+
+            with open(output_path, 'wb') as f:
+                f.write(response.content)
+            logger.debug(f'Downloaded {rel_path} to {output_path}')
+
     def download_artifacts(
         self,
+        *,
         commit_sha: t.Optional[str] = None,
         branch: t.Optional[str] = None,
         artifact_type: t.Optional[str] = None,
         folder: t.Optional[str] = None,
+        presigned_json: t.Optional[str] = None,
     ) -> None:
         """Download artifacts from a pipeline.
 
@@ -123,46 +270,41 @@ class ArtifactManager:
             branch
         :param artifact_type: Type of artifacts to download (debug, flash, metrics)
         :param folder: download artifacts under this folder
+        :param presigned_json: Path to the presigned.json file. If provided, will use
+            this file to download artifacts. If not, will use s3 credentials to download
         """
-        if folder is None:
-            folder = os.getcwd()
-        from_path = Path(folder)
+        params = ArtifactParams(
+            commit_sha=commit_sha,
+            artifact_type=artifact_type,
+            folder=folder,
+            presigned_json=presigned_json,
+        )
 
-        # Get the commit SHA
-        if commit_sha:
-            pass
-        else:
-            # Local use case: Use latest commit of the remote branch
-            if branch is None:
-                branch = get_current_branch()
-                logger.debug(f'Using current branch: {branch}')
-            else:
-                logger.debug(f'Using specified branch: {branch}')
+        commit_sha = self._get_commit_sha(commit_sha, branch)
 
-            # Check if MR exists for this branch
-            mr = self.get_mr_obj_by_branch(branch)
-            commit_sha = next(mr.commits()).id
+        if presigned_json:
+            self._download_from_presigned_json(
+                presigned_json,
+                params.from_path,
+                [p for patterns in self._get_upload_details_by_type(artifact_type).values() for p in patterns],
+            )
+            return
 
-        s3_client = create_s3_client()
-        if s3_client:
-            s3_prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
-            logger.info(f'Downloading artifacts under {from_path} from s3 (commit sha: {commit_sha})')
+        s3_client = self.s3_client
+        if not s3_client:
+            raise S3Error('Configure S3 storage to download artifacts')
 
-            for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
-                download_from_s3(
-                    s3_client=s3_client,
-                    bucket=bucket,
-                    prefix=s3_prefix,
-                    from_path=from_path,
-                    patterns=patterns,
-                )
-        else:
-            # TODO:
-            # - get the latest pipeline for the commit
-            # - get job `upload_presigned_urls_json`
-            # - download artifact `presigned_urls.json`
-            # - download artifacts listed in `presigned_urls.json`
-            raise ValueError('Configure S3 storage to download artifacts')
+        s3_prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
+        logger.info(f'Downloading artifacts under {params.from_path} from s3 (commit sha: {commit_sha})')
+
+        for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
+            self._download_from_s3(
+                s3_client=s3_client,
+                bucket=bucket,
+                prefix=s3_prefix,
+                from_path=params.from_path,
+                patterns=patterns,
+            )
 
     def upload_artifacts(
         self,
@@ -181,28 +323,30 @@ class ArtifactManager:
         :param artifact_type: Type of artifacts to upload (debug, flash, metrics)
         :param folder: upload artifacts under this folder
 
-        :raises ValueError: If commit_sha is not provided or S3 is not configured
+        :raises S3Error: If S3 is not configured
         """
-        if folder is None:
-            folder = os.getcwd()
-        from_path = Path(folder)
+        params = ArtifactParams(
+            commit_sha=commit_sha,
+            artifact_type=artifact_type,
+            folder=folder,
+        )
 
         if not commit_sha:
             raise ValueError('Commit SHA is required to upload artifacts')
 
-        s3_client = create_s3_client()
+        s3_client = self.s3_client
         if not s3_client:
-            raise ValueError('Configure S3 storage to upload artifacts')
+            raise S3Error('Configure S3 storage to upload artifacts')
 
         prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
-        logger.info(f'Uploading artifacts under {from_path} to s3 (commit sha: {commit_sha})')
+        logger.info(f'Uploading artifacts under {params.from_path} to s3 (commit sha: {commit_sha})')
 
         for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
-            upload_to_s3(
+            self._upload_to_s3(
                 s3_client=s3_client,
                 bucket=bucket,
                 prefix=prefix,
-                from_path=from_path,
+                from_path=params.from_path,
                 patterns=patterns,
             )
 
@@ -228,27 +372,24 @@ class ArtifactManager:
 
         :returns: Dictionary mapping relative paths to presigned URLs
 
-        :raises ValueError: If commit_sha is not provided or S3 is not configured
+        :raises S3Error: If S3 is not configured
         """
-        if folder is None:
-            folder = os.getcwd()
-        from_path = Path(folder)
+        params = ArtifactParams(
+            commit_sha=commit_sha,
+            artifact_type=artifact_type,
+            folder=folder,
+            expire_in_days=expire_in_days,
+        )
 
         if not commit_sha:
             raise ValueError('Commit SHA is required to generate presigned URLs')
 
-        s3_client = create_s3_client()
+        s3_client = self.s3_client
         if not s3_client:
-            raise ValueError('Configure S3 storage to generate presigned URLs')
-
-        env = GitlabEnvVars()
+            raise S3Error('Configure S3 storage to generate presigned URLs')
 
         prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
-        rel_path = str(from_path.relative_to(env.IDF_PATH))
-        if rel_path != '.':
-            s3_path = f'{prefix}{rel_path}'
-        else:
-            s3_path = prefix
+        s3_path = self._get_s3_path(prefix, params.from_path)
 
         presigned_urls: t.Dict[str, str] = {}
         for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
@@ -256,27 +397,19 @@ class ArtifactManager:
                 re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns
             ]
 
-            for obj in s3_client.list_objects(
-                bucket,
-                prefix=s3_path,
-                recursive=True,
-            ):
-                try:
-                    output_path = Path(env.IDF_PATH) / obj.object_name.replace(prefix, '')
-                    rel_path = obj.object_name.replace(prefix, '')
+            for obj in s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
+                output_path = Path(self.env.IDF_PATH) / obj.object_name.replace(prefix, '')
+                rel_path = obj.object_name.replace(prefix, '')
 
-                    if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
-                        continue
+                if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
+                    continue
 
-                    presigned_url = s3_client.get_presigned_url(
-                        'GET',
-                        bucket_name=bucket,
-                        object_name=obj.object_name,
-                        expires=timedelta(days=expire_in_days),
-                    )
-                    presigned_urls[rel_path] = presigned_url
-                except minio.error.S3Error as e:
-                    logger.error(f'Error presigning from S3: {e}')
-                    raise
+                presigned_url = s3_client.get_presigned_url(
+                    'GET',
+                    bucket_name=bucket,
+                    object_name=obj.object_name,
+                    expires=timedelta(days=expire_in_days),
+                )
+                presigned_urls[rel_path] = presigned_url
 
         return presigned_urls
