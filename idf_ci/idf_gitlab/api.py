@@ -3,13 +3,17 @@
 
 import logging
 import os
+import re
 import typing as t
+from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
 
+import minio
 from gitlab import Gitlab
 from gitlab.v4.objects import MergeRequest
 
+from .._vendor import translate
 from ..envs import GitlabEnvVars
 from ..settings import CiSettings
 from ..utils import get_current_branch
@@ -120,15 +124,13 @@ class ArtifactManager:
         :param artifact_type: Type of artifacts to download (debug, flash, metrics)
         :param folder: download artifacts under this folder
         """
-        env = GitlabEnvVars()
         if folder is None:
             folder = os.getcwd()
         from_path = Path(folder)
 
         # Get the commit SHA
         if commit_sha:
-            # CI use case: Use specific commit
-            logger.debug(f'Using commit {commit_sha} specified by user')
+            pass
         else:
             # Local use case: Use latest commit of the remote branch
             if branch is None:
@@ -144,14 +146,14 @@ class ArtifactManager:
         s3_client = create_s3_client()
         if s3_client:
             s3_prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
-            logger.info(f'Downloading artifacts from s3 under {s3_prefix}')
+            logger.info(f'Downloading artifacts under {from_path} from s3 (commit sha: {commit_sha})')
 
             for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
                 download_from_s3(
                     s3_client=s3_client,
                     bucket=bucket,
-                    s3_prefix=s3_prefix,
-                    rel_to_idf=str(from_path.relative_to(env.IDF_PATH)),
+                    prefix=s3_prefix,
+                    from_path=from_path,
                     patterns=patterns,
                 )
         else:
@@ -192,14 +194,89 @@ class ArtifactManager:
         if not s3_client:
             raise ValueError('Configure S3 storage to upload artifacts')
 
-        s3_prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
-        logger.info(f'Uploading artifacts under {from_path} to s3 prefix {s3_prefix}')
+        prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
+        logger.info(f'Uploading artifacts under {from_path} to s3 (commit sha: {commit_sha})')
 
         for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
             upload_to_s3(
                 s3_client=s3_client,
                 bucket=bucket,
-                prefix=s3_prefix,
+                prefix=prefix,
                 from_path=from_path,
                 patterns=patterns,
             )
+
+    def generate_presigned_json(
+        self,
+        *,
+        commit_sha: str,
+        artifact_type: t.Optional[str] = None,
+        folder: t.Optional[str] = None,
+        expire_in_days: int = 4,
+    ) -> t.Dict[str, str]:
+        """Generate presigned URLs for artifacts in S3 storage.
+
+        This method generates presigned URLs for artifacts that would be uploaded to S3
+        storage. The URLs can be used to download the artifacts directly from S3.
+
+        :param commit_sha: Commit SHA to generate presigned URLs for
+        :param artifact_type: Type of artifacts to generate URLs for (debug, flash,
+            metrics)
+        :param folder: Base folder to generate relative paths from
+        :param expire_in_days: Expiration time in days for the presigned URLs (default:
+            4 days)
+
+        :returns: Dictionary mapping relative paths to presigned URLs
+
+        :raises ValueError: If commit_sha is not provided or S3 is not configured
+        """
+        if folder is None:
+            folder = os.getcwd()
+        from_path = Path(folder)
+
+        if not commit_sha:
+            raise ValueError('Commit SHA is required to generate presigned URLs')
+
+        s3_client = create_s3_client()
+        if not s3_client:
+            raise ValueError('Configure S3 storage to generate presigned URLs')
+
+        env = GitlabEnvVars()
+
+        prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
+        rel_path = str(from_path.relative_to(env.IDF_PATH))
+        if rel_path != '.':
+            s3_path = f'{prefix}{rel_path}'
+        else:
+            s3_path = prefix
+
+        presigned_urls: t.Dict[str, str] = {}
+        for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
+            patterns_regexes = [
+                re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns
+            ]
+
+            for obj in s3_client.list_objects(
+                bucket,
+                prefix=s3_path,
+                recursive=True,
+            ):
+                try:
+                    output_path = Path(env.IDF_PATH) / obj.object_name.replace(prefix, '')
+                    rel_path = obj.object_name.replace(prefix, '')
+
+                    if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
+                        continue
+
+                    presigned_url = s3_client.get_presigned_url(
+                        'GET',
+                        bucket_name=bucket,
+                        object_name=obj.object_name,
+                        expires=timedelta(days=expire_in_days),
+                    )
+                    presigned_urls[rel_path] = presigned_url
+                except minio.error.S3Error as e:
+                    logger.error(f'Error presigning from S3: {e}')
+                    raise
+
+        return presigned_urls

@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
+import json
 
 import click
 
@@ -114,6 +115,47 @@ def upload_artifacts(artifact_type, commit_sha, folder):
         artifact_type=artifact_type,
         folder=folder,
     )
+
+
+@gitlab.command()
+@click.option(
+    '--commit-sha',
+    required=True,
+    help='Commit SHA to generate presigned URLs for. Required for S3 storage.',
+)
+@click.option(
+    '--type',
+    'artifact_type',
+    type=click.Choice(CiSettings().gitlab.artifact.available_s3_types),
+    help='Type of artifacts to generate presigned URLs for',
+)
+@click.option(
+    '--expire-in-days',
+    type=int,
+    default=4,
+    help='Expiration time in days for the presigned URLs (default: 4 days)',
+)
+@click.argument('folder', required=False)
+def generate_presigned_json(commit_sha, artifact_type, expire_in_days, folder):
+    """Generate presigned URLs for artifacts in S3 storage.
+
+    This command generates presigned URLs for artifacts that would be uploaded to S3
+    storage. The URLs can be used to download the artifacts directly from S3.
+
+    :param commit_sha: Commit SHA to generate presigned URLs for
+    :param artifact_type: Type of artifacts to generate URLs for (debug, flash, metrics)
+    :param expire_in_days: Expiration time in days for the presigned URLs (default: 4
+        days)
+    :param folder: Base folder to generate relative paths from
+    """
+    manager = ArtifactManager()
+    presigned_urls = manager.generate_presigned_json(
+        commit_sha=commit_sha,
+        artifact_type=artifact_type,
+        folder=folder,
+        expire_in_days=expire_in_days,
+    )
+    click.echo(json.dumps(presigned_urls))
 
 
 @gitlab.command()

@@ -24,6 +24,7 @@ def create_s3_client() -> t.Optional[minio.Minio]:
         otherwise
     """
     env = GitlabEnvVars()
+
     if not all(
         [
             env.IDF_S3_SERVER,
@@ -64,35 +65,35 @@ def download_from_s3(
     s3_client: minio.Minio,
     *,
     bucket: str,
-    s3_prefix: str,
-    rel_to_idf: str,
+    prefix: str,
+    from_path: Path,
     patterns: t.List[str],
 ) -> None:
     """Download artifacts from S3 storage and place them in-place relative to IDF_PATH.
 
     :param s3_client: Configured Minio client instance
     :param bucket: S3 bucket name
-    :param s3_prefix: Prefix to use for S3 object names
-    :param rel_to_idf: Input directory path
+    :param prefix: Prefix to use for S3 object names
+    :param from_path: Input directory path
     :param patterns: List of glob patterns to match files against
     """
     env = GitlabEnvVars()
 
-    if rel_to_idf == '.':
-        s3_folder = s3_prefix
+    rel_path = str(from_path.relative_to(env.IDF_PATH))
+    if rel_path != '.':
+        s3_path = f'{prefix}{rel_path}'
     else:
-        s3_folder = f'{s3_prefix}{rel_to_idf}'
-    logger.info(f'Downloading objects from s3 under {s3_folder}')
+        s3_path = prefix
 
     patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
 
     for obj in s3_client.list_objects(
         bucket,
-        prefix=s3_folder,
+        prefix=s3_path,
         recursive=True,
     ):
         try:
-            output_path = Path(env.IDF_PATH) / obj.object_name.replace(s3_prefix, '')
+            output_path = Path(env.IDF_PATH) / obj.object_name.replace(prefix, '')
 
             if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
                 continue
@@ -121,7 +122,6 @@ def upload_to_s3(
     :param patterns: List of patterns to match files against
     """
     env = GitlabEnvVars()
-    logger.debug(f'Uploading objects to S3 bucket {bucket} with prefix {prefix}')
 
     # Use glob to find all matching files recursively
     for pattern in patterns:
