@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.15 (2025-04-23)
+
+### Feat
+
+- support `idf-ci gitlab generate-presigned-json`
+
 ## v0.1.14 (2025-04-17)
 
 ### Fix
