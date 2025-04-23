@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.16 (2025-04-23)
+
+### Feat
+
+- support `idf-ci gitlab download-artifacts` from presigned json
+
 ## v0.1.15 (2025-04-23)
 
 ### Feat
