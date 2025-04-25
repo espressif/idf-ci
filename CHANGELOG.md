@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.17 (2025-04-25)
+
+### Fix
+
+- import TypedDict from typing_extensions under python 3.12
+
+### Refactor
+
+- rename `idf-ci gitlab dynamic-pipeline-variables` to `idf-ci gitlab pipeline-variables`
+
 ## v0.1.16 (2025-04-23)
 
 ### Feat
