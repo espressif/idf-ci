@@ -7,7 +7,7 @@ import click
 from idf_ci.cli._options import option_modified_files, option_paths
 from idf_ci.idf_gitlab import ArtifactManager
 from idf_ci.idf_gitlab import build_child_pipeline as build_child_pipeline_cmd
-from idf_ci.idf_gitlab import dynamic_pipeline_variables as dynamic_pipeline_variables_cmd
+from idf_ci.idf_gitlab import pipeline_variables as pipeline_variables_cmd
 from idf_ci.idf_gitlab import test_child_pipeline as test_child_pipeline_cmd
 from idf_ci.settings import CiSettings
 
@@ -19,7 +19,7 @@ def gitlab():
 
 
 @gitlab.command()
-def dynamic_pipeline_variables():
+def pipeline_variables():
     """Output dynamic pipeline variables.
 
     Analyzes the current GitLab pipeline environment and determines what variables to
@@ -28,9 +28,9 @@ def dynamic_pipeline_variables():
 
     As for the generated variables, please refer to the following link:
 
-    https://docs.espressif.com/projects/idf-ci/en/latest/references/api/idf_ci.idf_gitlab.html#idf_ci.idf_gitlab.dynamic_pipeline_variables
+    https://docs.espressif.com/projects/idf-ci/en/latest/references/api/idf_ci.idf_gitlab.html#idf_ci.idf_gitlab.pipeline_variables
     """
-    for k, v in dynamic_pipeline_variables_cmd().items():
+    for k, v in pipeline_variables_cmd().items():
         click.echo(f'{k}="{v}"')
 
 

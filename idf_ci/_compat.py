@@ -5,7 +5,7 @@ import os
 import sys
 import typing as t
 
-if sys.version_info < (3, 8):
+if sys.version_info < (3, 12):
     from typing_extensions import TypedDict
 else:
     from typing import TypedDict  # noqa
