@@ -5,7 +5,7 @@ import os
 
 import pytest
 
-from idf_ci.idf_gitlab.scripts import dynamic_pipeline_variables
+from idf_ci.idf_gitlab.scripts import pipeline_variables
 
 
 @pytest.mark.parametrize(
@@ -82,20 +82,20 @@ Some other text
         ),
     ],
 )
-def test_dynamic_pipeline_variables(monkeypatch, env_vars, expected):
+def test_pipeline_variables(monkeypatch, env_vars, expected):
     for env_var in [var for var in os.environ if var.startswith(('CI_', 'IDF_CI_'))]:
         monkeypatch.delenv(env_var, raising=False)
 
     for key, value in env_vars.items():
         monkeypatch.setenv(key, value)
 
-    result = dynamic_pipeline_variables()
+    result = pipeline_variables()
     assert result == expected
 
 
-def test_dynamic_pipeline_variables_no_env_vars(monkeypatch):
+def test_pipeline_variables_no_env_vars(monkeypatch):
     for env_var in [var for var in os.environ if var.startswith(('CI_', 'IDF_CI_'))]:
         monkeypatch.delenv(env_var, raising=False)
 
-    result = dynamic_pipeline_variables()
+    result = pipeline_variables()
     assert result == {'IDF_CI_SELECT_ALL_PYTEST_CASES': '1'}

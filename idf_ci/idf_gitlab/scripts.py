@@ -10,7 +10,7 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
-def dynamic_pipeline_variables() -> t.Dict[str, str]:
+def pipeline_variables() -> t.Dict[str, str]:
     """Extract pipeline variables from Gitlab MR predefined variables.
 
     Possibly set the following variables:
