@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.18 (2025-04-29)
+
+### Feat
+
+- support debug info
+
+### Refactor
+
+- improve collection, `IdfPytestPlugin.cases` keep original order
+
 ## v0.1.17 (2025-04-25)
 
 ### Fix
