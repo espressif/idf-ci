@@ -50,21 +50,7 @@ class IdfPytestPlugin:
         self.sdkconfig_name = sdkconfig_name
         self.apps = CiSettings().get_built_apps_list()
 
-        self._testing_items: t.Set[pytest.Item] = set()
-
-    @property
-    def cases(self) -> t.List[PytestCase]:
-        """Get all test cases being tested, sorted by case ID.
-
-        :returns: Sorted list of test cases
-        """
-        cases = []
-        for item in self._testing_items:
-            case = self.get_case_by_item(item)
-            if case:
-                cases.append(case)
-
-        return sorted(cases, key=lambda x: x.caseid)
+        self.cases: t.List[PytestCase] = []
 
     @staticmethod
     def get_case_by_item(item: pytest.Item) -> t.Optional[PytestCase]:
@@ -283,7 +269,14 @@ class IdfPytestPlugin:
 
         # Report deselected items
         config.hook.pytest_deselected(items=deselected_items)
-        self._testing_items.update(items)
+
+    def pytest_report_collectionfinish(self, items: t.List[Function]) -> None:
+        for item in items:
+            case = self.get_case_by_item(item)
+            if case is None:
+                continue
+
+            self.cases.append(case)
 
 
 ##################
