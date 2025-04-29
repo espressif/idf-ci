@@ -23,6 +23,7 @@ from .models import PytestCase
 
 _MODULE_NOT_FOUND_REGEX = re.compile(r"No module named '(.+?)'")
 IDF_CI_PYTEST_CASE_KEY = StashKey[t.Optional[PytestCase]]()
+IDF_CI_PYTEST_DEBUG_INFO_KEY = StashKey[t.Dict[str, t.Any]]()
 IDF_CI_PLUGIN_KEY = StashKey['IdfPytestPlugin']()
 
 logger = logging.getLogger(__name__)
@@ -196,6 +197,7 @@ class IdfPytestPlugin:
         # Create PytestCase objects for all items
         for item in items:
             item.stash[IDF_CI_PYTEST_CASE_KEY] = PytestCase.from_item(item)
+            item.stash[IDF_CI_PYTEST_DEBUG_INFO_KEY] = dict()
 
         # Add markers to items
         for item in items:
@@ -253,7 +255,10 @@ class IdfPytestPlugin:
                     continue
 
                 if self.sdkconfig_name not in set(app.config for app in case.apps):
-                    logger.debug('Skipping test case %s due to sdkconfig name mismatch', case.caseid)
+                    item.stash[IDF_CI_PYTEST_DEBUG_INFO_KEY]['skip_reason'] = (
+                        f'sdkconfig name mismatch. '
+                        f'app sdkconfigs: {case.configs}, but CLI specified: {self.sdkconfig_name}'
+                    )
                     deselected_items.append(item)
                 else:
                     filtered_items.append(item)
@@ -270,7 +275,7 @@ class IdfPytestPlugin:
 
                 skip_reason = case.get_skip_reason_if_not_built(app_dirs)
                 if skip_reason:
-                    logger.debug(skip_reason)
+                    item.stash[IDF_CI_PYTEST_DEBUG_INFO_KEY]['skip_reason'] = skip_reason
                     deselected_items.append(item)
                 else:
                     filtered_items.append(item)
