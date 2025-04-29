@@ -92,12 +92,12 @@ env_markers =
     def test_output_as_string(self):
         assert (
             textwrap.dedent("""
-                esp32,esp32,esp32s2 - multiboard: 1 cases
-                \t('esp32', 'esp32', 'esp32s2').('default', 'default', 'default').test_multi_dut
-                esp32,esp32s2 - multiboard: 1 cases
-                \t('esp32', 'esp32s2').('default', 'default').test_multi_dut
                 esp32 - generic: 1 cases
                 \tesp32.default.test_single_target
+                esp32,esp32s2 - multiboard: 1 cases
+                \t('esp32', 'esp32s2').('default', 'default').test_multi_dut
+                esp32,esp32,esp32s2 - multiboard: 1 cases
+                \t('esp32', 'esp32', 'esp32s2').('default', 'default', 'default').test_multi_dut
             """).strip()
             == subprocess.check_output(
                 ['idf-ci', 'test', 'collect'],
@@ -109,28 +109,16 @@ env_markers =
         assert {
             'include': [
                 {
-                    'targets': 'esp32,esp32,esp32s2',
-                    'env_markers': 'multiboard',
-                    'runner_tags': ['self-hosted', 'esp32_2+esp32s2', 'multiboard'],
-                    'nodes': f'{test_case_name}.py::test_multi_dut[3-esp32|esp32|esp32s2]',
-                },
-                {
-                    'targets': 'esp32,esp32s2',
-                    'env_markers': 'multiboard',
-                    'runner_tags': ['self-hosted', 'esp32+esp32s2', 'multiboard'],
-                    'nodes': f'{test_case_name}.py::test_multi_dut[2-esp32|esp32s2]',
-                },
-                {
-                    'targets': 'linux,linux',
-                    'env_markers': 'multiboard',
-                    'runner_tags': ['self-hosted', 'linux_2', 'multiboard'],
-                    'nodes': f'{test_case_name}.py::test_multi_dut[2-linux]',
-                },
-                {
                     'targets': 'esp32',
                     'env_markers': 'generic',
                     'runner_tags': ['self-hosted', 'esp32', 'generic'],
                     'nodes': f'{test_case_name}.py::test_single_target[esp32]',
+                },
+                {
+                    'targets': 'linux',
+                    'env_markers': 'generic',
+                    'runner_tags': ['self-hosted', 'linux', 'generic'],
+                    'nodes': f'{test_case_name}.py::test_single_target[linux]',
                 },
                 {
                     'targets': 'esp32',
@@ -145,10 +133,22 @@ env_markers =
                     'nodes': f'{test_case_name}.py::test_single_target_qemu[esp32c3]',
                 },
                 {
-                    'targets': 'linux',
-                    'env_markers': 'generic',
-                    'runner_tags': ['self-hosted', 'linux', 'generic'],
-                    'nodes': f'{test_case_name}.py::test_single_target[linux]',
+                    'targets': 'esp32,esp32s2',
+                    'env_markers': 'multiboard',
+                    'runner_tags': ['self-hosted', 'esp32+esp32s2', 'multiboard'],
+                    'nodes': f'{test_case_name}.py::test_multi_dut[2-esp32|esp32s2]',
+                },
+                {
+                    'targets': 'esp32,esp32,esp32s2',
+                    'env_markers': 'multiboard',
+                    'runner_tags': ['self-hosted', 'esp32_2+esp32s2', 'multiboard'],
+                    'nodes': f'{test_case_name}.py::test_multi_dut[3-esp32|esp32|esp32s2]',
+                },
+                {
+                    'targets': 'linux,linux',
+                    'env_markers': 'multiboard',
+                    'runner_tags': ['self-hosted', 'linux_2', 'multiboard'],
+                    'nodes': f'{test_case_name}.py::test_multi_dut[2-linux]',
                 },
             ]
         } == json.loads(

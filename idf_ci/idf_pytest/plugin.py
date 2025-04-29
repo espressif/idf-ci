@@ -23,6 +23,7 @@ from .models import PytestCase
 
 _MODULE_NOT_FOUND_REGEX = re.compile(r"No module named '(.+?)'")
 IDF_CI_PYTEST_CASE_KEY = StashKey[t.Optional[PytestCase]]()
+IDF_CI_PYTEST_DEBUG_INFO_KEY = StashKey[t.Dict[str, t.Any]]()
 IDF_CI_PLUGIN_KEY = StashKey['IdfPytestPlugin']()
 
 logger = logging.getLogger(__name__)
@@ -49,21 +50,7 @@ class IdfPytestPlugin:
         self.sdkconfig_name = sdkconfig_name
         self.apps = CiSettings().get_built_apps_list()
 
-        self._testing_items: t.Set[pytest.Item] = set()
-
-    @property
-    def cases(self) -> t.List[PytestCase]:
-        """Get all test cases being tested, sorted by case ID.
-
-        :returns: Sorted list of test cases
-        """
-        cases = []
-        for item in self._testing_items:
-            case = self.get_case_by_item(item)
-            if case:
-                cases.append(case)
-
-        return sorted(cases, key=lambda x: x.caseid)
+        self.cases: t.List[PytestCase] = []
 
     @staticmethod
     def get_case_by_item(item: pytest.Item) -> t.Optional[PytestCase]:
@@ -196,6 +183,7 @@ class IdfPytestPlugin:
         # Create PytestCase objects for all items
         for item in items:
             item.stash[IDF_CI_PYTEST_CASE_KEY] = PytestCase.from_item(item)
+            item.stash[IDF_CI_PYTEST_DEBUG_INFO_KEY] = dict()
 
         # Add markers to items
         for item in items:
@@ -253,7 +241,10 @@ class IdfPytestPlugin:
                     continue
 
                 if self.sdkconfig_name not in set(app.config for app in case.apps):
-                    logger.debug('Skipping test case %s due to sdkconfig name mismatch', case.caseid)
+                    item.stash[IDF_CI_PYTEST_DEBUG_INFO_KEY]['skip_reason'] = (
+                        f'sdkconfig name mismatch. '
+                        f'app sdkconfigs: {case.configs}, but CLI specified: {self.sdkconfig_name}'
+                    )
                     deselected_items.append(item)
                 else:
                     filtered_items.append(item)
@@ -270,7 +261,7 @@ class IdfPytestPlugin:
 
                 skip_reason = case.get_skip_reason_if_not_built(app_dirs)
                 if skip_reason:
-                    logger.debug(skip_reason)
+                    item.stash[IDF_CI_PYTEST_DEBUG_INFO_KEY]['skip_reason'] = skip_reason
                     deselected_items.append(item)
                 else:
                     filtered_items.append(item)
@@ -278,7 +269,14 @@ class IdfPytestPlugin:
 
         # Report deselected items
         config.hook.pytest_deselected(items=deselected_items)
-        self._testing_items.update(items)
+
+    def pytest_report_collectionfinish(self, items: t.List[Function]) -> None:
+        for item in items:
+            case = self.get_case_by_item(item)
+            if case is None:
+                continue
+
+            self.cases.append(case)
 
 
 ##################

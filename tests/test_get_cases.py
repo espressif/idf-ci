@@ -87,17 +87,17 @@ class TestGetPytestCases:
         cases = get_pytest_cases(paths=[str(tmp_path)])
 
         assert len(cases) == 4
-        assert cases[0].name == 'test_foo_multi'
-        assert cases[0].targets == ['esp32', 'esp32s2']
+        assert cases[0].name == 'test_foo_single'
+        assert cases[0].targets == ['esp32']
 
-        assert cases[1].name == 'test_foo_multi'
-        assert cases[1].targets == ['esp32s2', 'esp32s2', 'esp32s3']
+        assert cases[1].name == 'test_foo_single'
+        assert cases[1].targets == ['esp32c3']
 
-        assert cases[2].name == 'test_foo_single'
-        assert cases[2].targets == ['esp32']
+        assert cases[2].name == 'test_foo_multi'
+        assert cases[2].targets == ['esp32', 'esp32s2']
 
-        assert cases[3].name == 'test_foo_single'
-        assert cases[3].targets == ['esp32c3']
+        assert cases[3].name == 'test_foo_multi'
+        assert cases[3].targets == ['esp32s2', 'esp32s2', 'esp32s3']
 
     def test_filter_with_sdkconfig_name(self, tmp_path: Path) -> None:
         script = tmp_path / 'test_filter_with_sdkconfig_name.py'
@@ -143,8 +143,8 @@ class TestGetPytestCases:
 
         cases = get_pytest_cases(paths=[str(tmp_path)], target='all', marker_expr='host_test')
         assert len(cases) == 2
-        assert cases[0].name == 'test_foo_qemu'
-        assert cases[1].name == 'test_foo_host'
+        assert cases[0].name == 'test_foo_host'
+        assert cases[1].name == 'test_foo_qemu'
 
     def test_custom_app_path(self, tmp_path: Path) -> None:
         script = tmp_path / 'test_custom_app_path.py'
