@@ -17,12 +17,6 @@ from idf_ci.utils import to_list
 logger = logging.getLogger(__name__)
 
 
-class GroupKey(NamedTuple):
-    target_selector: str
-    env_selector: str
-    runner_tags: t.Tuple[str, ...]
-
-
 class PytestApp:
     """Represents a pytest app."""
 
@@ -204,6 +198,16 @@ class PytestCase:
         return msg
 
 
+class GroupKey(NamedTuple):
+    target_selector: str
+    env_selector: str
+    runner_tags: t.Tuple[str, ...]
+
+    @classmethod
+    def from_case(cls, case: PytestCase):
+        return cls(case.target_selector, case.env_selector, case.runner_tags)
+
+
 class GroupedPytestCases:
     """Groups pytest cases by target and environment markers."""
 
@@ -219,8 +223,7 @@ class GroupedPytestCases:
         """
         grouped: t.Dict[GroupKey, t.List[PytestCase]] = defaultdict(list)
         for case in self.cases:
-            key = GroupKey(case.target_selector, case.env_selector, case.runner_tags)
-            grouped[key].append(case)
+            grouped[GroupKey.from_case(case)].append(case)
         return grouped
 
     def output_as_string(self) -> str:

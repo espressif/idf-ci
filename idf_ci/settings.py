@@ -265,7 +265,11 @@ class TestPipelineSettings(BuildPipelineSettings):
     jobs_jinja: str = """
 {% for job in jobs %}
 {{ job['name'] }}:
-  extends: {{ settings.gitlab.test_pipeline.job_template_name }}
+  extends:
+    - {{ settings.gitlab.test_pipeline.job_template_name }}
+    {%- for extra_extend in job.get('extra_extends', []) %}
+    - {{ extra_extend }}
+    {%- endfor %}
   tags: {{ job['tags'] }}
 {%- if job['parallel_count'] > 1 %}
   parallel: {{ job['parallel_count'] }}

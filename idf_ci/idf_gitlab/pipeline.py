@@ -6,6 +6,7 @@ import logging
 import os
 import typing as t
 
+import yaml
 from idf_build_apps import App
 from jinja2 import Environment
 
@@ -25,6 +26,7 @@ def dump_apps_to_txt(apps: t.List[App], output_file: str) -> None:
 
 
 def build_child_pipeline(
+    *,
     paths: t.Optional[t.List[str]] = None,
     modified_files: t.Optional[t.List[str]] = None,
     compare_manifest_sha_filepath: t.Optional[str] = None,
@@ -63,6 +65,25 @@ def build_child_pipeline(
     apps_total = len(test_related_apps) + len(non_test_related_apps)
     parallel_count = apps_total // settings.gitlab.build_pipeline.runs_per_job + 1
 
+    if not apps_total:
+        logger.info('No apps found, generating fake_pass job to skip the entire build child pipeline')
+        with open(yaml_output, 'w') as fw:
+            yaml.safe_dump(
+                {
+                    'fake_pass': {
+                        'tags': settings.gitlab.build_pipeline.job_tags,
+                        'stage': 'build',
+                        'script': [
+                            'echo "No apps found, skipping build child pipeline"',
+                        ],
+                        'before_script': [],
+                        'after_script': [],
+                    }
+                },
+                fw,
+            )
+            return
+
     logger.info(
         'Found %d apps, %d test related apps, %d non-test related apps',
         apps_total,
@@ -72,16 +93,16 @@ def build_child_pipeline(
     logger.info('Parallel count: %d', parallel_count)
 
     job_template = Environment().from_string(settings.gitlab.build_pipeline.job_template_jinja)
-    build_jobs_template = Environment().from_string(settings.gitlab.build_pipeline.jobs_jinja)
-    build_child_pipeline_template = Environment().from_string(settings.gitlab.build_pipeline.yaml_jinja)
+    jobs_template = Environment().from_string(settings.gitlab.build_pipeline.jobs_jinja)
+    yaml_template = Environment().from_string(settings.gitlab.build_pipeline.yaml_jinja)
 
     with open(yaml_output, 'w') as fw:
         fw.write(
-            build_child_pipeline_template.render(
+            yaml_template.render(
                 job_template=job_template.render(
                     settings=settings,
                 ),
-                jobs=build_jobs_template.render(
+                jobs=jobs_template.render(
                     settings=settings,
                     parallel_count=parallel_count,
                 ),
@@ -89,8 +110,14 @@ def build_child_pipeline(
             )
         )
 
+    logger.info('Build child pipeline generated successfully in %s', yaml_output)
 
-def test_child_pipeline(yaml_output):
+
+def test_child_pipeline(
+    yaml_output: str,
+    *,
+    cases: t.Optional[GroupedPytestCases] = None,
+) -> None:
     """This function is used to generate the child pipeline for test jobs.
 
     Suppose the ci_build_artifacts_filepatterns is downloaded already
@@ -120,33 +147,56 @@ def test_child_pipeline(yaml_output):
     if yaml_output is None:
         yaml_output = settings.gitlab.test_pipeline.yaml_filename
 
-    group = GroupedPytestCases(get_pytest_cases())
+    if cases is None:
+        cases = GroupedPytestCases(get_pytest_cases())
+
+    if not cases.grouped_cases:
+        logger.info('No test cases found, generating fake_pass job to skip the entire test child pipeline')
+        with open(yaml_output, 'w') as fw:
+            yaml.safe_dump(
+                {
+                    'fake_pass': {
+                        # on purpose, cause test tags are programmatically generated
+                        'tags': settings.gitlab.build_pipeline.job_tags,
+                        'stage': 'test',
+                        'script': [
+                            'echo "No test cases found, skipping test child pipeline"',
+                        ],
+                        'before_script': [],
+                        'after_script': [],
+                    }
+                },
+                fw,
+            )
+        return
 
     jobs = []
-    for key, cases in group.grouped_cases.items():
+    for key, grouped_cases in cases.grouped_cases.items():
         jobs.append(
             {
                 'name': f'{key.target_selector} - {key.env_selector}',
                 'tags': sorted(key.runner_tags),
-                'nodes': ' '.join([c.item.nodeid for c in cases]),
-                'parallel_count': len(cases) // settings.gitlab.test_pipeline.runs_per_job + 1,
+                'nodes': ' '.join([c.item.nodeid for c in grouped_cases]),
+                'parallel_count': len(grouped_cases) // settings.gitlab.test_pipeline.runs_per_job + 1,
             }
         )
 
-    default_template = Environment().from_string(settings.gitlab.test_pipeline.default_template_jinja)
-    test_jobs_template = Environment().from_string(settings.gitlab.test_pipeline.jobs_jinja)
-    test_child_pipeline_template = Environment().from_string(settings.gitlab.test_pipeline.yaml_jinja)
+    job_template = Environment().from_string(settings.gitlab.test_pipeline.job_template_jinja)
+    jobs_template = Environment().from_string(settings.gitlab.test_pipeline.jobs_jinja)
+    yaml_template = Environment().from_string(settings.gitlab.test_pipeline.yaml_jinja)
 
     with open(yaml_output, 'w') as fw:
         fw.write(
-            test_child_pipeline_template.render(
-                default_template=default_template.render(
+            yaml_template.render(
+                default_template=job_template.render(
                     settings=settings,
                 ),
-                jobs=test_jobs_template.render(
+                jobs=jobs_template.render(
                     jobs=jobs,
                     settings=settings,
                 ),
                 settings=settings,
             )
         )
+
+    logger.info('Test child pipeline generated successfully in %s', yaml_output)
