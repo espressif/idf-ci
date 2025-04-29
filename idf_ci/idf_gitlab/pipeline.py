@@ -178,6 +178,7 @@ def test_child_pipeline(
                 'tags': sorted(key.runner_tags),
                 'nodes': ' '.join([c.item.nodeid for c in grouped_cases]),
                 'parallel_count': len(grouped_cases) // settings.gitlab.test_pipeline.runs_per_job + 1,
+                **cases.additional_dict.get(key, {}),
             }
         )
 

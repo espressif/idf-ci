@@ -211,8 +211,12 @@ class GroupKey(NamedTuple):
 class GroupedPytestCases:
     """Groups pytest cases by target and environment markers."""
 
-    def __init__(self, cases: t.List[PytestCase]) -> None:
+    def __init__(
+        self, cases: t.List[PytestCase], *, additional_dict: t.Optional[t.Dict[GroupKey, t.Dict[str, t.Any]]] = None
+    ) -> None:
         self.cases = cases
+
+        self.additional_dict: t.Dict[GroupKey, t.Dict[str, t.Any]] = additional_dict or dict()
 
     @property
     @lru_cache()
