@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.19 (2025-04-29)
+
+### Fix
+
+- generate fake_pass job when no apps will be built or no tests will be run
+
+### Refactor
+
+- record additional info in jobs
+
 ## v0.1.18 (2025-04-29)
 
 ### Feat
