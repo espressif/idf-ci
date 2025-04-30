@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from idf_build_apps import App, build_apps, find_apps
 from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
+from idf_build_apps.utils import get_parallel_start_stop
 
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies
 from .envs import GitlabEnvVars
@@ -285,4 +286,8 @@ def build(
         modified_files=processed_args.modified_files,
         modified_components=processed_args.modified_components,
     )
-    return apps, ret
+
+    # only returning the ones assigned, 1-indexed
+    start, stop = get_parallel_start_stop(len(apps), parallel_count, parallel_index)
+
+    return apps[start - 1 : stop], ret
