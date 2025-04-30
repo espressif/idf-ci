@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.20 (2025-04-30)
+
+### Fix
+
+- return apps that belongs to the current concurrent build
+
 ## v0.1.19 (2025-04-29)
 
 ### Fix
