@@ -144,6 +144,7 @@ def test_child_pipeline(
                 nodes: "nodeid1 nodeid2"
     """
     settings = CiSettings()
+
     if yaml_output is None:
         yaml_output = settings.gitlab.test_pipeline.yaml_filename
 

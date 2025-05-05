@@ -44,14 +44,14 @@ def preprocess_args(
 
     :returns: Processed arguments as a ProcessedArgs object
     """
-    env = GitlabEnvVars()
+    envs = GitlabEnvVars()
     settings = CiSettings()
 
     processed_targets: t.List[str] = SUPPORTED_TARGETS if default_build_targets is None else default_build_targets
     if settings.extra_default_build_targets:
         processed_targets = [*processed_targets, *settings.extra_default_build_targets]
 
-    if env.select_all_pytest_cases:
+    if envs.select_all_pytest_cases:
         return ProcessedArgs(
             modified_files=None,
             modified_components=None,
@@ -62,14 +62,14 @@ def preprocess_args(
         )
 
     processed_files = modified_files
-    if processed_files is None and is_defined_and_satisfies(env.CHANGED_FILES_SEMICOLON_SEPARATED):
-        processed_files = env.CHANGED_FILES_SEMICOLON_SEPARATED.split(';')  # type: ignore
+    if processed_files is None and is_defined_and_satisfies(envs.CHANGED_FILES_SEMICOLON_SEPARATED):
+        processed_files = envs.CHANGED_FILES_SEMICOLON_SEPARATED.split(';')  # type: ignore
 
     processed_components = modified_components
     if processed_files is not None and processed_components is None:
         processed_components = sorted(settings.get_modified_components(processed_files))
 
-    processed_filter = env.IDF_CI_SELECT_BY_FILTER_EXPR if filter_expr is None else filter_expr
+    processed_filter = envs.IDF_CI_SELECT_BY_FILTER_EXPR if filter_expr is None else filter_expr
     if processed_filter is not None:
         logger.info(
             'Running with quick test filter: %s. Skipping dependency-driven build. Build and test only filtered cases.',
@@ -78,15 +78,22 @@ def preprocess_args(
         processed_files = None
         processed_components = None
 
-    test_apps, non_test_apps = settings.get_collected_apps_list()
+    test_related_apps = settings.read_apps_from_files([settings.collected_test_related_apps_filepath])
+    non_test_related_apps = settings.read_apps_from_files([settings.collected_non_test_related_apps_filepath])
+
+    # if one of the two is None, it should be empty list
+    if test_related_apps is None and non_test_related_apps is not None:
+        test_related_apps = []
+    elif test_related_apps is not None and non_test_related_apps is None:
+        non_test_related_apps = []
 
     return ProcessedArgs(
         modified_files=processed_files,
         modified_components=processed_components,
         filter_expr=processed_filter,
         default_build_targets=processed_targets,
-        test_related_apps=test_apps,
-        non_test_related_apps=non_test_apps,
+        test_related_apps=test_related_apps,
+        non_test_related_apps=non_test_related_apps,
     )
 
 
@@ -118,6 +125,7 @@ def get_all_apps(
 
     :returns: Tuple of (test_related_apps, non_test_related_apps)
     """
+    settings = CiSettings()
     processed_args = preprocess_args(
         modified_files=modified_files,
         modified_components=modified_components,
@@ -127,10 +135,10 @@ def get_all_apps(
 
     if processed_args.test_related_apps is not None and processed_args.non_test_related_apps is not None:
         for app in processed_args.test_related_apps:
-            app.preserve = CiSettings().preserve_test_related_apps
+            app.preserve = settings.preserve_test_related_apps
 
         for app in processed_args.non_test_related_apps:
-            app.preserve = CiSettings().preserve_non_test_related_apps
+            app.preserve = settings.preserve_non_test_related_apps
 
         return processed_args.test_related_apps, processed_args.non_test_related_apps
 
@@ -163,7 +171,7 @@ def get_all_apps(
     )
     if not cases:
         for app in apps:
-            app.preserve = CiSettings().preserve_non_test_related_apps
+            app.preserve = settings.preserve_non_test_related_apps
         return [], sorted(apps)
 
     # Get modified pytest cases if any
@@ -211,10 +219,10 @@ def get_all_apps(
                 logger.debug('Found non-test-related app: %s', app)
 
     for app in test_apps:
-        app.preserve = CiSettings().preserve_test_related_apps
+        app.preserve = settings.preserve_test_related_apps
 
     for app in non_test_apps:
-        app.preserve = CiSettings().preserve_non_test_related_apps
+        app.preserve = settings.preserve_non_test_related_apps
 
     return sorted(test_apps), sorted(non_test_apps)
 
@@ -249,6 +257,8 @@ def build(
 
     :returns: Tuple of (built apps, build return code)
     """
+    settings = CiSettings()
+
     # Preprocess arguments
     processed_args = preprocess_args(
         modified_files=modified_files,
@@ -266,10 +276,10 @@ def build(
     )
 
     for app in test_related_apps:
-        app.preserve = CiSettings().preserve_test_related_apps
+        app.preserve = settings.preserve_test_related_apps
 
     for app in non_test_related_apps:
-        app.preserve = CiSettings().preserve_non_test_related_apps
+        app.preserve = settings.preserve_non_test_related_apps
 
     if not only_test_related and not only_non_test_related:
         apps = sorted([*test_related_apps, *non_test_related_apps])

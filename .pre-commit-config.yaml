@@ -29,7 +29,7 @@ repos:
         args: ['--warn-unused-ignores']
         additional_dependencies:
           - click
-          - idf-build-apps~=2.8
+          - idf-build-apps>=2.10.1,<3
           - jinja2
           - minio
           - pydantic-settings

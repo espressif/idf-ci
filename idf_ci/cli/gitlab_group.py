@@ -11,6 +11,8 @@ from idf_ci.idf_gitlab import pipeline_variables as pipeline_variables_cmd
 from idf_ci.idf_gitlab import test_child_pipeline as test_child_pipeline_cmd
 from idf_ci.settings import CiSettings
 
+_SETTINGS = CiSettings()
+
 
 @click.group()
 def gitlab():
@@ -64,7 +66,7 @@ def test_child_pipeline(yaml_output):
 @click.option(
     '--type',
     'artifact_type',
-    type=click.Choice(CiSettings().gitlab.artifacts.available_s3_types),
+    type=click.Choice(_SETTINGS.gitlab.artifacts.available_s3_types),
     help='Type of artifacts to download. If not specified, downloads all types.',
 )
 @click.option('--commit-sha', help='Commit SHA to download artifacts from.')
@@ -96,7 +98,7 @@ def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json
 @click.option(
     '--type',
     'artifact_type',
-    type=click.Choice(CiSettings().gitlab.artifacts.available_s3_types),
+    type=click.Choice(_SETTINGS.gitlab.artifacts.available_s3_types),
     help='Type of artifacts to upload',
 )
 @click.option(
@@ -132,7 +134,7 @@ def upload_artifacts(artifact_type, commit_sha, folder):
 @click.option(
     '--type',
     'artifact_type',
-    type=click.Choice(CiSettings().gitlab.artifacts.available_s3_types),
+    type=click.Choice(_SETTINGS.gitlab.artifacts.available_s3_types),
     help='Type of artifacts to generate presigned URLs for',
 )
 @click.option(
@@ -170,10 +172,9 @@ def download_known_failure_cases_file(filename):
     """Download known failure cases file from S3 storage."""
     s3_client = ArtifactManager().s3_client
 
-    settings = CiSettings()
     if s3_client:
         s3_client.fget_object(
-            settings.gitlab.known_failure_cases_bucket_name,
+            _SETTINGS.gitlab.known_failure_cases_bucket_name,
             filename,
             filename,
         )

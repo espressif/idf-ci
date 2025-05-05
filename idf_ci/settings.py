@@ -6,7 +6,7 @@ import re
 import typing as t
 from pathlib import Path
 
-from idf_build_apps import App, json_to_app
+from idf_build_apps import App, json_list_files_to_apps
 from idf_build_apps.constants import BuildStatus
 from pydantic_settings import (
     BaseSettings,
@@ -452,35 +452,27 @@ class CiSettings(BaseSettings):
         return modified_components
 
     @classmethod
-    def _read_apps_from_file(cls, filename: PathLike) -> t.Optional[t.List[App]]:
-        """Helper method to read apps from a file.
+    def read_apps_from_files(cls, filepaths: t.Sequence[PathLike]) -> t.Optional[t.List[App]]:
+        """Helper method to read apps from files.
 
-        :param filename: Name of the file to read
+        :param filepaths: List of file paths to read
 
-        :returns: List of App objects read from the file, or None if no file found
+        :returns: List of App objects read from the files, or None if no files found
         """
-        if not Path(filename).is_file():
-            logger.debug(f'No file found: {filename}')
+        valid_filepaths = []
+        for filepath in filepaths:
+            if os.path.isfile(filepath):
+                valid_filepaths.append(str(filepath))
+            else:
+                logger.debug(f'No file found: {filepath}')
+
+        if not valid_filepaths:
             return None
 
-        apps: t.List[App] = []
-        with open(filename) as fr:
-            for line in fr.readlines():
-                line = line.strip()
-                if not line:
-                    continue
-
-                app = json_to_app(line)
-                apps.append(app)
-                logger.debug('App found: %s', app.build_path)
-
-        if not apps:
-            logger.warning(f'No apps found in file: {filename}, returning empty list')
-
-        return apps
+        return json_list_files_to_apps(valid_filepaths)
 
     @classmethod
-    def _read_apps_from_filepatterns(cls, patterns: t.List[str]) -> t.Optional[t.List[App]]:
+    def read_apps_from_filepatterns(cls, patterns: t.List[str]) -> t.Optional[t.List[App]]:
         """Helper method to read apps from files matching given patterns.
 
         :param patterns: List of file patterns to search for
@@ -489,37 +481,18 @@ class CiSettings(BaseSettings):
         """
         found_files = []
         for filepattern in patterns:
-            found_files.extend(list(Path('.').glob(filepattern)))
+            found_files.extend([str(p) for p in (Path('.').glob(filepattern))])
 
         if not found_files:
             logger.debug(f'No files found for patterns: {patterns}')
             return None
 
-        apps: t.List[App] = []
-        for filepattern in patterns:
-            for filepath in Path('.').glob(filepattern):
-                apps.extend(cls._read_apps_from_file(filepath) or [])
+        apps = json_list_files_to_apps(found_files)
 
         if not apps:
             logger.warning(f'No apps found for patterns: {patterns}, returning empty list')
 
         return apps
-
-    def get_collected_apps_list(self) -> t.Tuple[t.Optional[t.List[App]], t.Optional[t.List[App]]]:
-        """Get the lists of collected test-related and non-test-related applications.
-
-        :returns: A tuple containing (test_related_apps, non_test_related_apps), or None
-            if no files found
-        """
-        # Read apps from files
-        test_related_apps = self._read_apps_from_file(self.collected_test_related_apps_filepath)
-        non_test_related_apps = self._read_apps_from_file(self.collected_non_test_related_apps_filepath)
-
-        # either all are None or all are lists
-        if test_related_apps is None and non_test_related_apps is None:
-            return None, None
-
-        return test_related_apps or [], non_test_related_apps or []
 
     def get_built_apps_list(self) -> t.Optional[t.List[App]]:
         """Get the list of successfully built applications from the app info files.
@@ -528,7 +501,7 @@ class CiSettings(BaseSettings):
             None if no files found
         """
         # Read apps from files
-        apps = self._read_apps_from_filepatterns(self.built_app_list_filepatterns)
+        apps = self.read_apps_from_filepatterns(self.built_app_list_filepatterns)
 
         if apps is None:
             return None
