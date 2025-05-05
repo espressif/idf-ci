@@ -78,15 +78,22 @@ def preprocess_args(
         processed_files = None
         processed_components = None
 
-    test_apps, non_test_apps = settings.get_collected_apps_list()
+    test_related_apps = settings.read_apps_from_files([settings.collected_test_related_apps_filepath])
+    non_test_related_apps = settings.read_apps_from_files([settings.collected_non_test_related_apps_filepath])
+
+    # if one of the two is None, it should be empty list
+    if test_related_apps is None and non_test_related_apps is not None:
+        test_related_apps = []
+    elif test_related_apps is not None and non_test_related_apps is None:
+        non_test_related_apps = []
 
     return ProcessedArgs(
         modified_files=processed_files,
         modified_components=processed_components,
         filter_expr=processed_filter,
         default_build_targets=processed_targets,
-        test_related_apps=test_apps,
-        non_test_related_apps=non_test_apps,
+        test_related_apps=test_related_apps,
+        non_test_related_apps=non_test_related_apps,
     )
 
 
