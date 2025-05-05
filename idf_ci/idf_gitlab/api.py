@@ -64,12 +64,12 @@ class ArtifactManager:
     2. S3 storage operations (artifact upload/download)
     3. Fallback to GitLab storage when S3 is not configured
 
-    :var env: GitLab environment variables
+    :var envs: GitLab environment variables
     :var settings: CI settings
     """
 
     def __init__(self):
-        self.env = GitlabEnvVars()
+        self.envs = GitlabEnvVars()
         self.settings = CiSettings()
 
         self._s3_client: t.Optional[Minio] = UNDEF  # type: ignore
@@ -78,8 +78,8 @@ class ArtifactManager:
     @lru_cache()
     def gl(self):
         return Gitlab(
-            self.env.GITLAB_HTTPS_SERVER,
-            private_token=self.env.GITLAB_ACCESS_TOKEN,
+            self.envs.GITLAB_HTTPS_SERVER,
+            private_token=self.envs.GITLAB_ACCESS_TOKEN,
         )
 
     @property
@@ -146,27 +146,27 @@ class ArtifactManager:
     def _create_s3_client(self) -> t.Optional[minio.Minio]:
         if not all(
             [
-                self.env.IDF_S3_SERVER,
-                self.env.IDF_S3_ACCESS_KEY,
-                self.env.IDF_S3_SECRET_KEY,
+                self.envs.IDF_S3_SERVER,
+                self.envs.IDF_S3_ACCESS_KEY,
+                self.envs.IDF_S3_SECRET_KEY,
             ]
         ):
             logger.info('S3 credentials not available. Skipping S3 features...')
             return None
 
-        if self.env.IDF_S3_SERVER.startswith('https://'):
-            host = self.env.IDF_S3_SERVER.replace('https://', '')
+        if self.envs.IDF_S3_SERVER.startswith('https://'):
+            host = self.envs.IDF_S3_SERVER.replace('https://', '')
             secure = True
-        elif self.env.IDF_S3_SERVER.startswith('http://'):
-            host = self.env.IDF_S3_SERVER.replace('http://', '')
+        elif self.envs.IDF_S3_SERVER.startswith('http://'):
+            host = self.envs.IDF_S3_SERVER.replace('http://', '')
             secure = False
         else:
             raise ValueError('Please provide a http or https server URL for S3')
 
         return minio.Minio(
             host,
-            access_key=self.env.IDF_S3_ACCESS_KEY,
-            secret_key=self.env.IDF_S3_SECRET_KEY,
+            access_key=self.envs.IDF_S3_ACCESS_KEY,
+            secret_key=self.envs.IDF_S3_SECRET_KEY,
             secure=secure,
             http_client=urllib3.PoolManager(
                 num_pools=10,
@@ -180,7 +180,7 @@ class ArtifactManager:
         )
 
     def _get_s3_path(self, prefix: str, from_path: Path) -> str:
-        rel_path = str(from_path.relative_to(self.env.IDF_PATH))
+        rel_path = str(from_path.relative_to(self.envs.IDF_PATH))
         return f'{prefix}{rel_path}' if rel_path != '.' else prefix
 
     def _download_from_s3(
@@ -196,7 +196,7 @@ class ArtifactManager:
         patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
 
         for obj in s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
-            output_path = Path(self.env.IDF_PATH) / obj.object_name.replace(prefix, '')
+            output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
             if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
                 continue
 
@@ -398,7 +398,7 @@ class ArtifactManager:
             ]
 
             for obj in s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
-                output_path = Path(self.env.IDF_PATH) / obj.object_name.replace(prefix, '')
+                output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
                 rel_path = obj.object_name.replace(prefix, '')
 
                 if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):

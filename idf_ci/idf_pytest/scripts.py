@@ -40,13 +40,15 @@ def get_pytest_cases(
 
     :raises RuntimeError: If pytest collection fails
     """
+    envs = GitlabEnvVars()
+
     paths = paths or ['.']
 
     if is_undefined(marker_expr):
         marker_expr = 'host_test' if 'linux' in target else 'not host_test'
 
     if filter_expr is None:
-        filter_expr = GitlabEnvVars().IDF_CI_SELECT_BY_FILTER_EXPR
+        filter_expr = envs.IDF_CI_SELECT_BY_FILTER_EXPR
 
     plugin = IdfPytestPlugin(
         cli_target=target,
