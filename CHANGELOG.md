@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.21 (2025-05-05)
+
+### Perf
+
+- load apps from collect app info files faster
+- load settings when needed
+
 ## v0.1.20 (2025-04-30)
 
 ### Fix
