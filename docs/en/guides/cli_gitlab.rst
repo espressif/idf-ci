@@ -1,18 +1,34 @@
-GitLab
-======
+GitLab Commands
+===============
 
 Artifacts
 ---------
 
-We have several types of artifacts:
+We have several types of artifacts enabled by default:
 
 - debug
 - flash
-- metrics
 
-When set all required s3 env vars, the artifacts with ``debug``, ``flash``, ``metrics`` will be uploaded to s3 bucket, instead of internal gitlab.
+When set all required s3 env vars, the artifacts with ``debug``, ``flash`` could be uploaded to s3 bucket, instead of internal gitlab.
 
 You can override the default file patterns in your project's ``.idf_ci.toml`` file.
+
+Customizing Artifact Patterns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can customize which files are uploaded as artifacts by modifying your project's ``.idf_ci.toml`` file. Here's an example of how to add custom artifact patterns:
+
+.. code-block:: toml
+
+    [gitlab.s3.flash]
+    patterns = []  # this overrides the default patterns to empty list
+
+    [gitlab.s3.custom_group]
+    bucket = "custom-bucket"
+    patterns = [
+        "**/build*/custom/*.log",
+        "**/build*/custom/*.txt"
+    ]
 
 Artifact Management Commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -46,38 +62,79 @@ To use these commands, you need:
 
 These variables can be set in your environment or configured in your ``.idf_ci.toml`` configuration file.
 
-Downloading Artifacts
-+++++++++++++++++++++
+Pipeline Variables
+++++++++++++++++++
 
-To download artifacts from a GitLab pipeline, use the ``download-artifacts`` command:
+To output dynamic pipeline variables, use the ``pipeline-variables`` command:
 
 .. code-block:: bash
 
-    idf-ci gitlab download-artifacts [OPTIONS] [FOLDER]
+    idf-ci gitlab pipeline-variables
+
+This command analyzes the current GitLab pipeline environment and determines what variables to set for controlling pipeline behavior. It outputs variables in the format KEY="VALUE" for each determined variable, which can be used with GitLab's `export` feature.
+
+For more details about the generated variables, please refer to the API documentation.
+
+Build Child Pipeline
+++++++++++++++++++++
+
+To generate a build child pipeline YAML file, use the ``build-child-pipeline`` command:
+
+.. code-block:: bash
+
+    idf-ci gitlab build-child-pipeline [OPTIONS] [YAML_OUTPUT]
+
+Options:
+
+- ``--paths PATHS`` - Paths to process
+- ``--modified-files MODIFIED_FILES`` - List of modified files
+- ``--compare-manifest-sha-filepath PATH`` - Path to the recorded manifest sha file (default: .manifest_sha)
+
+Test Child Pipeline
++++++++++++++++++++
+
+To generate a test child pipeline YAML file, use the ``test-child-pipeline`` command:
+
+.. code-block:: bash
+
+    idf-ci gitlab test-child-pipeline [YAML_OUTPUT]
+
+Downloading Artifacts
++++++++++++++++++++++
+
+To download artifacts from a GitLab pipeline, use the ``download_artifacts`` command:
+
+.. code-block:: bash
+
+    idf-ci gitlab download_artifacts [OPTIONS] [FOLDER]
 
 This command downloads artifacts from either GitLab's built-in storage or S3 storage, depending on the configuration. Only the artifacts under the specified folder will be downloaded in-place. If no folder is specified, the artifacts under the current directory will be downloaded.
 
 Options:
 
-- ``--type [debug|flash|metrics]`` - Type of artifacts to download (if not specified, downloads all types)
+- ``--type [debug|flash]`` - Type of artifacts to download (if not specified, downloads all types)
 - ``--commit-sha COMMIT_SHA`` - Commit SHA to download artifacts from
 - ``--branch BRANCH`` - Git branch to get the latest pipeline from
+- ``--presigned-json PATH`` - Path to the presigned.json file
 
 Examples:
 
 .. code-block:: bash
 
     # Download all artifacts from a specific commit under the current directory
-    idf-ci gitlab download-artifacts --commit-sha abc123
+    idf-ci gitlab download_artifacts --commit-sha abc123
 
     # Download only flash artifacts from a specific commit under a specific folder
-    idf-ci gitlab download-artifacts --type flash --commit-sha abc123 /path/to/folder
+    idf-ci gitlab download_artifacts --type flash --commit-sha abc123 /path/to/folder
 
     # Download all artifacts from latest pipeline of current branch
-    idf-ci gitlab download-artifacts
+    idf-ci gitlab download_artifacts
 
     # Download debug artifacts from latest pipeline of a specific branch
-    idf-ci gitlab download-artifacts --type debug --branch feature/new-feature
+    idf-ci gitlab download_artifacts --type debug --branch feature/new-feature
+
+    # Download artifacts using presigned URLs
+    idf-ci gitlab download_artifacts --presigned-json presigned.json
 
 Artifact Types Details
 ++++++++++++++++++++++
@@ -99,35 +156,68 @@ The following artifact types are supported:
    - ELF files (``**/build*/bootloader/*.elf``, ``**/build*/*.elf``)
    - Build logs (``**/build*/build.log``)
 
-3. **Metrics artifacts** (``--type metrics``):
-
-   - Size information (``**/build*/size.json``)
-
 Uploading Artifacts
 +++++++++++++++++++
 
-To upload artifacts to S3 storage, use the ``upload-artifacts`` command:
+To upload artifacts to S3 storage, use the ``upload_artifacts`` command:
 
 .. code-block:: bash
 
-    idf-ci gitlab upload-artifacts [OPTIONS] [FOLDER]
+    idf-ci gitlab upload_artifacts [OPTIONS] [FOLDER]
 
 This command uploads artifacts to S3 storage only. GitLab's built-in storage is not supported. The commit SHA is required to identify where to store the artifacts. Only the artifacts under the specified folder will be downloaded in-place. If no folder is specified, the artifacts under the current directory will be downloaded.
 
 Options:
 
-- ``--type [debug|flash|metrics]`` - Type of artifacts to upload
+- ``--type [debug|flash]`` - Type of artifacts to upload
 - ``--commit-sha COMMIT_SHA`` - Commit SHA to upload artifacts to (required)
+- ``--branch BRANCH`` - Git branch to use (if not provided, will use current git branch)
 
 Example:
 
 .. code-block:: bash
 
     # Upload all debug artifacts from current directory to a specific commit
-    idf-ci gitlab upload-artifacts --type debug --commit-sha abc123
+    idf-ci gitlab upload_artifacts --type debug --commit-sha abc123
 
     # Upload flash artifacts from a specific directory
-    idf-ci gitlab upload-artifacts --type flash --commit-sha abc123 /path/to/build
+    idf-ci gitlab upload_artifacts --type flash --commit-sha abc123 /path/to/build
+
+Generate Presigned URLs
++++++++++++++++++++++++
+
+To generate presigned URLs for artifacts in S3 storage, use the ``generate-presigned-json`` command:
+
+.. code-block:: bash
+
+    idf-ci gitlab generate-presigned-json [OPTIONS] [FOLDER]
+
+This command generates presigned URLs for artifacts that would be uploaded to S3 storage. The URLs can be used to download the artifacts directly from S3.
+
+Options:
+
+- ``--commit-sha COMMIT_SHA`` - Commit SHA to generate presigned URLs for
+- ``--branch BRANCH`` - Git branch to use (if not provided, will use current git branch)
+- ``--type [debug|flash]`` - Type of artifacts to generate URLs for
+- ``--expire-in-days DAYS`` - Expiration time in days for the presigned URLs (default: 4 days)
+
+Example:
+
+.. code-block:: bash
+
+    # Generate presigned URLs for debug artifacts
+    idf-ci gitlab generate-presigned-json --type debug --commit-sha abc123
+
+Download Known Failure Cases
+++++++++++++++++++++++++++++
+
+To download known failure cases file from S3 storage, use the ``download-known-failure-cases-file`` command:
+
+.. code-block:: bash
+
+    idf-ci gitlab download-known-failure-cases-file FILENAME
+
+This command downloads a known failure cases file from S3 storage. S3 storage must be configured for this command to work.
 
 Implementation Details
 ++++++++++++++++++++++
