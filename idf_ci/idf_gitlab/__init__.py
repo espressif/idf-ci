@@ -3,12 +3,13 @@
 
 __all__ = [
     'ArtifactManager',
+    'ArtifactParams',
     'build_child_pipeline',
     'pipeline_variables',
     'test_child_pipeline',
 ]
 
 
-from .api import ArtifactManager
+from .api import ArtifactManager, ArtifactParams
 from .pipeline import build_child_pipeline, test_child_pipeline
 from .scripts import pipeline_variables

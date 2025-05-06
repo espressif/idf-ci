@@ -4,7 +4,12 @@ import json
 
 import click
 
-from idf_ci.cli._options import option_modified_files, option_paths
+from idf_ci.cli._options import (
+    option_branch,
+    option_commit_sha,
+    option_modified_files,
+    option_paths,
+)
 from idf_ci.idf_gitlab import ArtifactManager
 from idf_ci.idf_gitlab import build_child_pipeline as build_child_pipeline_cmd
 from idf_ci.idf_gitlab import pipeline_variables as pipeline_variables_cmd
@@ -69,8 +74,8 @@ def test_child_pipeline(yaml_output):
     type=click.Choice(_SETTINGS.gitlab.artifacts.available_s3_types),
     help='Type of artifacts to download. If not specified, downloads all types.',
 )
-@click.option('--commit-sha', help='Commit SHA to download artifacts from.')
-@click.option('--branch', help='Git branch to get the latest pipeline from.')
+@option_commit_sha
+@option_branch
 @click.option(
     '--presigned-json',
     type=click.Path(dir_okay=False, file_okay=True, exists=True),
@@ -101,13 +106,10 @@ def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json
     type=click.Choice(_SETTINGS.gitlab.artifacts.available_s3_types),
     help='Type of artifacts to upload',
 )
-@click.option(
-    '--commit-sha',
-    required=True,
-    help='Commit SHA to upload artifacts to. Required for S3 storage.',
-)
+@option_commit_sha
+@option_branch
 @click.argument('folder', required=False)
-def upload_artifacts(artifact_type, commit_sha, folder):
+def upload_artifacts(artifact_type, commit_sha, branch, folder):
     """Upload artifacts to S3 storage.
 
     This command uploads artifacts to S3 storage only. GitLab's built-in storage is not
@@ -120,17 +122,15 @@ def upload_artifacts(artifact_type, commit_sha, folder):
     manager = ArtifactManager()
     manager.upload_artifacts(
         commit_sha=commit_sha,
+        branch=branch,
         artifact_type=artifact_type,
         folder=folder,
     )
 
 
 @gitlab.command()
-@click.option(
-    '--commit-sha',
-    required=True,
-    help='Commit SHA to generate presigned URLs for. Required for S3 storage.',
-)
+@option_commit_sha
+@option_branch
 @click.option(
     '--type',
     'artifact_type',
@@ -144,13 +144,14 @@ def upload_artifacts(artifact_type, commit_sha, folder):
     help='Expiration time in days for the presigned URLs (default: 4 days)',
 )
 @click.argument('folder', required=False)
-def generate_presigned_json(commit_sha, artifact_type, expire_in_days, folder):
+def generate_presigned_json(commit_sha, branch, artifact_type, expire_in_days, folder):
     """Generate presigned URLs for artifacts in S3 storage.
 
     This command generates presigned URLs for artifacts that would be uploaded to S3
     storage. The URLs can be used to download the artifacts directly from S3.
 
     :param commit_sha: Commit SHA to generate presigned URLs for
+    :param branch: Git branch to use. If not provided, will use current git branch.
     :param artifact_type: Type of artifacts to generate URLs for (debug, flash, metrics)
     :param expire_in_days: Expiration time in days for the presigned URLs (default: 4
         days)
@@ -159,6 +160,7 @@ def generate_presigned_json(commit_sha, artifact_type, expire_in_days, folder):
     manager = ArtifactManager()
     presigned_urls = manager.generate_presigned_json(
         commit_sha=commit_sha,
+        branch=branch,
         artifact_type=artifact_type,
         folder=folder,
         expire_in_days=expire_in_days,
