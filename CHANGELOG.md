@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.22 (2025-05-06)
+
+### Feat
+
+- support detect commit-sha from local git or env var
+
 ## v0.1.21 (2025-05-05)
 
 ### Perf
