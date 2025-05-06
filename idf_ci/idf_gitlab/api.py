@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import typing as t
 from dataclasses import dataclass
 from datetime import timedelta
@@ -28,18 +29,51 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ArtifactParams:
-    """Common parameters for artifact operations."""
+    """Common parameters for artifacts operations.
+
+    The commit SHA can be determined in the following order of precedence:
+
+    1. Explicitly provided commit_sha parameter
+    2. PIPELINE_COMMIT_SHA environment variable
+    3. Latest commit from branch (where branch is determined by branch parameter or
+       current git branch)
+    """
 
     commit_sha: t.Optional[str] = None
-    artifact_type: t.Optional[str] = None
+    branch: t.Optional[str] = None
     folder: t.Optional[str] = None
-    presigned_json: t.Optional[str] = None
-    expire_in_days: int = 4
 
     def __post_init__(self):
         if self.folder is None:
             self.folder = os.getcwd()
         self.from_path = Path(self.folder)
+
+        # Get commit SHA with the following precedence:
+        # 1. CLI provided commit_sha
+        if self.commit_sha:
+            return
+
+        # 2. Environment variable PIPELINE_COMMIT_SHA
+        if os.getenv('PIPELINE_COMMIT_SHA'):
+            self.commit_sha = os.environ['PIPELINE_COMMIT_SHA']
+            return
+
+        # 3. Latest commit from branch
+        try:
+            if self.branch is None:
+                self.branch = get_current_branch()
+            result = subprocess.run(
+                ['git', 'rev-parse', self.branch],
+                check=True,
+                capture_output=True,
+                encoding='utf-8',
+            )
+            self.commit_sha = result.stdout.strip()
+        except Exception:
+            raise ValueError(
+                'Failed to get commit SHA from git command. '
+                'Must set commit_sha or branch parameter, or set PIPELINE_COMMIT_SHA env var'
+            )
 
 
 class ArtifactError(Exception):
@@ -90,21 +124,6 @@ class ArtifactManager:
         if not project:
             raise ValueError(f'Project {self.settings.gitlab.project} not found')
         return project
-
-    def _get_commit_sha(self, commit_sha: t.Optional[str], branch: t.Optional[str]) -> str:
-        if commit_sha:
-            return commit_sha
-
-        if branch is None:
-            branch = get_current_branch()
-            logger.debug(f'Using current branch: {branch}')
-        else:
-            logger.debug(f'Using specified branch: {branch}')
-
-        mrs = self.project.mergerequests.list(state='opened', source_branch=branch)
-        if not mrs:
-            raise ValueError(f'No open merge request found for branch {branch}')
-        return next(mrs[0].commits()).id
 
     def _get_upload_details_by_type(self, artifact_type: t.Optional[str]) -> t.Dict[str, t.List[str]]:
         """Get file patterns grouped by bucket name based on the artifact type.
@@ -258,15 +277,9 @@ class ArtifactManager:
         This method downloads artifacts from either GitLab's built-in storage or S3
         storage, depending on the configuration and artifact type.
 
-        There are two main use cases:
-
-        1. CI use case: Use commit_sha to download artifacts from a specific commit
-        2. Local use case: Use branch to download artifacts from the latest pipeline of
-           a branch
-
-        :param commit_sha: Optional commit SHA. If provided, will download from this
-            specific commit
-        :param branch: Optional Git branch. If no commit_sha provided, will use current
+        :param commit_sha: Optional commit SHA. If no commit_sha provided, will use 1)
+            PIPELINE_COMMIT_SHA env var, 2) latest commit from branch
+        :param branch: Optional Git branch. If no branch provided, will use current
             branch
         :param artifact_type: Type of artifacts to download (debug, flash, metrics)
         :param folder: download artifacts under this folder
@@ -275,12 +288,9 @@ class ArtifactManager:
         """
         params = ArtifactParams(
             commit_sha=commit_sha,
-            artifact_type=artifact_type,
+            branch=branch,
             folder=folder,
-            presigned_json=presigned_json,
         )
-
-        commit_sha = self._get_commit_sha(commit_sha, branch)
 
         if presigned_json:
             self._download_from_presigned_json(
@@ -294,8 +304,8 @@ class ArtifactManager:
         if not s3_client:
             raise S3Error('Configure S3 storage to download artifacts')
 
-        s3_prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
-        logger.info(f'Downloading artifacts under {params.from_path} from s3 (commit sha: {commit_sha})')
+        s3_prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
+        logger.info(f'Downloading artifacts under {params.from_path} from s3 (commit sha: {params.commit_sha})')
 
         for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
             self._download_from_s3(
@@ -309,7 +319,8 @@ class ArtifactManager:
     def upload_artifacts(
         self,
         *,
-        commit_sha: str,
+        commit_sha: t.Optional[str] = None,
+        branch: t.Optional[str] = None,
         artifact_type: t.Optional[str] = None,
         folder: t.Optional[str] = None,
     ) -> None:
@@ -319,7 +330,10 @@ class ArtifactManager:
         not supported. The commit SHA is required to identify where to store the
         artifacts.
 
-        :param commit_sha: Commit SHA to upload artifacts to
+        :param commit_sha: Optional commit SHA. If no commit_sha provided, will use 1)
+            PIPELINE_COMMIT_SHA env var, 2) latest commit from branch
+        :param branch: Optional Git branch. If no branch provided, will use current
+            branch
         :param artifact_type: Type of artifacts to upload (debug, flash, metrics)
         :param folder: upload artifacts under this folder
 
@@ -327,19 +341,16 @@ class ArtifactManager:
         """
         params = ArtifactParams(
             commit_sha=commit_sha,
-            artifact_type=artifact_type,
+            branch=branch,
             folder=folder,
         )
-
-        if not commit_sha:
-            raise ValueError('Commit SHA is required to upload artifacts')
 
         s3_client = self.s3_client
         if not s3_client:
             raise S3Error('Configure S3 storage to upload artifacts')
 
-        prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
-        logger.info(f'Uploading artifacts under {params.from_path} to s3 (commit sha: {commit_sha})')
+        prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
+        logger.info(f'Uploading artifacts under {params.from_path} to s3 (commit sha: {params.commit_sha})')
 
         for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
             self._upload_to_s3(
@@ -353,7 +364,8 @@ class ArtifactManager:
     def generate_presigned_json(
         self,
         *,
-        commit_sha: str,
+        commit_sha: t.Optional[str] = None,
+        branch: t.Optional[str] = None,
         artifact_type: t.Optional[str] = None,
         folder: t.Optional[str] = None,
         expire_in_days: int = 4,
@@ -363,7 +375,10 @@ class ArtifactManager:
         This method generates presigned URLs for artifacts that would be uploaded to S3
         storage. The URLs can be used to download the artifacts directly from S3.
 
-        :param commit_sha: Commit SHA to generate presigned URLs for
+        :param commit_sha: Optional commit SHA. If no commit_sha provided, will use 1)
+            PIPELINE_COMMIT_SHA env var, 2) latest commit from branch
+        :param branch: Optional Git branch. If no branch provided, will use current
+            branch
         :param artifact_type: Type of artifacts to generate URLs for (debug, flash,
             metrics)
         :param folder: Base folder to generate relative paths from
@@ -376,19 +391,15 @@ class ArtifactManager:
         """
         params = ArtifactParams(
             commit_sha=commit_sha,
-            artifact_type=artifact_type,
+            branch=branch,
             folder=folder,
-            expire_in_days=expire_in_days,
         )
-
-        if not commit_sha:
-            raise ValueError('Commit SHA is required to generate presigned URLs')
 
         s3_client = self.s3_client
         if not s3_client:
             raise S3Error('Configure S3 storage to generate presigned URLs')
 
-        prefix = f'{self.settings.gitlab.project}/{commit_sha}/'
+        prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
         s3_path = self._get_s3_path(prefix, params.from_path)
 
         presigned_urls: t.Dict[str, str] = {}

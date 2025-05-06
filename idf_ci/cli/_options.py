@@ -76,6 +76,23 @@ def option_modified_files(func):
     )(func)
 
 
+def option_commit_sha(func):
+    return click.option(
+        '--commit-sha',
+        help=(
+            'Commit SHA to download artifacts from. If not provided, will try to get it from: '
+            '1) PIPELINE_COMMIT_SHA env var, 2) latest commit from branch.'
+        ),
+    )(func)
+
+
+def option_branch(func):
+    return click.option(
+        '--branch',
+        help='Git branch to use. If not provided, will use current git branch.',
+    )(func)
+
+
 #########
 # Utils #
 #########
