@@ -104,12 +104,6 @@ class ArtifactsSettings(BaseSettings):
                 '**/build*/project_description.json',
             ],
         },
-        'metrics': {
-            'bucket': 'idf-metrics',
-            'patterns': [
-                '**/build*/size.json',  # size_json_filename
-            ],
-        },
     }
     """Dictionary mapping artifact types to their bucket and file patterns."""
 
