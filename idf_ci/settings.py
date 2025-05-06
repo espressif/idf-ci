@@ -78,7 +78,7 @@ class S3FilePatternConfig(TypedDict):
     """List of glob patterns for files to collect."""
 
 
-class ArtifactsSettings(BaseSettings):
+class ArtifactSettings(BaseSettings):
     ### in s3 buckets ###
     s3: t.Dict[str, S3FilePatternConfig] = {
         'debug': {
@@ -301,7 +301,7 @@ class GitlabSettings(BaseSettings):
     known_failure_cases_bucket_name: str = 'ignore-test-result-files'
     """Bucket name for storing known failure cases."""
 
-    artifacts: ArtifactsSettings = ArtifactsSettings()
+    artifacts: ArtifactSettings = ArtifactSettings()
 
     build_pipeline: BuildPipelineSettings = BuildPipelineSettings()
 
