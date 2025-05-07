@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.23 (2025-05-07)
+
+### Feat
+
+- support `idf-ci gitlab generate-presigned-json -o/--output`
+
+### Fix
+
+- s3 artifacts support relative path
+
 ## v0.1.22 (2025-05-06)
 
 ### Feat
