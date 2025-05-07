@@ -199,7 +199,11 @@ class ArtifactManager:
         )
 
     def _get_s3_path(self, prefix: str, from_path: Path) -> str:
-        rel_path = str(from_path.relative_to(self.envs.IDF_PATH))
+        if from_path.is_absolute():
+            rel_path = str(from_path.relative_to(self.envs.IDF_PATH))
+        else:
+            rel_path = str(from_path)
+
         return f'{prefix}{rel_path}' if rel_path != '.' else prefix
 
     def _download_from_s3(
