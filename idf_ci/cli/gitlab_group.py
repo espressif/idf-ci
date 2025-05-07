@@ -35,6 +35,7 @@ def pipeline_variables():
 
     As for the generated variables, please refer to the following link:
 
+    \b
     https://docs.espressif.com/projects/idf-ci/en/latest/references/api/idf_ci.idf_gitlab.html#idf_ci.idf_gitlab.pipeline_variables
     """
     for k, v in pipeline_variables_cmd().items():
@@ -114,10 +115,6 @@ def upload_artifacts(artifact_type, commit_sha, branch, folder):
 
     This command uploads artifacts to S3 storage only. GitLab's built-in storage is not
     supported. The commit SHA is required to identify where to store the artifacts.
-
-    :param commit_sha: Commit SHA to upload artifacts to
-    :param artifact_type: Type of artifacts to upload (debug, flash, metrics)
-    :param folder: Directory containing artifacts to upload
     """
     manager = ArtifactManager()
     manager.upload_artifacts(
@@ -143,19 +140,18 @@ def upload_artifacts(artifact_type, commit_sha, branch, folder):
     default=4,
     help='Expiration time in days for the presigned URLs (default: 4 days)',
 )
+@click.option(
+    '-o',
+    '--output',
+    type=click.Path(dir_okay=False, file_okay=True),
+    help='Path to save the generated presigned URLs. If not specified, will print to stdout.',
+)
 @click.argument('folder', required=False)
-def generate_presigned_json(commit_sha, branch, artifact_type, expire_in_days, folder):
+def generate_presigned_json(commit_sha, branch, artifact_type, expire_in_days, output, folder):
     """Generate presigned URLs for artifacts in S3 storage.
 
     This command generates presigned URLs for artifacts that would be uploaded to S3
     storage. The URLs can be used to download the artifacts directly from S3.
-
-    :param commit_sha: Commit SHA to generate presigned URLs for
-    :param branch: Git branch to use. If not provided, will use current git branch.
-    :param artifact_type: Type of artifacts to generate URLs for (debug, flash, metrics)
-    :param expire_in_days: Expiration time in days for the presigned URLs (default: 4
-        days)
-    :param folder: Base folder to generate relative paths from
     """
     manager = ArtifactManager()
     presigned_urls = manager.generate_presigned_json(
@@ -165,7 +161,12 @@ def generate_presigned_json(commit_sha, branch, artifact_type, expire_in_days, f
         folder=folder,
         expire_in_days=expire_in_days,
     )
-    click.echo(json.dumps(presigned_urls))
+
+    if output:
+        with open(output, 'w') as f:
+            json.dump(presigned_urls, f)
+    else:
+        click.echo(json.dumps(presigned_urls))
 
 
 @gitlab.command()
