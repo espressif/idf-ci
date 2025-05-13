@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.24 (2025-05-13)
+
+### Feat
+
+- support `if_clause` in s3 artifacts
+
 ## v0.1.23 (2025-05-07)
 
 ### Feat
