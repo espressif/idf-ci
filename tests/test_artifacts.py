@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 import sys
 import textwrap
 
@@ -28,6 +29,7 @@ class TestUploadDownloadArtifacts:
         (build_dir / 'build.log').write_text('Test build log', encoding='utf-8')
         (build_dir / 'test.bin').write_text('Binary content', encoding='utf-8')
         (build_dir / 'size.json').write_text('{"size": 1024}', encoding='utf-8')
+        (build_dir / 'optional.txt').write_text('Optional content', encoding='utf-8')
 
         return build_dir
 
@@ -49,14 +51,26 @@ class TestUploadDownloadArtifacts:
                 [gitlab.artifacts.s3.metrics]
                 bucket = "test-bucket"
                 patterns = ["**/build*/size.json"]
+
+                [gitlab.artifacts.s3.optional]
+                bucket = "test-bucket"
+                patterns = ["**/build*/optional.txt"]
+                if_clause = 'ENV_VAR_FOO == "foo"'
             """)
         )
+
+        curdir = os.getcwd()
+        os.chdir(tmp_path)
 
         monkeypatch.setenv('IDF_S3_SERVER', 'http://localhost:9100')
         monkeypatch.setenv('IDF_S3_ACCESS_KEY', 'minioadmin')
         monkeypatch.setenv('IDF_S3_SECRET_KEY', 'minioadmin')
 
         monkeypatch.setenv('IDF_PATH', tmp_dir)
+
+        yield
+
+        os.chdir(curdir)
 
     @pytest.fixture
     def s3_client(self) -> minio.Minio:
@@ -75,14 +89,28 @@ class TestUploadDownloadArtifacts:
         client.make_bucket('test-bucket')
         return client
 
-    def test_cli_upload_download_artifacts(self, s3_client, runner, tmp_path, sample_artifacts_dir, monkeypatch):
+    @pytest.mark.parametrize(
+        'set_env_var_foo',
+        [
+            True,
+            False,
+        ],
+    )
+    def test_cli_upload_download_artifacts(
+        self, s3_client, tmp_path, sample_artifacts_dir, monkeypatch, set_env_var_foo
+    ):
+        # in this test we use subprocess, since env var is monkeypatched
+
         # Mock git functions that would be called
         commit_sha = 'cli_test_sha_123'
 
-        # upload
-        result = runner.invoke(
-            click_cli,
+        if set_env_var_foo:
+            monkeypatch.setenv('ENV_VAR_FOO', 'foo')
+
+        # Upload artifacts
+        subprocess.run(
             [
+                'idf-ci',
                 'gitlab',
                 'upload-artifacts',
                 '--commit-sha',
@@ -90,18 +118,39 @@ class TestUploadDownloadArtifacts:
                 '--type',
                 'flash',
             ],
+            check=True,
         )
-        assert result.exit_code == 0
         objs = list(s3_client.list_objects('test-bucket', recursive=True))
         assert len(objs) == 1
         assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/test.bin'
 
+        # upload optional
+        subprocess.run(
+            [
+                'idf-ci',
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--type',
+                'optional',
+            ],
+            check=True,
+        )
+        objs = list(s3_client.list_objects('test-bucket', recursive=True))
+        if set_env_var_foo:
+            assert len(objs) == 2
+            assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/optional.txt'
+        else:
+            assert len(objs) == 1
+            assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/test.bin'
+
         shutil.rmtree(sample_artifacts_dir)
 
         # download and check if the files were uploaded
-        result = runner.invoke(
-            click_cli,
+        subprocess.run(
             [
+                'idf-ci',
                 'gitlab',
                 'download-artifacts',
                 '--commit-sha',
@@ -110,9 +159,9 @@ class TestUploadDownloadArtifacts:
                 'flash',
                 str(tmp_path),
             ],
+            check=True,
         )
 
-        assert result.exit_code == 0
         assert sorted(os.listdir(sample_artifacts_dir)) == ['test.bin']
         assert open(sample_artifacts_dir / 'test.bin').read() == 'Binary content'
 
@@ -131,9 +180,9 @@ class TestUploadDownloadArtifacts:
         monkeypatch.delenv('IDF_S3_ACCESS_KEY')
 
         # Try to download using presigned.json
-        result = runner.invoke(
-            click_cli,
+        subprocess.run(
             [
+                'idf-ci',
                 'gitlab',
                 'download-artifacts',
                 '--commit-sha',
@@ -142,9 +191,9 @@ class TestUploadDownloadArtifacts:
                 presigned_json_path,
                 str(tmp_path),
             ],
+            check=True,
         )
 
-        assert result.exit_code == 0
         assert os.path.exists(os.path.join(tmp_path, 'app/build_esp32_build/test.bin'))
 
     def test_cli_generate_presigned_json(self, runner):

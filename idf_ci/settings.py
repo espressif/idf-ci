@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+import sys
 import typing as t
 from pathlib import Path
 
@@ -16,6 +17,12 @@ from pydantic_settings import (
 from tomlkit import load
 
 from idf_ci._compat import PathLike, TypedDict
+
+if sys.version_info < (3, 11):
+    from typing_extensions import NotRequired
+else:
+    from typing import NotRequired
+
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +80,8 @@ class TomlConfigSettingsSource(InitSettingsSource):
 
 class S3FilePatternConfig(TypedDict):
     bucket: str
-
     patterns: t.List[str]
+    if_clause: NotRequired[str]
     """List of glob patterns for files to collect."""
 
 
