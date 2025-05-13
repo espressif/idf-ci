@@ -12,6 +12,7 @@ from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
 
+import esp_bool_parser
 import minio
 import requests
 import urllib3
@@ -134,26 +135,46 @@ class ArtifactManager:
 
         :raises ValueError: If the artifact type is invalid
         """
+        _types = []
         if artifact_type:
             if artifact_type not in self.settings.gitlab.artifacts.available_s3_types:
                 raise ValueError(
                     f'Invalid artifact type: {artifact_type}. '
                     f'Available types: {self.settings.gitlab.artifacts.available_s3_types}'
                 )
-            config = self.settings.gitlab.artifacts.s3[artifact_type]
-            return {config['bucket']: config['patterns']}
-        else:
-            # If no type specified, return all configurations grouped by bucket
-            bucket_patterns: t.Dict[str, t.List[str]] = {}
-            for config in self.settings.gitlab.artifacts.s3.values():
-                bucket = config['bucket']
-                if bucket not in bucket_patterns:
-                    bucket_patterns[bucket] = []
-                bucket_patterns[bucket].extend(config['patterns'])
 
-            if not bucket_patterns:
-                raise ValueError('No S3 buckets configured')
-            return bucket_patterns
+            _types = [artifact_type]
+        else:
+            _types = self.settings.gitlab.artifacts.available_s3_types
+
+        bucket_patterns: t.Dict[str, t.List[str]] = {}
+        for artifact_type in _types:
+            config = self.settings.gitlab.artifacts.s3[artifact_type]
+
+            if config.get('if_clause'):
+                try:
+                    stmt = esp_bool_parser.parse_bool_expr(config['if_clause'])
+                    res = stmt.get_value('', '')
+                except Exception as e:
+                    logger.info(
+                        f'Skipping {artifact_type} artifacts due to error '
+                        f'while evaluating if_clause: {config["if_clause"]}: {e}'
+                    )
+                    continue
+                else:
+                    if not res:
+                        logger.info(f'Skipping {artifact_type} artifacts due to if_clause: {config["if_clause"]}')
+                        continue
+
+            bucket = config['bucket']
+            if bucket not in bucket_patterns:
+                bucket_patterns[bucket] = []
+            bucket_patterns[bucket].extend(config['patterns'])
+
+        if not bucket_patterns:
+            logger.info('No S3 configured patterns found, skipping...')
+
+        return bucket_patterns
 
     @property
     def s3_client(self) -> t.Optional[minio.Minio]:
