@@ -39,7 +39,7 @@ def pipeline_variables():
     https://docs.espressif.com/projects/idf-ci/en/latest/references/api/idf_ci.idf_gitlab.html#idf_ci.idf_gitlab.pipeline_variables
     """
     for k, v in pipeline_variables_cmd().items():
-        click.echo(f'{k}="{v}"')
+        click.echo(f'{k}={v}')
 
 
 @gitlab.command()
