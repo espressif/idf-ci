@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.25 (2025-05-14)
+
+### Fix
+
+- env file values shall not include doublequotes
+
 ## v0.1.24 (2025-05-13)
 
 ### Feat
