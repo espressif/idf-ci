@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import typing as t
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import timedelta
 from functools import lru_cache
@@ -26,6 +27,40 @@ from ..settings import CiSettings
 from ..utils import get_current_branch
 
 logger = logging.getLogger(__name__)
+
+
+def execute_concurrent_tasks(
+    tasks: t.List[t.Callable[..., t.Any]],
+    max_workers: t.Optional[int] = None,
+    task_name: str = 'executing task',
+) -> t.List[t.Any]:
+    """Execute tasks concurrently using ThreadPoolExecutor.
+
+    :param tasks: List of callable tasks to execute
+    :param max_workers: Maximum number of worker threads
+    :param task_name: Error message prefix for logging
+
+    :returns: List of successful task results, sequence is not guaranteed
+    """
+    results = []
+    errors = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(task) for task in tasks]
+
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+                if result is not None:
+                    results.append(result)
+            except Exception as e:
+                logger.error(f'Error while {task_name}: {e}')
+                errors.append(e)
+
+    if errors:
+        _nl = '\n'  # compatible with Python < 3.12
+        raise ArtifactError(f'Got {len(errors)} errors while {task_name}:\n{_nl.join([f"- {e}" for e in errors])}')
+
+    return results
 
 
 @dataclass
@@ -77,7 +112,7 @@ class ArtifactParams:
             )
 
 
-class ArtifactError(Exception):
+class ArtifactError(RuntimeError):
     """Base exception for artifact-related errors."""
 
 
@@ -239,13 +274,20 @@ class ArtifactManager:
         s3_path = self._get_s3_path(prefix, from_path)
         patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
 
+        def _download_task(_obj_name: str, _output_path: Path) -> None:
+            logger.debug(f'Downloading {_obj_name} to {_output_path}')
+            s3_client.fget_object(bucket, _obj_name, str(_output_path))
+
+        tasks = []
         for obj in s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
             output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
             if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
                 continue
+            tasks.append(
+                lambda _obj_name=obj.object_name, _output_path=output_path: _download_task(_obj_name, _output_path)
+            )
 
-            logger.debug(f'Downloading {obj.object_name} to {output_path}')
-            s3_client.fget_object(bucket, obj.object_name, str(output_path))
+        execute_concurrent_tasks(tasks, task_name='downloading object')
 
     def _upload_to_s3(
         self,
@@ -256,16 +298,22 @@ class ArtifactManager:
         from_path: Path,
         patterns: t.List[str],
     ) -> None:
+        def _upload_task(_filepath: Path, _s3_path: str) -> None:
+            logger.debug(f'Uploading {_filepath} to {_s3_path}')
+            s3_client.fput_object(bucket, _s3_path, str(_filepath))
+
+        tasks = []
         for pattern in patterns:
             abs_pattern = os.path.join(str(from_path), pattern)
             for file_str in glob.glob(abs_pattern, recursive=True):
-                file_path = Path(file_str)
-                if not file_path.is_file():
+                filepath = Path(file_str)
+                if not filepath.is_file():
                     continue
 
-                s3_path = self._get_s3_path(prefix, file_path)
-                logger.debug(f'Uploading {file_path} to {s3_path}')
-                s3_client.fput_object(bucket, s3_path, str(file_path))
+                s3_path = self._get_s3_path(prefix, filepath)
+                tasks.append(lambda _filepath=filepath, _s3_path=s3_path: _upload_task(_filepath, _s3_path))
+
+        execute_concurrent_tasks(tasks, task_name='uploading file')
 
     def _download_from_presigned_json(self, presigned_json: str, from_path: Path, patterns: t.List[str]) -> None:
         with open(presigned_json) as f:
@@ -325,8 +373,7 @@ class ArtifactManager:
             )
             return
 
-        s3_client = self.s3_client
-        if not s3_client:
+        if not self.s3_client:
             raise S3Error('Configure S3 storage to download artifacts')
 
         s3_prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
@@ -334,7 +381,7 @@ class ArtifactManager:
 
         for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
             self._download_from_s3(
-                s3_client=s3_client,
+                s3_client=self.s3_client,
                 bucket=bucket,
                 prefix=s3_prefix,
                 from_path=params.from_path,
@@ -370,8 +417,7 @@ class ArtifactManager:
             folder=folder,
         )
 
-        s3_client = self.s3_client
-        if not s3_client:
+        if not self.s3_client:
             raise S3Error('Configure S3 storage to upload artifacts')
 
         prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
@@ -379,7 +425,7 @@ class ArtifactManager:
 
         for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
             self._upload_to_s3(
-                s3_client=s3_client,
+                s3_client=self.s3_client,
                 bucket=bucket,
                 prefix=prefix,
                 from_path=params.from_path,
@@ -420,32 +466,42 @@ class ArtifactManager:
             folder=folder,
         )
 
-        s3_client = self.s3_client
-        if not s3_client:
+        if not self.s3_client:
             raise S3Error('Configure S3 storage to generate presigned URLs')
 
         prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
         s3_path = self._get_s3_path(prefix, params.from_path)
 
+        def _get_presigned_url_task(_bucket: str, _obj_name: str) -> t.Tuple[str, str]:
+            res = self.s3_client.get_presigned_url(  # type: ignore
+                'GET',
+                bucket_name=_bucket,
+                object_name=_obj_name,
+                expires=timedelta(days=expire_in_days),
+            )
+            if not res:
+                raise S3Error(f'Failed to generate presigned URL for {_obj_name}')
+
+            return _obj_name, res
+
+        tasks = []
         presigned_urls: t.Dict[str, str] = {}
         for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
             patterns_regexes = [
                 re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns
             ]
 
-            for obj in s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
+            for obj in self.s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
                 output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
-                rel_path = obj.object_name.replace(prefix, '')
-
                 if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
                     continue
 
-                presigned_url = s3_client.get_presigned_url(
-                    'GET',
-                    bucket_name=bucket,
-                    object_name=obj.object_name,
-                    expires=timedelta(days=expire_in_days),
+                tasks.append(
+                    lambda _bucket=bucket, _obj_name=obj.object_name: _get_presigned_url_task(_bucket, _obj_name)
                 )
-                presigned_urls[rel_path] = presigned_url
+
+        results = execute_concurrent_tasks(tasks, task_name='generating presigned URL')
+        for obj_name, presigned_url in results:
+            presigned_urls[obj_name.replace(prefix, '')] = presigned_url
 
         return presigned_urls
