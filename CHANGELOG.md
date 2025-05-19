@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.26 (2025-05-19)
+
+### Perf
+
+- s3 operations with ThreadPoolExecutor
+
 ## v0.1.25 (2025-05-14)
 
 ### Fix
