@@ -27,7 +27,7 @@ def init(path: str):
 
 
 @test.command()
-@click.argument('paths', nargs=-1, type=click.Path(dir_okay=False, file_okay=True, exists=True))
+@click.argument('paths', nargs=-1, type=click.Path(dir_okay=True, file_okay=False, exists=True))
 @click.option('-t', '--target', default='all', help='Target to be processed. Or "all" to process all targets.')
 @option_pytest
 @click.option(
