@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.27 (2025-05-21)
+
+### Fix
+
+- download from presigned json
+- paths should be directories
+
 ## v0.1.26 (2025-05-19)
 
 ### Perf
