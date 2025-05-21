@@ -322,7 +322,10 @@ class ArtifactManager:
         patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
 
         for rel_path, url in presigned_urls.items():
-            output_path = from_path / rel_path
+            if from_path not in Path(rel_path).parents:
+                continue
+
+            output_path = Path(self.envs.IDF_PATH) / rel_path
             if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
                 continue
 
