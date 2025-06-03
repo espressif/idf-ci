@@ -33,6 +33,11 @@ def build():
 @click.option('--only-test-related', is_flag=True, help='Run build only for test-related apps')
 @click.option('--only-non-test-related', is_flag=True, help='Run build only for non-test-related apps')
 @click.option('--dry-run', is_flag=True, help='Run build in dry-run mode')
+@click.option(
+    '--build-system',
+    default='cmake',
+    help='Filter the apps by build system. Can be "cmake", "make" or a custom App class path in format "module:class"',
+)
 @click.pass_context
 def run(
     ctx,
@@ -45,6 +50,7 @@ def run(
     only_test_related,
     only_non_test_related,
     dry_run,
+    build_system,
     marker_expr,
     filter_expr,
 ):
@@ -59,6 +65,7 @@ def run(
         only_test_related=only_test_related,
         only_non_test_related=only_non_test_related,
         dry_run=dry_run,
+        build_system=build_system,
         marker_expr=marker_expr,
         filter_expr=filter_expr,
     )
