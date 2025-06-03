@@ -27,6 +27,7 @@ Options:
 - ``--only-test-related`` - Run build only for test-related apps
 - ``--only-non-test-related`` - Run build only for non-test-related apps
 - ``--dry-run`` - Run build in dry-run mode
+- ``--build-system SYSTEM`` - Filter the apps by build system. Can be "cmake", "make" or a custom App class path (default: cmake)
 - ``--marker-expr EXPR`` - Pytest marker expression
 - ``--filter-expr EXPR`` - Pytest filter expression
 
@@ -45,6 +46,9 @@ Examples:
 
     # Build only test-related applications
     idf-ci build run --only-test-related
+
+    # Build applications using make build system
+    idf-ci build run --build-system make
 
     # Build with parallel processing
     idf-ci build run --parallel-count 4 --parallel-index 1
