@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.28 (2025-06-03)
+
+### Feat
+
+- support pass `build_system` as args
+
 ## v0.1.27 (2025-05-21)
 
 ### Fix
