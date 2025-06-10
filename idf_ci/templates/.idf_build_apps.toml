@@ -1,3 +1,6 @@
+# check the latest documentation at
+# https://docs.espressif.com/projects/idf-build-apps/en/latest/references/config_file.html
+
 config_rules = [
     'sdkconfig.ci=default',
     'sdkconfig.ci.*=',
