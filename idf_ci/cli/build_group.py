@@ -8,6 +8,7 @@ import click
 
 from idf_ci.scripts import build as build_cmd
 
+from .._compat import UNDEF
 from ._options import (
     create_config_file,
     option_modified_files,
@@ -35,7 +36,7 @@ def build():
 @click.option('--dry-run', is_flag=True, help='Run build in dry-run mode')
 @click.option(
     '--build-system',
-    default='cmake',
+    default=UNDEF,
     help='Filter the apps by build system. Can be "cmake", "make" or a custom App class path in format "module:class"',
 )
 @click.pass_context

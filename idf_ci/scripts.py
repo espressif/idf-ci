@@ -10,7 +10,7 @@ from idf_build_apps import App, build_apps, find_apps
 from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
 from idf_build_apps.utils import get_parallel_start_stop
 
-from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies
+from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
 from .envs import GitlabEnvVars
 from .settings import CiSettings
 
@@ -110,7 +110,7 @@ def get_all_apps(
     marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
     # additional args
     compare_manifest_sha_filepath: t.Optional[str] = None,
-    build_system: str = 'cmake',
+    build_system: UndefinedOr[t.Optional[str]] = UNDEF,
 ) -> t.Tuple[t.List[App], t.List[App]]:
     """Get test-related and non-test-related applications.
 
@@ -145,7 +145,12 @@ def get_all_apps(
 
         return processed_args.test_related_apps, processed_args.non_test_related_apps
 
-    paths = paths or ['.']
+    additional_kwargs = {
+        'compare_manifest_sha_filepath': compare_manifest_sha_filepath,
+        'build_system': build_system,
+    }
+    if is_undefined(build_system):
+        additional_kwargs.pop('build_system')
 
     apps = []
     for _t in target.split(','):
@@ -156,14 +161,13 @@ def get_all_apps(
 
         apps.extend(
             find_apps(
-                paths,
+                paths or ['.'],
                 _t,
                 modified_files=processed_args.modified_files,
                 modified_components=processed_args.modified_components,
                 include_skipped_apps=True,
                 default_build_targets=_default_build_targets,
-                compare_manifest_sha_filepath=compare_manifest_sha_filepath,
-                build_system=build_system,
+                **additional_kwargs,  # type: ignore
             )
         )
 
@@ -242,7 +246,7 @@ def build(
     only_test_related: bool = False,
     only_non_test_related: bool = False,
     dry_run: bool = False,
-    build_system: str = 'cmake',
+    build_system: UndefinedOr[str] = UNDEF,
     marker_expr: UndefinedOr[str] = UNDEF,
     filter_expr: t.Optional[str] = None,
 ) -> t.Tuple[t.List[App], int]:
