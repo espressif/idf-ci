@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.29 (2025-06-10)
+
+### Fix
+
+- default build system set to UNDEF
+
 ## v0.1.28 (2025-06-03)
 
 ### Feat
