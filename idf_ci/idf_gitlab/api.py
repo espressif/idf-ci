@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import subprocess
+import tempfile
 import typing as t
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -347,6 +348,7 @@ class ArtifactManager:
         artifact_type: t.Optional[str] = None,
         folder: t.Optional[str] = None,
         presigned_json: t.Optional[str] = None,
+        pipeline_id: t.Optional[str] = None,
     ) -> None:
         """Download artifacts from a pipeline.
 
@@ -361,35 +363,47 @@ class ArtifactManager:
         :param folder: download artifacts under this folder
         :param presigned_json: Path to the presigned.json file. If provided, will use
             this file to download artifacts. If not, will use s3 credentials to download
+        :param pipeline_id: GitLab pipeline ID to download presigned.json from. Cannot
+            be used together with presigned_json
         """
+        if presigned_json and pipeline_id:
+            raise ValueError('Cannot use both --presigned-json and --pipeline-id options together')
+
         params = ArtifactParams(
             commit_sha=commit_sha,
             branch=branch,
             folder=folder,
         )
 
-        if presigned_json:
-            self._download_from_presigned_json(
-                presigned_json,
-                params.from_path,
-                [p for patterns in self._get_upload_details_by_type(artifact_type).values() for p in patterns],
-            )
+        if self.s3_client:
+            logger.info(f'Using S3 storage for artifacts (commit sha: {params.commit_sha})')
+
+            s3_prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
+            logger.info(f'Downloading artifacts under {params.from_path} from s3 (commit sha: {params.commit_sha})')
+
+            for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
+                self._download_from_s3(
+                    s3_client=self.s3_client,
+                    bucket=bucket,
+                    prefix=s3_prefix,
+                    from_path=params.from_path,
+                    patterns=patterns,
+                )
             return
 
-        if not self.s3_client:
-            raise S3Error('Configure S3 storage to download artifacts')
-
-        s3_prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
-        logger.info(f'Downloading artifacts under {params.from_path} from s3 (commit sha: {params.commit_sha})')
-
-        for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
-            self._download_from_s3(
-                s3_client=self.s3_client,
-                bucket=bucket,
-                prefix=s3_prefix,
-                from_path=params.from_path,
-                patterns=patterns,
+        if pipeline_id:
+            presigned_json_path = self._download_presigned_json_from_pipeline(pipeline_id)
+        elif presigned_json and os.path.isfile(presigned_json):
+            presigned_json_path = presigned_json
+        else:
+            raise ArtifactError(
+                'Either presigned_json or pipeline_id must be provided to download artifacts, if S3 is not configured'
             )
+        self._download_from_presigned_json(
+            presigned_json_path,
+            params.from_path,
+            [p for patterns in self._get_upload_details_by_type(artifact_type).values() for p in patterns],
+        )
 
     def upload_artifacts(
         self,
@@ -508,3 +522,79 @@ class ArtifactManager:
             presigned_urls[obj_name.replace(prefix, '')] = presigned_url
 
         return presigned_urls
+
+    def _download_presigned_json_from_pipeline(
+        self, pipeline_id: str, presigned_json_filename: str = 'presigned.json'
+    ) -> str:
+        """Download presigned.json file from a specific GitLab pipeline.
+
+        Uses a local cache to avoid re-downloading the same presigned.json file for the
+        same pipeline ID.
+
+        :param pipeline_id: GitLab pipeline ID to download presigned.json from
+        :param presigned_json_filename: Name of the presigned.json file to download
+
+        :returns: Path to the presigned.json file (cached or downloaded)
+
+        :raises ArtifactError: If presigned.json cannot be found or downloaded
+        """
+        # Check cache first
+        cache_dir = Path(tempfile.gettempdir()) / '.cache' / 'idf-ci' / 'presigned_json' / pipeline_id
+        cached_file = cache_dir / presigned_json_filename
+
+        if cached_file.exists():
+            logger.info(f'Using cached {presigned_json_filename} for pipeline {pipeline_id}')
+            return str(cached_file)
+
+        logger.info(f'Downloading {presigned_json_filename} from pipeline {pipeline_id}')
+
+        # Find the child pipeline with the configured name
+        child_pipeline_id = None
+        try:
+            for bridge in self.project.pipelines.get(pipeline_id, lazy=True).bridges.list(iterator=True):
+                if bridge.name == self.settings.gitlab.build_pipeline.workflow_name:
+                    child_pipeline_id = bridge.downstream_pipeline['id']
+                    break
+        except Exception as e:
+            raise ArtifactError(f'Failed to get child pipeline from pipeline {pipeline_id}: {e}')
+
+        if not child_pipeline_id:
+            raise ArtifactError(
+                f'No child pipeline found for pipeline {pipeline_id} with name '
+                f'{self.settings.gitlab.build_pipeline.workflow_name}'
+            )
+
+        # Get the child pipeline and find the job that generates presigned.json
+        download_from_job = None
+        try:
+            for job in self.project.pipelines.get(child_pipeline_id, lazy=True).jobs.list(iterator=True):
+                if job.name == self.settings.gitlab.build_pipeline.presigned_json_job_name:
+                    download_from_job = job
+                    break
+        except Exception as e:
+            raise ArtifactError(
+                f'Failed to get job {self.settings.gitlab.build_pipeline.presigned_json_job_name} '
+                f'from child pipeline {child_pipeline_id}: {e}'
+            )
+
+        if not download_from_job:
+            raise ArtifactError(
+                f'No job found in child pipeline {child_pipeline_id} with name '
+                f'{self.settings.gitlab.build_pipeline.presigned_json_job_name}'
+            )
+
+        # Download the presigned.json file from the job artifacts
+        try:
+            artifact_data = self.project.jobs.get(download_from_job.id, lazy=True).artifact(presigned_json_filename)
+        except Exception as e:
+            raise ArtifactError(
+                f'Failed to get artifact {presigned_json_filename} from job {download_from_job.id}: {e}'
+            )
+
+        # Create cache directory and save to cache
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        with open(cached_file, 'wb') as fw:
+            fw.write(artifact_data)
+
+        logger.debug(f'Successfully downloaded and cached {presigned_json_filename} for pipeline {pipeline_id}')
+        return str(cached_file)

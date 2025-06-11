@@ -14,7 +14,7 @@ import requests
 
 from idf_ci.cli import click_cli
 from idf_ci.idf_gitlab import ArtifactManager
-from idf_ci.idf_gitlab.api import S3Error
+from idf_ci.idf_gitlab.api import ArtifactError, S3Error
 
 
 # to run this test, don't forget to run "docker compose up -d" in the root directory of the project
@@ -257,8 +257,11 @@ class TestUploadDownloadArtifacts:
         )
 
         assert result.exit_code != 0
-        assert isinstance(result.exception, S3Error)
-        assert 'Configure S3 storage to download artifacts' in result.exception.args
+        assert isinstance(result.exception, ArtifactError)
+        assert (
+            'Either presigned_json or pipeline_id must be provided to download artifacts, if S3 is not configured'
+            in result.exception.args
+        )
 
     def test_upload_without_s3_credentials(self, runner, tmp_path, monkeypatch):
         # Remove S3 credentials
