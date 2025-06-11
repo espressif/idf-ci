@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.30 (2025-06-11)
+
+### Feat
+
+- support download artifacts from pipeline id
+
 ## v0.1.29 (2025-06-10)
 
 ### Fix
