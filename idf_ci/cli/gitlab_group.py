@@ -82,14 +82,25 @@ def test_child_pipeline(yaml_output):
     type=click.Path(dir_okay=False, file_okay=True, exists=True),
     help='Path to the presigned.json file.',
 )
+@click.option(
+    '--pipeline-id',
+    help='GitLab pipeline ID to download presigned.json from. Cannot be used together with --presigned-json.',
+)
 @click.argument('folder', required=False)
-def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json):
+def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json, pipeline_id):
     """Download artifacts from a GitLab pipeline.
 
     This command downloads artifacts from either GitLab's built-in storage or S3
     storage, depending on the configuration. The artifacts are downloaded to the
     specified folder (or current directory if not specified).
+
+    When using --pipeline-id, the command will download the presigned.json file from the
+    specified pipeline and use it to download artifacts. This option cannot be used
+    together with --presigned-json.
     """
+    if presigned_json and pipeline_id:
+        raise click.ClickException('Cannot use both --presigned-json and --pipeline-id options together')
+
     manager = ArtifactManager()
     manager.download_artifacts(
         commit_sha=commit_sha,
@@ -97,6 +108,7 @@ def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json
         artifact_type=artifact_type,
         folder=folder,
         presigned_json=presigned_json,
+        pipeline_id=pipeline_id,
     )
 
 

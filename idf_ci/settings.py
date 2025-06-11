@@ -141,6 +141,9 @@ class BuildPipelineSettings(BaseSettings):
     workflow_name: str = 'Build Child Pipeline'
     """Name for the GitLab CI workflow."""
 
+    presigned_json_job_name: str = 'generate_presigned_json'
+    """Name of the job within the child pipeline that creates the presigned.json file."""
+
     job_template_name: str = '.default_build_settings'
     """Default template name for CI build jobs."""
 
