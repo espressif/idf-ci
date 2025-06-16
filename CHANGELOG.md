@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.31 (2025-06-16)
+
+### Fix
+
+- select all pytest cases boolean compare
+
 ## v0.1.30 (2025-06-11)
 
 ### Feat
