@@ -52,7 +52,7 @@ class GitlabEnvVars(BaseSettings):
 
         :returns: True if this is a full pipeline run, False otherwise
         """
-        if self.IDF_CI_SELECT_ALL_PYTEST_CASES == '1':
+        if self.IDF_CI_SELECT_ALL_PYTEST_CASES:
             logger.info('Selecting all pytest cases since `IDF_CI_SELECT_ALL_PYTEST_CASES=1`')
             return True
 
