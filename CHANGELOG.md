@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.32 (2025-06-17)
+
+### Fix
+
+- doublequote pipeline variable when contains space or newline
+
 ## v0.1.31 (2025-06-16)
 
 ### Fix
