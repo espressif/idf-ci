@@ -10,6 +10,17 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
+def _doublequote_string(value: str) -> str:
+    """Double-quote a string if it contains special characters.
+
+    according to https://github.com/motdotla/dotenv, this function is not 100%
+    compatible with dotenv, but should work for our use case.
+    """
+    if any(c in value for c in ' \n'):
+        return f'"{value}"'
+    return value
+
+
 def pipeline_variables() -> t.Dict[str, str]:
     """Extract pipeline variables from Gitlab MR predefined variables.
 
@@ -50,7 +61,7 @@ def pipeline_variables() -> t.Dict[str, str]:
         if os.getenv('CI_COMMIT_SHA'):
             res['PIPELINE_COMMIT_SHA'] = os.environ['CI_COMMIT_SHA']
             logger.info('Setting `PIPELINE_COMMIT_SHA` to `CI_COMMIT_SHA` since running in a non-MR pipeline')
-        return res
+        return {k: _doublequote_string(v) for k, v in res.items()}
 
     if os.getenv('CI_MERGE_REQUEST_SOURCE_BRANCH_SHA'):
         res['PIPELINE_COMMIT_SHA'] = os.environ['CI_MERGE_REQUEST_SOURCE_BRANCH_SHA']
@@ -92,4 +103,4 @@ def pipeline_variables() -> t.Dict[str, str]:
                         res['IDF_CI_IS_DEBUG_PIPELINE'] = '1'
                         logger.info('Setting `IDF_CI_IS_DEBUG_PIPELINE=1` based on MR description "Test Case Filters"')
 
-    return res
+    return {k: _doublequote_string(v) for k, v in res.items()}
