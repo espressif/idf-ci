@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.33 (2025-06-18)
+
+### Fix
+
+- singlequote the nodes in gitlab to avoid special chars issues
+- runner tags shall not be concat with '+'
+
 ## v0.1.32 (2025-06-17)
 
 ### Fix
