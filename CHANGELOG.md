@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.34 (2025-06-18)
+
+### Fix
+
+- gitlab pipeline doublequote the variable
+
 ## v0.1.33 (2025-06-18)
 
 ### Fix
