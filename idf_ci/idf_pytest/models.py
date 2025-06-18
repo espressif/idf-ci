@@ -10,7 +10,6 @@ from typing import NamedTuple
 
 from _pytest.python import Function
 from pytest_embedded.plugin import parse_multi_dut_args
-from pytest_embedded.utils import targets_to_marker
 
 from idf_ci.utils import to_list
 
@@ -127,12 +126,20 @@ class PytestCase:
 
     @property
     def runner_tags(self) -> t.Tuple[str, ...]:
-        return tuple(
-            [
-                targets_to_marker(self.targets),
-                *self.env_markers,
-            ]
-        )
+        t_amount: t.Dict[str, int] = defaultdict(int)
+        for target in sorted(self.targets):
+            t_amount[target] += 1
+
+        tags: t.Set[str] = set()
+        for target in t_amount:
+            if t_amount[target] > 1:
+                tags.add(f'{target}_{t_amount[target]}')
+            else:
+                tags.add(target)
+
+        tags.update(self.env_markers)
+
+        return tuple(sorted(tags))
 
     @property
     def configs(self) -> t.List[str]:
@@ -259,19 +266,19 @@ class GroupedPytestCases:
                     {
                         "targets": "esp32,esp32",
                         "env_markers": "generic and flash_4mb",
-                        "runner_tags": ["self_hosted", "esp32_2", "generic", "flash_4mb"],
+                        "runner_tags": ["self-hosted", "esp32_2", "generic", "flash_4mb"],
                         "nodes": "nodeid1 nodeid2"
                     },
                     {
                         "targets": "esp32,esp32s2",
                         "env_markers": "generic and two_duts",
-                        "runner_tags": ["self_hosted", "esp32+esp32s2", "generic", "two_duts"],
+                        "runner_tags": ["self-hosted", "esp32", "esp32s2", "generic", "two_duts"],
                         "nodes": "nodeid1 nodeid2"
                     },
                     {
                         "targets": "esp32",
                         "env_markers": "generic",
-                        "runner_tags": ["self_hosted", "esp32", "generic"],
+                        "runner_tags": ["self-hosted", "esp32", "generic"],
                         "nodes": "nodeid1"
                     }
                 ]

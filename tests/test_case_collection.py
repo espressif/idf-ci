@@ -117,7 +117,7 @@ env_markers =
                 {
                     'targets': 'linux',
                     'env_markers': 'generic',
-                    'runner_tags': ['self-hosted', 'linux', 'generic'],
+                    'runner_tags': ['self-hosted', 'generic', 'linux'],
                     'nodes': f'{test_case_name}.py::test_single_target[linux]',
                 },
                 {
@@ -135,13 +135,13 @@ env_markers =
                 {
                     'targets': 'esp32,esp32s2',
                     'env_markers': 'multiboard',
-                    'runner_tags': ['self-hosted', 'esp32+esp32s2', 'multiboard'],
+                    'runner_tags': ['self-hosted', 'esp32', 'esp32s2', 'multiboard'],
                     'nodes': f'{test_case_name}.py::test_multi_dut[2-esp32|esp32s2]',
                 },
                 {
                     'targets': 'esp32,esp32,esp32s2',
                     'env_markers': 'multiboard',
-                    'runner_tags': ['self-hosted', 'esp32_2+esp32s2', 'multiboard'],
+                    'runner_tags': ['self-hosted', 'esp32_2', 'esp32s2', 'multiboard'],
                     'nodes': f'{test_case_name}.py::test_multi_dut[3-esp32|esp32|esp32s2]',
                 },
                 {
