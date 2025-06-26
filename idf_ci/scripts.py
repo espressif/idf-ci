@@ -243,8 +243,8 @@ def build(
     parallel_index: int = 1,
     modified_files: t.Optional[t.List[str]] = None,
     modified_components: t.Optional[t.List[str]] = None,
-    only_test_related: bool = False,
-    only_non_test_related: bool = False,
+    only_test_related: UndefinedOr[bool] = UNDEF,
+    only_non_test_related: UndefinedOr[bool] = UNDEF,
     dry_run: bool = False,
     build_system: UndefinedOr[str] = UNDEF,
     marker_expr: UndefinedOr[str] = UNDEF,
@@ -269,6 +269,7 @@ def build(
     :returns: Tuple of (built apps, build return code)
     """
     settings = CiSettings()
+    envs = GitlabEnvVars()
 
     # Preprocess arguments
     processed_args = preprocess_args(
@@ -293,12 +294,16 @@ def build(
     for app in non_test_related_apps:
         app.preserve = settings.preserve_non_test_related_apps
 
-    if not only_test_related and not only_non_test_related:
-        apps = sorted([*test_related_apps, *non_test_related_apps])
-    elif only_test_related:
+    if only_test_related is True or (is_undefined(only_test_related) and envs.IDF_CI_BUILD_ONLY_TEST_RELATED_APPS):
+        logger.info('Building only test-related applications')
         apps = test_related_apps
-    else:
+    elif only_non_test_related is True or (
+        is_undefined(only_non_test_related) and envs.IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS
+    ):
+        logger.info('Building only non-test-related applications')
         apps = non_test_related_apps
+    else:
+        apps = sorted([*test_related_apps, *non_test_related_apps])
 
     ret = build_apps(
         apps,

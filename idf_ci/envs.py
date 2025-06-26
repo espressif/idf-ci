@@ -46,6 +46,18 @@ class GitlabEnvVars(BaseSettings):
     IDF_CI_SELECT_ALL_PYTEST_CASES: t.Optional[bool] = None
     """Flag indicating whether to select all pytest cases."""
 
+    IDF_CI_BUILD_ONLY_TEST_RELATED_APPS: t.Optional[bool] = None
+    """Flag indicating whether to build only test-related apps."""
+
+    IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS: t.Optional[bool] = None
+    """Flag indicating whether to build only non-test-related apps."""
+
+    def model_post_init(self, __context: t.Any) -> None:
+        if self.IDF_CI_BUILD_ONLY_TEST_RELATED_APPS and self.IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS:
+            raise SystemExit(
+                'Cannot set both `IDF_CI_BUILD_ONLY_TEST_RELATED_APPS` and `IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS`'
+            )
+
     @property
     def select_all_pytest_cases(self) -> bool:
         """Determine if all pytest cases should be selected.
