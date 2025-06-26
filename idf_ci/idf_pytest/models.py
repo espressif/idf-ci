@@ -162,10 +162,6 @@ class PytestCase:
         return 'host_test' in self.all_markers or 'linux' in self.targets
 
     @property
-    def is_in_ci(self) -> bool:
-        return 'CI_JOB_ID' in os.environ or 'GITHUB_ACTIONS' in os.environ
-
-    @property
     def all_markers(self) -> t.Set[str]:
         return {marker.name for marker in self.item.iter_markers()}
 
