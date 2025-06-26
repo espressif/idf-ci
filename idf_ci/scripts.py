@@ -78,14 +78,19 @@ def preprocess_args(
         processed_files = None
         processed_components = None
 
-    test_related_apps = settings.read_apps_from_files([settings.collected_test_related_apps_filepath])
-    non_test_related_apps = settings.read_apps_from_files([settings.collected_non_test_related_apps_filepath])
+    if not settings.is_in_ci:
+        test_related_apps: t.Optional[t.List[App]] = None
+        non_test_related_apps: t.Optional[t.List[App]] = None
+    else:
+        logger.debug('Running in CI, reading test-related and non-test-related apps from files if available')
+        test_related_apps = settings.read_apps_from_files([settings.collected_test_related_apps_filepath])
+        non_test_related_apps = settings.read_apps_from_files([settings.collected_non_test_related_apps_filepath])
 
-    # if one of the two is None, it should be empty list
-    if test_related_apps is None and non_test_related_apps is not None:
-        test_related_apps = []
-    elif test_related_apps is not None and non_test_related_apps is None:
-        non_test_related_apps = []
+        # if one of the two is None, it should be empty list
+        if test_related_apps is None and non_test_related_apps is not None:
+            test_related_apps = []
+        elif test_related_apps is not None and non_test_related_apps is None:
+            non_test_related_apps = []
 
     return ProcessedArgs(
         modified_files=processed_files,
@@ -243,8 +248,8 @@ def build(
     parallel_index: int = 1,
     modified_files: t.Optional[t.List[str]] = None,
     modified_components: t.Optional[t.List[str]] = None,
-    only_test_related: UndefinedOr[bool] = UNDEF,
-    only_non_test_related: UndefinedOr[bool] = UNDEF,
+    only_test_related: t.Optional[bool] = None,
+    only_non_test_related: t.Optional[bool] = None,
     dry_run: bool = False,
     build_system: UndefinedOr[str] = UNDEF,
     marker_expr: UndefinedOr[str] = UNDEF,
@@ -294,15 +299,16 @@ def build(
     for app in non_test_related_apps:
         app.preserve = settings.preserve_non_test_related_apps
 
-    if only_test_related is True or (is_undefined(only_test_related) and envs.IDF_CI_BUILD_ONLY_TEST_RELATED_APPS):
+    if only_test_related is True or (only_test_related is None and envs.IDF_CI_BUILD_ONLY_TEST_RELATED_APPS):
         logger.info('Building only test-related applications')
         apps = test_related_apps
     elif only_non_test_related is True or (
-        is_undefined(only_non_test_related) and envs.IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS
+        only_non_test_related is None and envs.IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS
     ):
         logger.info('Building only non-test-related applications')
         apps = non_test_related_apps
     else:
+        logger.info('Building all applications')
         apps = sorted([*test_related_apps, *non_test_related_apps])
 
     ret = build_apps(

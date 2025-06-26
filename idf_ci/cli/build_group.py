@@ -31,8 +31,8 @@ def build():
 @option_parallel
 @option_pytest
 @option_modified_files
-@click.option('--only-test-related', is_flag=True, help='Run build only for test-related apps')
-@click.option('--only-non-test-related', is_flag=True, help='Run build only for non-test-related apps')
+@click.option('--only-test-related', is_flag=True, default=None, help='Run build only for test-related apps')
+@click.option('--only-non-test-related', is_flag=True, default=None, help='Run build only for non-test-related apps')
 @click.option('--dry-run', is_flag=True, help='Run build in dry-run mode')
 @click.option(
     '--build-system',

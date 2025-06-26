@@ -48,7 +48,12 @@ class IdfPytestPlugin:
         """
         self.cli_target = cli_target
         self.sdkconfig_name = sdkconfig_name
-        self.apps = CiSettings().get_built_apps_list()
+
+        settings = CiSettings()
+        if settings.is_in_ci:
+            self.apps = settings.get_built_apps_list()
+        else:
+            self.apps = None
 
         self.cases: t.List[PytestCase] = []
 
