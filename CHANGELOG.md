@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.35 (2025-06-30)
+
+### Feat
+
+- **gitlab**: split test, non-test build jobs
+
+### Fix
+
+- only load apps from local collect files on CI
+- remove `is_in_ci` in `PytestCase` class, use `CiSettings().is_in_ci` instead
+
 ## v0.1.34 (2025-06-18)
 
 ### Fix
