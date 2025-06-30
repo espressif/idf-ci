@@ -63,7 +63,12 @@ def build_child_pipeline(
         dump_apps_to_txt(non_test_related_apps, settings.collected_non_test_related_apps_filepath)
 
     apps_total = len(test_related_apps) + len(non_test_related_apps)
-    parallel_count = apps_total // settings.gitlab.build_pipeline.runs_per_job + 1
+    test_related_parallel_count = (
+        len(test_related_apps) // settings.gitlab.build_pipeline.runs_per_job + 1 if test_related_apps else 0
+    )
+    non_test_related_parallel_count = (
+        len(non_test_related_apps) // settings.gitlab.build_pipeline.runs_per_job + 1 if non_test_related_apps else 0
+    )
 
     if not apps_total:
         logger.info('No apps found, generating fake_pass job to skip the entire build child pipeline')
@@ -90,7 +95,11 @@ def build_child_pipeline(
         len(test_related_apps),
         len(non_test_related_apps),
     )
-    logger.info('Parallel count: %d', parallel_count)
+    logger.info(
+        'Test related parallel count: %d, Non-test related parallel count: %d',
+        test_related_parallel_count,
+        non_test_related_parallel_count,
+    )
 
     job_template = Environment().from_string(settings.gitlab.build_pipeline.job_template_jinja)
     jobs_template = Environment().from_string(settings.gitlab.build_pipeline.jobs_jinja)
@@ -104,7 +113,10 @@ def build_child_pipeline(
                 ),
                 jobs=jobs_template.render(
                     settings=settings,
-                    parallel_count=parallel_count,
+                    test_related_apps_count=len(test_related_apps),
+                    test_related_parallel_count=test_related_parallel_count,
+                    non_test_related_apps_count=len(non_test_related_apps),
+                    non_test_related_parallel_count=non_test_related_parallel_count,
                 ),
                 settings=settings,
             )

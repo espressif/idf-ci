@@ -164,7 +164,7 @@ class BuildPipelineSettings(BaseSettings):
       --parallel-count ${CI_NODE_TOTAL:-1}
       --parallel-index ${CI_NODE_INDEX:-1}
 """.strip()
-    """Default template for CI test jobs."""
+    """Default template for CI build jobs."""
 
     job_tags: t.List[str] = ['build']
     """List of tags for CI build jobs."""
@@ -173,16 +173,35 @@ class BuildPipelineSettings(BaseSettings):
     """Maximum number of apps to build in a single job."""
 
     jobs_jinja: str = """
-build_apps:
+{%- if test_related_apps_count > 0 %}
+build_test_related_apps:
   extends: {{ settings.gitlab.build_pipeline.job_template_name }}
-{%- if parallel_count > 1 %}
-  parallel: {{ parallel_count }}
+{%- if test_related_parallel_count > 1 %}
+  parallel: {{ test_related_parallel_count }}
 {%- endif %}
   needs:
     - pipeline: $PARENT_PIPELINE_ID
       job: generate_build_child_pipeline
     - pipeline: $PARENT_PIPELINE_ID
       job: pipeline_variables
+  variables:
+    IDF_CI_BUILD_ONLY_TEST_RELATED_APPS: "1"
+{%- endif %}
+
+{%- if non_test_related_apps_count > 0 %}
+build_non_test_related_apps:
+  extends: {{ settings.gitlab.build_pipeline.job_template_name }}
+{%- if non_test_related_parallel_count > 1 %}
+  parallel: {{ non_test_related_parallel_count }}
+{%- endif %}
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: generate_build_child_pipeline
+    - pipeline: $PARENT_PIPELINE_ID
+      job: pipeline_variables
+  variables:
+    IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS: "1"
+{%- endif %}
 """.strip()
     """Jinja2 template for build jobs configuration."""
 
@@ -203,10 +222,11 @@ workflow:
 
 {{ jobs }}
 
+{%- if test_related_apps_count > 0 %}
 generate_test_child_pipeline:
   extends: {{ settings.gitlab.build_pipeline.job_template_name }}
   needs:
-    - build_apps
+    - build_test_related_apps
   artifacts:
     paths:
       - {{ settings.gitlab.test_pipeline.yaml_filename }}
@@ -224,6 +244,7 @@ test-child-pipeline:
       - artifact: {{ settings.gitlab.test_pipeline.yaml_filename }}
         job: generate_test_child_pipeline
     strategy: depend
+{%- endif %}
 """.strip()
     """Jinja2 template for the build child pipeline YAML content."""
 
