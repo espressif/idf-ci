@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.0 (2025-07-08)
+
+### Fix
+
+- job name env selector use comma, instead of "and"
+
 ## v0.1.35 (2025-06-30)
 
 ### Feat
