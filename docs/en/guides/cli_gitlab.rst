@@ -108,14 +108,20 @@ To download artifacts from a GitLab pipeline, use the ``download_artifacts`` com
 
     idf-ci gitlab download_artifacts [OPTIONS] [FOLDER]
 
-This command downloads artifacts from either GitLab's built-in storage or S3 storage, depending on the configuration. Only the artifacts under the specified folder will be downloaded in-place. If no folder is specified, the artifacts under the current directory will be downloaded.
+This command downloads artifacts from either GitLab's built-in storage or S3 storage, depending on the configuration and available access. Only the artifacts under the specified folder will be downloaded in-place. If no folder is specified, the artifacts under the current directory will be downloaded.
 
-Options:
+There are two main use cases for downloading artifacts:
 
-- ``--type [debug|flash]`` - Type of artifacts to download (if not specified, downloads all types)
+**With S3 Access**
+~~~~~~~~~~~~~~~~~~
+
+When you have direct S3 credentials configured, you can download artifacts directly from S3 storage using commit SHA or branch information.
+
+Supported Options:
+
+- ``--type [...]`` - Type of artifacts to download (if not specified, downloads all types)
 - ``--commit-sha COMMIT_SHA`` - Commit SHA to download artifacts from
 - ``--branch BRANCH`` - Git branch to get the latest pipeline from
-- ``--presigned-json PATH`` - Path to the presigned.json file
 
 Examples:
 
@@ -133,8 +139,28 @@ Examples:
     # Download debug artifacts from latest pipeline of a specific branch
     idf-ci gitlab download_artifacts --type debug --branch feature/new-feature
 
-    # Download artifacts using presigned URLs
-    idf-ci gitlab download_artifacts --presigned-json presigned.json
+**Without S3 Access**
+~~~~~~~~~~~~~~~~~~~~~
+
+When you don't have direct S3 credentials but have GitLab access, you can download artifacts using the pipeline ID. The system will first download the presigned JSON using your GitLab account, then use the presigned URLs to download the artifacts.
+
+Supported Options:
+
+- ``--type [...]`` - Type of artifacts to download (if not specified, downloads all types)
+- ``--pipeline-id PIPELINE_ID`` - Main pipeline ID to download artifacts from
+
+Examples:
+
+.. code-block:: bash
+
+    # Download all artifacts from a specific pipeline under the current directory
+    idf-ci gitlab download_artifacts --pipeline-id 12345
+
+    # Download only debug artifacts from a specific pipeline under a specific folder
+    idf-ci gitlab download_artifacts --pipeline-id 12345 --type debug /path/to/folder
+
+    # Download flash artifacts from a specific pipeline
+    idf-ci gitlab download_artifacts --pipeline-id 12345 --type flash
 
 Artifact Types Details
 ++++++++++++++++++++++
