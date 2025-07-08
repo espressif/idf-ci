@@ -122,7 +122,7 @@ class PytestCase:
     @property
     def env_selector(self) -> str:
         # sequence not matters, sorted for consistency
-        return ' and '.join(sorted(self.env_markers))  # pytest marker use 'and' to combine multiple markers
+        return ','.join(sorted(self.env_markers))
 
     @property
     def runner_tags(self) -> t.Tuple[str, ...]:
