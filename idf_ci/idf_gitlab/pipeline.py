@@ -18,6 +18,24 @@ from idf_ci.settings import CiSettings
 logger = logging.getLogger(__name__)
 
 
+def _get_fake_pass_job(settings: CiSettings) -> t.Dict[str, t.Any]:
+    # no matter being used in build or test child pipeline,
+    # always use the same fake_pass job that extends the build job template
+    # since test child pipeline tags are generated programmatically
+    return {
+        'fake_pass': {
+            'extends': settings.gitlab.build_pipeline.job_template_name,
+            'before_script': [],
+            'after_script': [],
+            'cache': [],
+            'needs': [],
+            'script': [
+                'echo "No apps found, skipping build child pipeline"',
+            ],
+        }
+    }
+
+
 def dump_apps_to_txt(apps: t.List[App], output_file: str) -> None:
     """Dump a list of apps to a text file, one app per line."""
     with open(output_file, 'w') as fw:
@@ -73,20 +91,7 @@ def build_child_pipeline(
     if not apps_total:
         logger.info('No apps found, generating fake_pass job to skip the entire build child pipeline')
         with open(yaml_output, 'w') as fw:
-            yaml.safe_dump(
-                {
-                    'fake_pass': {
-                        'tags': settings.gitlab.build_pipeline.job_tags,
-                        'stage': 'build',
-                        'script': [
-                            'echo "No apps found, skipping build child pipeline"',
-                        ],
-                        'before_script': [],
-                        'after_script': [],
-                    }
-                },
-                fw,
-            )
+            yaml.safe_dump(_get_fake_pass_job(settings), fw)
             return
 
     logger.info(
@@ -166,21 +171,7 @@ def test_child_pipeline(
     if not cases.grouped_cases:
         logger.info('No test cases found, generating fake_pass job to skip the entire test child pipeline')
         with open(yaml_output, 'w') as fw:
-            yaml.safe_dump(
-                {
-                    'fake_pass': {
-                        # on purpose, cause test tags are programmatically generated
-                        'tags': settings.gitlab.build_pipeline.job_tags,
-                        'stage': 'test',
-                        'script': [
-                            'echo "No test cases found, skipping test child pipeline"',
-                        ],
-                        'before_script': [],
-                        'after_script': [],
-                    }
-                },
-                fw,
-            )
+            yaml.safe_dump(_get_fake_pass_job(settings), fw)
         return
 
     jobs = []
