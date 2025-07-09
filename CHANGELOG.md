@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v0.2.3rc0 (2025-07-09)
+
+### 🐛 Bug Fixes
+
+- **fake_pass**: add `workflow:rules:always` to avoid empty pipeline *(Fu Hanxi - a6c828b)*
+
+
 ## v0.2.2 (2025-07-09)
 
 ### 🐛 Bug Fixes
