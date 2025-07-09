@@ -11,7 +11,7 @@ This documentation is for idf-ci. idf-ci is a Python library for the CI/CD of ES
     explanations/*
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Guides
     :glob:
 
