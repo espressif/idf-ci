@@ -24,13 +24,14 @@ def _get_fake_pass_job(settings: CiSettings) -> t.Dict[str, t.Any]:
     # since test child pipeline tags are generated programmatically
     return {
         'fake_pass': {
-            'extends': settings.gitlab.build_pipeline.job_template_name,
+            'stage': settings.gitlab.build_pipeline.job_stage,
+            'tags': settings.gitlab.build_pipeline.job_tags,
             'before_script': [],
             'after_script': [],
             'cache': [],
             'needs': [],
             'script': [
-                'echo "No apps found, skipping build child pipeline"',
+                'echo "skip the entire child pipeline"',
             ],
         }
     }
