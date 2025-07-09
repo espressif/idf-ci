@@ -199,7 +199,7 @@ class ArtifactManager:
                     continue
                 else:
                     if not res:
-                        logger.info(f'Skipping {artifact_type} artifacts due to if_clause: {config["if_clause"]}')
+                        logger.debug(f'Skipping {artifact_type} artifacts due to if_clause: {config["if_clause"]}')
                         continue
 
             bucket = config['bucket']
