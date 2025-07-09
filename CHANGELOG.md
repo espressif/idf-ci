@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v0.2.2 (2025-07-09)
+
+### 🐛 Bug Fixes
+
+- **fake_pass**: simplify the job, inherit build pipeline job stage and tags *(Fu Hanxi - abf4c3f)*
+
+
 ## v0.2.1 (2025-07-09)
 
 ### ✨ New Features
