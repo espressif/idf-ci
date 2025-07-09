@@ -3,16 +3,35 @@
 [![Documentation Status](https://readthedocs.com/projects/espressif-idf-ci/badge/?version=latest)](https://espressif-idf-ci.readthedocs-hosted.com/en/latest/)
 ![Python 3.7+](https://img.shields.io/pypi/pyversions/idf-ci)
 
-Python toolkit for CI/CD of ESP-IDF projects.
-
-> [!WARNING]
-> This project is still under development. All APIs are subject to change.
+A tool designed to streamline the CI/CD of ESP-IDF projects, with support for both GitLab CI/CD and GitHub Actions.
 
 ## Installation
 
 ```bash
 pip install -U idf-ci
 ```
+
+## Key Features
+
+- **Sensible Defaults**
+
+  Easy setup with default settings for [idf-build-apps](https://github.com/espressif/idf-build-apps) and [pytest-embedded](https://github.com/espressif/pytest-embedded)
+
+- **Build Management**
+
+  Build ESP-IDF apps for multiple targets (ESP32, ESP32-S2, ESP32-C3, etc.) with parallel builds and smart filtering based on changed files or test needs.
+
+- **Test Management**
+
+  Run `pytest` with ESP-IDF configs, including target-specific test discovery and marker filtering.
+
+- **GitLab CI/CD Integration**
+
+  Full pipeline support with artifacts, S3 uploads, and auto-generated jobs for builds and tests.
+
+- **GitHub Actions Integration**
+
+  Generate test matrix from project settings.
 
 ## Basic Usage
 
