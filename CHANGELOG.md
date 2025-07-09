@@ -20,6 +20,24 @@
 </div>
 <hr>
 
+## v0.2.1 (2025-07-09)
+
+### ✨ New Features
+
+- support declare `job_stage` in pipeline settings *(Fu Hanxi - f902e01)*
+
+### 🐛 Bug Fixes
+
+- reuse job template for `fake_pass` jobs *(Fu Hanxi - 20b3648)*
+
+### 📖 Documentation
+
+- **gitlab artifact**: download without s3 access *(Fu Hanxi - ea39918)*
+- update readme. add key features *(Fu Hanxi - 9442434)*
+- reorganize cli guide. add global cli commands and options *(Fu Hanxi - 33de0a6)*
+- more related links *(Fu Hanxi - 428a70a)*
+
+
 ## v0.2.0 (2025-07-08)
 
 ### 🐛 Bug Fixes
