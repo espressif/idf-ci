@@ -18,7 +18,7 @@ from idf_ci.settings import CiSettings
 logger = logging.getLogger(__name__)
 
 
-def _get_fake_pass_job(settings: CiSettings) -> t.Dict[str, t.Any]:
+def _get_fake_pass_job(settings: CiSettings, workflow_name: str) -> t.Dict[str, t.Any]:
     # no matter being used in build or test child pipeline,
     # always use the same fake_pass job that extends the build job template
     # since test child pipeline tags are generated programmatically
@@ -33,7 +33,14 @@ def _get_fake_pass_job(settings: CiSettings) -> t.Dict[str, t.Any]:
             'script': [
                 'echo "skip the entire child pipeline"',
             ],
-        }
+        },
+        # required for GitLab to recognize this as a valid pipeline
+        'workflow': {
+            'name': workflow_name,  # different workflow names for build and test child pipelines
+            'rules': [
+                {'when': 'always'},
+            ],
+        },
     }
 
 
@@ -92,7 +99,7 @@ def build_child_pipeline(
     if not apps_total:
         logger.info('No apps found, generating fake_pass job to skip the entire build child pipeline')
         with open(yaml_output, 'w') as fw:
-            yaml.safe_dump(_get_fake_pass_job(settings), fw)
+            yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.build_pipeline.workflow_name), fw)
             return
 
     logger.info(
@@ -172,7 +179,7 @@ def test_child_pipeline(
     if not cases.grouped_cases:
         logger.info('No test cases found, generating fake_pass job to skip the entire test child pipeline')
         with open(yaml_output, 'w') as fw:
-            yaml.safe_dump(_get_fake_pass_job(settings), fw)
+            yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.test_pipeline.workflow_name), fw)
         return
 
     jobs = []
