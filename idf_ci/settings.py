@@ -147,9 +147,12 @@ class BuildPipelineSettings(BaseSettings):
     job_template_name: str = '.default_build_settings'
     """Default template name for CI build jobs."""
 
+    job_stage: str = 'build'
+    """Default stage for build jobs in the pipeline."""
+
     job_template_jinja: str = """
 {{ settings.gitlab.build_pipeline.job_template_name }}:
-  stage: build
+  stage: {{ settings.gitlab.build_pipeline.job_stage }}
   tags: {{ settings.gitlab.build_pipeline.job_tags }}
   timeout: 1h
   artifacts:
@@ -259,12 +262,12 @@ class TestPipelineSettings(BuildPipelineSettings):
     job_template_name: str = '.default_test_settings'
     """Default template name for CI test jobs."""
 
-    job_tags: t.List[str] = []
-    """Unused. tags are set by test cases."""
+    job_stage: str = 'test'
+    """Default stage for test jobs in the pipeline."""
 
     job_template_jinja: str = """
 {{ settings.gitlab.test_pipeline.job_template_name }}:
-  stage: test
+  stage: {{ settings.gitlab.test_pipeline.job_stage }}
   timeout: 1h
   artifacts:
     paths:
@@ -283,6 +286,9 @@ class TestPipelineSettings(BuildPipelineSettings):
       ${PYTEST_EXTRA_FLAGS}
 """.strip()
     """Default template for CI test jobs."""
+
+    job_tags: t.List[str] = []
+    """Unused. tags are set by test cases."""
 
     runs_per_job: int = 30
     """Maximum number of test cases to run in a single job."""
