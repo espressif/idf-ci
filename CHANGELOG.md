@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v0.2.4 (2025-07-11)
+
+### 🐛 Bug Fixes
+
+- **build**: will only build test-related apps when `-k` or `-m` is passed *(Fu Hanxi - c32360d)*
+
+
 ## v0.2.3 (2025-07-09)
 
 ### 🐛 Bug Fixes
