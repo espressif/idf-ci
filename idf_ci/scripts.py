@@ -299,6 +299,15 @@ def build(
     for app in non_test_related_apps:
         app.preserve = settings.preserve_non_test_related_apps
 
+    if processed_args.filter_expr:
+        only_test_related = True
+        logger.debug(
+            'Filter expression is set to `%s`, building only test-related applications', processed_args.filter_expr
+        )
+    if is_defined_and_satisfies(marker_expr):
+        only_test_related = True
+        logger.debug('Marker expression is set to `%s`, building only test-related applications', marker_expr)
+
     if only_test_related is True or (only_test_related is None and envs.IDF_CI_BUILD_ONLY_TEST_RELATED_APPS):
         logger.info('Building only test-related applications')
         apps = test_related_apps
