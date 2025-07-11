@@ -183,10 +183,13 @@ class TestGetAllApps:
         assert len(test_related_apps) == 1
         assert len(non_test_related_apps) == 0
 
-    def test_collected_apps_files_found(self, tmp_path: Path) -> None:
+    def test_collected_apps_files_found(self, tmp_path: Path, monkeypatch) -> None:
         # Create projects first
         create_project('foo', tmp_path)
         create_project('bar', tmp_path)
+
+        # ensure the collected apps files are used
+        monkeypatch.setenv('CI', '1')
 
         settings = CiSettings()
 
