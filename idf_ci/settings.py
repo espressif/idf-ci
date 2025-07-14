@@ -358,6 +358,11 @@ class CiSettings(BaseSettings):
     extend_component_mapping_regexes: t.List[str] = []
     """Additional component mapping regex patterns to extend the default list."""
 
+    component_mapping_exclude_regexes: t.List[str] = [
+        r'/test_apps/',
+    ]
+    """List of regex patterns to exclude certain paths from component mapping."""
+
     component_ignored_file_extensions: t.List[str] = [
         '.md',
         '.rst',
@@ -453,6 +458,14 @@ class CiSettings(BaseSettings):
         """
         return {re.compile(regex) for regex in self.component_mapping_regexes + self.extend_component_mapping_regexes}
 
+    @property
+    def all_component_mapping_exclude_regexes(self) -> t.Set[re.Pattern]:
+        """Get all component mapping exclude regexes as compiled pattern objects.
+
+        :returns: Set of compiled regex patterns
+        """
+        return {re.compile(regex) for regex in self.component_mapping_exclude_regexes}
+
     def get_modified_components(self, modified_files: t.Iterable[str]) -> t.Set[str]:
         """Get the set of components that have been modified based on the provided files.
 
@@ -477,8 +490,13 @@ class CiSettings(BaseSettings):
             for regex in self.all_component_mapping_regexes:
                 match = regex.search(abs_path)
                 if match:
-                    modified_components.add(match.group(1))
-                    break
+                    for exclude_regex in self.all_component_mapping_exclude_regexes:
+                        if exclude_regex.search(abs_path):
+                            logger.debug(f'Excluding {abs_path} from component mapping')
+                            break
+                    else:
+                        modified_components.add(match.group(1))
+                        break
 
         return modified_components
 

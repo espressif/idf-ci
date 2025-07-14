@@ -37,6 +37,7 @@ def test_get_modified_components():
         'docs/example.md',  # should be ignored
         'random/file.txt',  # should not match any component
         'components/esp_system/deep/nested/path/file.c',
+        'components/what/ever/test_apps/main.c',  # should not match any test_apps
     ]
 
     expected_components = {'wifi', 'bt', 'esp_common', 'esp_system'}
