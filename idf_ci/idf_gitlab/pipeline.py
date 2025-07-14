@@ -55,6 +55,7 @@ def build_child_pipeline(
     *,
     paths: t.Optional[t.List[str]] = None,
     modified_files: t.Optional[t.List[str]] = None,
+    modified_components: t.Optional[t.List[str]] = None,
     compare_manifest_sha_filepath: t.Optional[str] = None,
     yaml_output: t.Optional[str] = None,
 ) -> None:
@@ -82,6 +83,7 @@ def build_child_pipeline(
         test_related_apps, non_test_related_apps = get_all_apps(
             paths=paths,
             modified_files=modified_files,
+            modified_components=modified_components,
             marker_expr='not host_test',
             compare_manifest_sha_filepath=compare_manifest_sha_filepath,
         )

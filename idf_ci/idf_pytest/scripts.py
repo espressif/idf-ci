@@ -84,6 +84,7 @@ def get_pytest_cases(
     setup_logging(level=original_log_level)
 
     if result == ExitCode.OK:
+        logger.info('get_pytest_cases len: %s', len(plugin.cases))
         return plugin.cases
 
     raise RuntimeError(f'pytest collection failed.\nArgs: {args}\nStdout: {stdout_content}\nStderr: {stderr_content}')
