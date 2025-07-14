@@ -11,8 +11,8 @@ from idf_ci.scripts import build as build_cmd
 from .._compat import UNDEF
 from ._options import (
     create_config_file,
-    option_modified_files,
     option_modified_components,
+    option_modified_files,
     option_parallel,
     option_paths,
     option_pytest,

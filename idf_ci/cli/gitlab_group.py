@@ -7,8 +7,8 @@ import click
 from idf_ci.cli._options import (
     option_branch,
     option_commit_sha,
-    option_modified_files,
     option_modified_components,
+    option_modified_files,
     option_paths,
 )
 from idf_ci.idf_gitlab import ArtifactManager
