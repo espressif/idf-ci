@@ -76,6 +76,14 @@ def option_modified_files(func):
     )(func)
 
 
+def option_modified_components(func):
+    return click.option(
+        '--modified-components',
+        help='Semicolon separated list of files that have been modified',
+        callback=_semicolon_separated_list,
+    )(func)
+
+
 def option_commit_sha(func):
     return click.option(
         '--commit-sha',

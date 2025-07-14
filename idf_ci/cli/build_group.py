@@ -12,6 +12,7 @@ from .._compat import UNDEF
 from ._options import (
     create_config_file,
     option_modified_files,
+    option_modified_components,
     option_parallel,
     option_paths,
     option_pytest,
@@ -31,6 +32,7 @@ def build():
 @option_parallel
 @option_pytest
 @option_modified_files
+@option_modified_components
 @click.option('--only-test-related', is_flag=True, default=None, help='Run build only for test-related apps')
 @click.option('--only-non-test-related', is_flag=True, default=None, help='Run build only for non-test-related apps')
 @click.option('--dry-run', is_flag=True, help='Run build in dry-run mode')
@@ -48,6 +50,7 @@ def run(
     parallel_count,
     parallel_index,
     modified_files,
+    modified_components,
     only_test_related,
     only_non_test_related,
     dry_run,
@@ -63,6 +66,7 @@ def run(
         parallel_count=parallel_count,
         parallel_index=parallel_index,
         modified_files=modified_files,
+        modified_components=modified_components,
         only_test_related=only_test_related,
         only_non_test_related=only_non_test_related,
         dry_run=dry_run,
