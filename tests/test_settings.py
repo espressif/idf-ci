@@ -12,8 +12,8 @@ from idf_ci.settings import CiSettings
 
 def test_default_component_mapping_regexes():
     expected_regexes = [
-        '/components/(.+)/',
-        '/common_components/(.+)/',
+        '/components/(.+?)/',
+        '/common_components/(.+?)/',
     ]
     assert CiSettings().component_mapping_regexes == expected_regexes
 
@@ -36,9 +36,11 @@ def test_get_modified_components():
         'common_components/esp_common/test.c',
         'docs/example.md',  # should be ignored
         'random/file.txt',  # should not match any component
+        'components/esp_system/deep/nested/path/file.c',
+        'components/what/ever/test_apps/main.c',  # should not match any test_apps
     ]
 
-    expected_components = {'wifi', 'bt', 'esp_common'}
+    expected_components = {'wifi', 'bt', 'esp_common', 'esp_system'}
     assert CiSettings().get_modified_components(test_files) == expected_components
 
 
@@ -57,7 +59,7 @@ def test_ignored_file_extensions():
 def test_extended_component_mapping_regexes():
     settings = CiSettings(
         extend_component_mapping_regexes=[
-            '/custom/path/(.+)/',
+            '/custom/path/(.+?)/',
         ]
     )
 
@@ -111,7 +113,7 @@ def test_ci_config_file_option(tmp_path, runner):
     with open(custom_config, 'w') as f:
         f.write("""
 extend_component_mapping_regexes = [
-    '/custom/path/(.+)/'
+    '/custom/path/(.+?)/'
 ]
 
 component_ignored_file_extensions = [
