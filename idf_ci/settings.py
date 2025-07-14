@@ -350,8 +350,8 @@ class CiSettings(BaseSettings):
     """Path to the configuration file to be used (class variable)."""
 
     component_mapping_regexes: t.List[str] = [
-        '/components/(.+)/',
-        '/common_components/(.+)/',
+        '/components/(.+?)/',
+        '/common_components/(.+?)/',
     ]
     """List of regex patterns to extract component names from file paths."""
 
