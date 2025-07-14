@@ -20,6 +20,17 @@
 </div>
 <hr>
 
+## v0.2.5 (2025-07-14)
+
+### ✨ New Features
+
+- support CiSettings.component_mapping_exclude_regexes *(Fu Hanxi - 13de062)*
+
+### 🐛 Bug Fixes
+
+- lazy matching component regex while `get_modified_components` *(Fu Hanxi - 44151f9)*
+
+
 ## v0.2.4 (2025-07-11)
 
 ### 🐛 Bug Fixes
