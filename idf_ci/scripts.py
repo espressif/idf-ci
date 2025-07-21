@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
-import fnmatch
 import logging
 import os
 import typing as t
@@ -191,9 +190,7 @@ def get_all_apps(
     modified_pytest_cases = []
     if processed_args.modified_files:
         modified_pytest_scripts = [
-            os.path.dirname(f)
-            for f in processed_args.modified_files
-            if fnmatch.fnmatch(os.path.basename(f), 'test_*.py')
+            os.path.dirname(f) for f in processed_args.modified_files if os.path.splitext(f)[1] == '.py'
         ]
         if modified_pytest_scripts:
             modified_pytest_cases = get_pytest_cases(
