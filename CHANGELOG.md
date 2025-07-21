@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v0.2.6 (2025-07-21)
+
+### 🐛 Bug Fixes
+
+- filter test script by .py extension. not by filename *(Fu Hanxi - 25b2f20)*
+
+
 ## v0.2.5 (2025-07-14)
 
 ### ✨ New Features
