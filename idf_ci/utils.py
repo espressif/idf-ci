@@ -75,7 +75,7 @@ def remove_subfolders(paths: t.List[str]) -> t.List[str]:
         if not any(parent in result for parent in p.parents):
             result.add(p)
 
-    return sorted([str(p) for p in result])
+    return sorted([str(p) for p in result if p.is_dir()])
 
 
 def get_current_branch() -> str:
