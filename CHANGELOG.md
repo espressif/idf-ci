@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v0.2.7 (2025-08-05)
+
+### 🐛 Bug Fixes
+
+- remove non-existent folders from list *(igor.udot - 51b446e)*
+
+
 ## v0.2.6 (2025-07-21)
 
 ### 🐛 Bug Fixes
