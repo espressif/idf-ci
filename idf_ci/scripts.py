@@ -6,7 +6,8 @@ import typing as t
 from dataclasses import dataclass
 
 from idf_build_apps import App, build_apps, find_apps
-from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
+from idf_build_apps.constants import BuildStatus
+from idf_build_apps.manifest import DEFAULT_BUILD_TARGETS
 from idf_build_apps.utils import get_parallel_start_stop
 
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
@@ -46,7 +47,7 @@ def preprocess_args(
     envs = GitlabEnvVars()
     settings = CiSettings()
 
-    processed_targets: t.List[str] = SUPPORTED_TARGETS if default_build_targets is None else default_build_targets
+    processed_targets = DEFAULT_BUILD_TARGETS.get() if default_build_targets is None else default_build_targets
     if settings.extra_default_build_targets:
         processed_targets = [*processed_targets, *settings.extra_default_build_targets]
 
