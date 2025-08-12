@@ -20,6 +20,22 @@
 </div>
 <hr>
 
+## v0.3.0 (2025-08-12)
+
+### ✨ New Features
+
+- show upload and download time *(Fu Hanxi - 2a3263b)*
+- support `exclude_dirs` in `.idf_ci.toml` *(Fu Hanxi - 00abb2f)*
+
+### 🐛 Bug Fixes
+
+- use `DEFAULT_BUILD_TARGETS.get()` instead of `SUPPORTED_TARGETS` *(Fu Hanxi - 3f7926a)*
+
+### 🏗️ Changes
+
+- depends on idf-build-apps~=2.12 *(Fu Hanxi - 6a3cb6a)*
+
+
 ## v0.2.7 (2025-08-05)
 
 ### 🐛 Bug Fixes
