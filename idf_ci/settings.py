@@ -394,6 +394,9 @@ class CiSettings(BaseSettings):
     extra_default_build_targets: t.List[str] = []
     """Additional build targets to include by default."""
 
+    exclude_dirs: t.List[str] = []
+    """Directories to ignore when searching for apps."""
+
     # env vars
     ci_detection_envs: t.List[str] = [
         'CI',

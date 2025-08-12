@@ -6,7 +6,8 @@ import typing as t
 from dataclasses import dataclass
 
 from idf_build_apps import App, build_apps, find_apps
-from idf_build_apps.constants import SUPPORTED_TARGETS, BuildStatus
+from idf_build_apps.constants import BuildStatus
+from idf_build_apps.manifest import DEFAULT_BUILD_TARGETS
 from idf_build_apps.utils import get_parallel_start_stop
 
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
@@ -46,7 +47,7 @@ def preprocess_args(
     envs = GitlabEnvVars()
     settings = CiSettings()
 
-    processed_targets: t.List[str] = SUPPORTED_TARGETS if default_build_targets is None else default_build_targets
+    processed_targets = DEFAULT_BUILD_TARGETS.get() if default_build_targets is None else default_build_targets
     if settings.extra_default_build_targets:
         processed_targets = [*processed_targets, *settings.extra_default_build_targets]
 
@@ -149,12 +150,15 @@ def get_all_apps(
 
         return processed_args.test_related_apps, processed_args.non_test_related_apps
 
-    additional_kwargs = {
+    additional_kwargs: t.Dict[str, t.Any] = {
         'compare_manifest_sha_filepath': compare_manifest_sha_filepath,
         'build_system': build_system,
     }
     if is_undefined(build_system):
         additional_kwargs.pop('build_system')
+
+    if settings.exclude_dirs:
+        additional_kwargs['exclude'] = settings.exclude_dirs
 
     apps = []
     for _t in target.split(','):
@@ -171,7 +175,7 @@ def get_all_apps(
                 modified_components=processed_args.modified_components,
                 include_skipped_apps=True,
                 default_build_targets=_default_build_targets,
-                **additional_kwargs,  # type: ignore
+                **additional_kwargs,
             )
         )
 
