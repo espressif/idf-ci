@@ -62,12 +62,13 @@ def setup_logging(level: t.Optional[int] = logging.INFO) -> None:
     package_logger.propagate = False
 
 
-def remove_subfolders(paths: t.List[str]) -> t.List[str]:
+def remove_subfolders(paths: t.List[str]) -> t.List[Path]:
     """Remove paths that are subfolders of other paths in the list.
 
     :param paths: List of directory paths as strings
 
-    :returns: Filtered list of paths with no subfolder/parent folder relationships
+    :returns: Filtered list of paths with no subfolder/parent folder relationships,
+        absolute and sorted
     """
     result = set()
 
@@ -75,7 +76,7 @@ def remove_subfolders(paths: t.List[str]) -> t.List[str]:
         if not any(parent in result for parent in p.parents):
             result.add(p)
 
-    return sorted([str(p) for p in result if p.is_dir()])
+    return sorted([p for p in result if p.is_dir()])
 
 
 def get_current_branch() -> str:

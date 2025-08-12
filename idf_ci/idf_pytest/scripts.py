@@ -6,12 +6,14 @@ import logging
 import os.path
 import typing as t
 from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 
 import pytest
 from _pytest.config import ExitCode
 
 from idf_ci._compat import UNDEF, UndefinedOr, is_undefined
 from idf_ci.envs import GitlabEnvVars
+from idf_ci.settings import CiSettings
 
 from ..utils import remove_subfolders, setup_logging
 from .models import PytestCase
@@ -55,10 +57,24 @@ def get_pytest_cases(
         sdkconfig_name=sdkconfig_name,
     )
 
+    check_dirs = []
+    not_in_folders = [Path(f).resolve() for f in CiSettings().exclude_dirs]
+    for folder in remove_subfolders(paths):
+        for not_in_folder in not_in_folders:
+            if not_in_folder == folder or not_in_folder in folder.parents:
+                logger.debug(
+                    'Skipping folder %s because it was excluded by %s',
+                    folder,
+                    not_in_folder,
+                )
+                break
+        else:
+            check_dirs.append(str(folder))
+
     args = [
         # remove sub folders if parent folder is already in the list
         # https://github.com/pytest-dev/pytest/issues/13319
-        *remove_subfolders(paths),
+        *check_dirs,
         '--collect-only',
         '--rootdir',
         os.getcwd(),

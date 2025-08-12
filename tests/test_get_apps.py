@@ -249,3 +249,23 @@ class TestGetAllApps:
         test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
         assert len(test_related_apps) == 0
         assert len(non_test_related_apps) == len(SUPPORTED_TARGETS) * 2
+
+    def test_exclude_dirs(self, tmp_path: Path) -> None:
+        # create two apps
+        create_project('foo', tmp_path)
+        create_project('bar', tmp_path)
+
+        (tmp_path / '.idf_ci.toml').write_text('exclude_dirs = ["foo"]', encoding='utf-8')
+
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
+
+        assert len(SUPPORTED_TARGETS)
+        assert len(test_related_apps) == 0
+        assert len(non_test_related_apps) == len(SUPPORTED_TARGETS)
+
+        (tmp_path / '.idf_ci.toml').write_text('exclude_dirs = ["foo", "bar"]', encoding='utf-8')
+
+        test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
+
+        assert len(test_related_apps) == 0
+        assert len(non_test_related_apps) == 0

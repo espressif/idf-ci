@@ -22,5 +22,5 @@ def test_remove_subfolders(tmp_path, relpaths, expected_relpaths):
         dir_path = tmp_path / rel
         dir_path.mkdir(parents=True, exist_ok=True)
         paths.append(str(dir_path))
-    expected = [str(tmp_path / rel) for rel in expected_relpaths]
+    expected = [(tmp_path / rel) for rel in expected_relpaths]
     assert remove_subfolders(paths) == expected

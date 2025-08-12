@@ -150,12 +150,15 @@ def get_all_apps(
 
         return processed_args.test_related_apps, processed_args.non_test_related_apps
 
-    additional_kwargs = {
+    additional_kwargs: t.Dict[str, t.Any] = {
         'compare_manifest_sha_filepath': compare_manifest_sha_filepath,
         'build_system': build_system,
     }
     if is_undefined(build_system):
         additional_kwargs.pop('build_system')
+
+    if settings.exclude_dirs:
+        additional_kwargs['exclude'] = settings.exclude_dirs
 
     apps = []
     for _t in target.split(','):
@@ -172,7 +175,7 @@ def get_all_apps(
                 modified_components=processed_args.modified_components,
                 include_skipped_apps=True,
                 default_build_targets=_default_build_targets,
-                **additional_kwargs,  # type: ignore
+                **additional_kwargs,
             )
         )
 
