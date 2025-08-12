@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import tempfile
+import time
 import typing as t
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -376,19 +377,18 @@ class ArtifactManager:
         )
 
         if self.s3_client:
-            logger.info(f'Using S3 storage for artifacts (commit sha: {params.commit_sha})')
-
-            s3_prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
             logger.info(f'Downloading artifacts under {params.from_path} from s3 (commit sha: {params.commit_sha})')
 
+            start_time = time.time()
             for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
                 self._download_from_s3(
                     s3_client=self.s3_client,
                     bucket=bucket,
-                    prefix=s3_prefix,
+                    prefix=f'{self.settings.gitlab.project}/{params.commit_sha}/',
                     from_path=params.from_path,
                     patterns=patterns,
                 )
+            logger.info(f'Finished in {time.time() - start_time:.2f} seconds')
             return
 
         if pipeline_id:
@@ -399,11 +399,16 @@ class ArtifactManager:
             raise ArtifactError(
                 'Either presigned_json or pipeline_id must be provided to download artifacts, if S3 is not configured'
             )
+
+        logger.info(f'Downloading artifacts under {params.from_path} from pipeline {pipeline_id}')
+
+        start_time = time.time()
         self._download_from_presigned_json(
             presigned_json_path,
             params.from_path,
             [p for patterns in self._get_upload_details_by_type(artifact_type).values() for p in patterns],
         )
+        logger.info(f'Finished in {time.time() - start_time:.2f} seconds')
 
     def upload_artifacts(
         self,
@@ -440,6 +445,7 @@ class ArtifactManager:
         prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
         logger.info(f'Uploading artifacts under {params.from_path} to s3 (commit sha: {params.commit_sha})')
 
+        start_time = time.time()
         for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
             self._upload_to_s3(
                 s3_client=self.s3_client,
@@ -448,6 +454,7 @@ class ArtifactManager:
                 from_path=params.from_path,
                 patterns=patterns,
             )
+        logger.info(f'Finished in {time.time() - start_time:.2f} seconds')
 
     def generate_presigned_json(
         self,
