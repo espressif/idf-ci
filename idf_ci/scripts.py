@@ -52,31 +52,27 @@ def preprocess_args(
         processed_targets = [*processed_targets, *settings.extra_default_build_targets]
 
     if envs.select_all_pytest_cases:
-        return ProcessedArgs(
-            modified_files=None,
-            modified_components=None,
-            filter_expr=None,
-            default_build_targets=processed_targets,
-            test_related_apps=None,
-            non_test_related_apps=None,
-        )
-
-    processed_files = modified_files
-    if processed_files is None and is_defined_and_satisfies(envs.CHANGED_FILES_SEMICOLON_SEPARATED):
-        processed_files = envs.CHANGED_FILES_SEMICOLON_SEPARATED.split(';')  # type: ignore
-
-    processed_components = modified_components
-    if processed_files is not None and processed_components is None:
-        processed_components = sorted(settings.get_modified_components(processed_files))
-
-    processed_filter = envs.IDF_CI_SELECT_BY_FILTER_EXPR if filter_expr is None else filter_expr
-    if processed_filter is not None:
-        logger.info(
-            'Running with quick test filter: %s. Skipping dependency-driven build. Build and test only filtered cases.',
-            processed_filter,
-        )
         processed_files = None
         processed_components = None
+        processed_filter = None
+    else:
+        processed_files = modified_files
+        if processed_files is None and is_defined_and_satisfies(envs.CHANGED_FILES_SEMICOLON_SEPARATED):
+            processed_files = envs.CHANGED_FILES_SEMICOLON_SEPARATED.split(';')  # type: ignore
+
+        processed_components = modified_components
+        if processed_files is not None and processed_components is None:
+            processed_components = sorted(settings.get_modified_components(processed_files))
+
+        processed_filter = envs.IDF_CI_SELECT_BY_FILTER_EXPR if filter_expr is None else filter_expr
+        if processed_filter is not None:
+            logger.info(
+                'Running with quick test filter: %s. Skipping dependency-driven build. '
+                'Build and test only filtered cases.',
+                processed_filter,
+            )
+            processed_files = None
+            processed_components = None
 
     if not settings.is_in_ci:
         test_related_apps: t.Optional[t.List[App]] = None
