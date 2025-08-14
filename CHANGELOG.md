@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v0.3.1 (2025-08-14)
+
+### 🏗️ Changes
+
+- when select all pytest cases, respect app list files in ci *(Fu Hanxi - 457a998)*
+
+
 ## v0.3.0 (2025-08-12)
 
 ### ✨ New Features
