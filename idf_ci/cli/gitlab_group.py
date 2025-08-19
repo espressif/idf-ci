@@ -175,7 +175,7 @@ def generate_presigned_json(commit_sha, branch, artifact_type, expire_in_days, o
     )
 
     if output:
-        with open(output, 'w') as f:
+        with open(output, 'w', encoding='utf-8') as f:
             json.dump(presigned_urls, f)
     else:
         click.echo(json.dumps(presigned_urls))

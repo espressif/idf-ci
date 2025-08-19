@@ -36,7 +36,7 @@ def create_project(name: str, folder: Path) -> Path:
     p.mkdir(parents=True, exist_ok=True)
     (p / 'main').mkdir(parents=True, exist_ok=True)
 
-    with open(p / 'CMakeLists.txt', 'w') as fw:
+    with open(p / 'CMakeLists.txt', 'w', encoding='utf-8') as fw:
         fw.write(
             f"""cmake_minimum_required(VERSION 3.16)
 include($ENV{{IDF_PATH}}/tools/cmake/project.cmake)
@@ -44,14 +44,14 @@ project({name})
 """
         )
 
-    with open(p / 'main' / 'CMakeLists.txt', 'w') as fw:
+    with open(p / 'main' / 'CMakeLists.txt', 'w', encoding='utf-8') as fw:
         fw.write(
             f"""idf_component_register(SRCS "{name}.c"
 INCLUDE_DIRS ".")
 """
         )
 
-    with open(p / 'main' / f'{name}.c', 'w') as fw:
+    with open(p / 'main' / f'{name}.c', 'w', encoding='utf-8') as fw:
         fw.write(
             """#include <stdio.h>
 void app_main(void) {}

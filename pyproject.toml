@@ -101,6 +101,7 @@ select = [
     'E',   # pycodestyle
     'W',   # pycodestyle
     'I',   # isort
+    'PLW1514', # pylint unspecified-encoding
     'UP',  # pyupgrade
     'YTT', # flake8-2020
     'A',   # flake8-builtins
