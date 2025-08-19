@@ -46,7 +46,7 @@ class TomlConfigSettingsSource(InitSettingsSource):
         if not path or not path.is_file():
             return {}
 
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             return load(f)
 
     @staticmethod
@@ -86,7 +86,7 @@ class S3FilePatternConfig(TypedDict):
 
 
 class ArtifactSettings(BaseSettings):
-    ### in s3 buckets ###
+    # in s3 buckets
     s3: t.Dict[str, S3FilePatternConfig] = {
         'debug': {
             'bucket': 'idf-artifacts',
@@ -114,8 +114,7 @@ class ArtifactSettings(BaseSettings):
     }
     """Dictionary mapping artifact types to their bucket and file patterns."""
 
-    ### not in s3 buckets ###
-
+    # not in s3 buckets
     build_job_filepatterns: t.List[str] = [
         'app_info_*.txt',  # collect_app_info_filename
         'build_summary_*.xml',  # junitxml

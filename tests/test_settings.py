@@ -110,7 +110,7 @@ def test_component_mapping_with_absolute_paths():
 
 def test_ci_config_file_option(tmp_path, runner):
     custom_config = tmp_path / 'custom_ci_config.toml'
-    with open(custom_config, 'w') as f:
+    with open(custom_config, 'w', encoding='utf-8') as f:
         f.write("""
 extend_component_mapping_regexes = [
     '/custom/path/(.+?)/'
@@ -186,7 +186,7 @@ class TestEnvVars:
         assert os.getenv('TEST_VAR_STR') == 'test_ci_value'
 
     def test_set_by_ci_config_file(self, tmp_path, monkeypatch):
-        with open(tmp_path / '.idf_ci.toml', 'w') as f:
+        with open(tmp_path / '.idf_ci.toml', 'w', encoding='utf-8') as f:
             f.write("""
 ci_detection_envs=[
     'NON_EXIST_CI'

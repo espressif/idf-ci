@@ -72,6 +72,6 @@ def collect(
     if output is None:
         click.echo(result)
     else:
-        with open(output, 'w') as f:
+        with open(output, 'w', encoding='utf-8') as f:
             f.write(result)
         click.echo(f'Created test cases collection file: {output}')

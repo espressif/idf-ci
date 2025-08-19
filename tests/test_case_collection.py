@@ -59,7 +59,7 @@ def test_multi_dut(dut) -> None:
 def sample_test_file():
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create pytest.ini with env_markers
-        with open(os.path.join(tmpdir, 'pytest.ini'), 'w') as f:
+        with open(os.path.join(tmpdir, 'pytest.ini'), 'w', encoding='utf-8') as f:
             f.write("""
 [pytest]
 env_markers =
@@ -69,7 +69,7 @@ env_markers =
 
         # Create the test file
         test_file_path = os.path.join(tmpdir, 'test_sample.py')
-        with open(test_file_path, 'w') as f:
+        with open(test_file_path, 'w', encoding='utf-8') as f:
             f.write(TEST_FILE_CONTENT)
 
         yield test_file_path
@@ -79,14 +79,14 @@ class TestCollectFunction:
     @pytest.fixture(autouse=True)
     def setup_test_project(self, tmp_path, test_case_name):
         create_project('sample', tmp_path)
-        with open('pytest.ini', 'w') as f:
+        with open('pytest.ini', 'w', encoding='utf-8') as f:
             f.write("""
 [pytest]
 env_markers =
     generic: applicable to generic ESP devices
     multiboard: test case runs on multiple ESP devices
 """)
-        with open(f'{test_case_name}.py', 'w') as f:
+        with open(f'{test_case_name}.py', 'w', encoding='utf-8') as f:
             f.write(TEST_FILE_CONTENT)
 
     def test_output_as_string(self):

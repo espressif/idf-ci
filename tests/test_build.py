@@ -31,7 +31,7 @@ class TestBuild:
         create_project('foo', tmp_path)
         create_project('bar', tmp_path)
 
-        with open(tmp_path / 'foo' / 'test_foo.py', 'w') as fw:
+        with open(tmp_path / 'foo' / 'test_foo.py', 'w', encoding='utf-8') as fw:
             fw.write(
                 textwrap.dedent("""
             import pytest
@@ -45,7 +45,7 @@ class TestBuild:
             """)
             )
 
-        with open(tmp_path / 'bar' / 'test_bar.py', 'w') as fw:
+        with open(tmp_path / 'bar' / 'test_bar.py', 'w', encoding='utf-8') as fw:
             fw.write(
                 textwrap.dedent("""
             import pytest

@@ -120,9 +120,9 @@ def create_config_file(template_filepath: str, dest: t.Optional[str] = None) -> 
         click.echo(f'Created {filepath}')
         return filepath
 
-    with open(template_filepath) as template_file:
+    with open(template_filepath, encoding='utf-8') as template_file:
         template_content = template_file.readlines()
-    with open(filepath) as existing_file:
+    with open(filepath, encoding='utf-8') as existing_file:
         existing_content = existing_file.readlines()
 
     diff = list(difflib.unified_diff(existing_content, template_content, fromfile='existing', tofile='template'))

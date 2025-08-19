@@ -163,7 +163,7 @@ class TestUploadDownloadArtifacts:
         )
 
         assert sorted(os.listdir(sample_artifacts_dir)) == ['test.bin']
-        assert open(sample_artifacts_dir / 'test.bin').read() == 'Binary content'
+        assert open(sample_artifacts_dir / 'test.bin', encoding='utf-8').read() == 'Binary content'
 
         # generate presigned URL
         presigned_urls = ArtifactManager().generate_presigned_json(
@@ -173,7 +173,7 @@ class TestUploadDownloadArtifacts:
 
         # Save presigned URLs to a file
         presigned_json_path = os.path.join(tmp_path, 'presigned.json')
-        with open(presigned_json_path, 'w') as f:
+        with open(presigned_json_path, 'w', encoding='utf-8') as f:
             json.dump(presigned_urls, f)
 
         # Remove S3 credentials
