@@ -132,6 +132,7 @@ def build_child_pipeline(
                     non_test_related_parallel_count=non_test_related_parallel_count,
                 ),
                 settings=settings,
+                test_related_apps_count=len(test_related_apps),
             )
         )
 
