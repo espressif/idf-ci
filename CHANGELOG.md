@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v0.3.2 (2025-08-30)
+
+### 🐛 Bug Fixes
+
+- **gitlab**: build-child-pipeline not working properly *(Fu Hanxi - be25e49)*
+
+
 ## v0.3.1 (2025-08-14)
 
 ### 🏗️ Changes
