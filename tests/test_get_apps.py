@@ -44,7 +44,7 @@ class TestGetAllApps:
 
     def test_single_dut_test_script(self, tmp_path: Path) -> None:
         create_project('foo', tmp_path)
-        with open(tmp_path / 'foo' / 'test_single_dut_test_script.py', 'w') as fw:
+        with open(tmp_path / 'foo' / 'test_single_dut_test_script.py', 'w', encoding='utf-8') as fw:
             fw.write(
                 textwrap.dedent("""
                 import pytest
@@ -66,7 +66,7 @@ class TestGetAllApps:
 
     def test_multi_dut_test_script(self, tmp_path: Path) -> None:
         create_project('foo', tmp_path)
-        with open(tmp_path / 'foo' / 'test_multi_dut_test_script.py', 'w') as fw:
+        with open(tmp_path / 'foo' / 'test_multi_dut_test_script.py', 'w', encoding='utf-8') as fw:
             fw.write(
                 textwrap.dedent("""
                 import pytest
@@ -143,7 +143,7 @@ class TestGetAllApps:
         (tmp_path / 'foo' / 'sdkconfig.ci').touch()
         (tmp_path / 'foo' / 'sdkconfig.ci.linux').write_text('CONFIG_IDF_TARGET="linux"\n', encoding='utf-8')
 
-        with open(tmp_path / 'foo' / 'test_host_test_script.py', 'w') as fw:
+        with open(tmp_path / 'foo' / 'test_host_test_script.py', 'w', encoding='utf-8') as fw:
             fw.write(
                 textwrap.dedent("""
                 import pytest

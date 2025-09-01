@@ -46,7 +46,7 @@ def _get_fake_pass_job(settings: CiSettings, workflow_name: str) -> t.Dict[str, 
 
 def dump_apps_to_txt(apps: t.List[App], output_file: str) -> None:
     """Dump a list of apps to a text file, one app per line."""
-    with open(output_file, 'w') as fw:
+    with open(output_file, 'w', encoding='utf-8') as fw:
         for app in apps:
             fw.write(app.model_dump_json() + '\n')
 
@@ -98,7 +98,7 @@ def build_child_pipeline(
 
     if not apps_total:
         logger.info('No apps found, generating fake_pass job to skip the entire build child pipeline')
-        with open(yaml_output, 'w') as fw:
+        with open(yaml_output, 'w', encoding='utf-8') as fw:
             yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.build_pipeline.workflow_name), fw)
             return
 
@@ -118,7 +118,7 @@ def build_child_pipeline(
     jobs_template = Environment().from_string(settings.gitlab.build_pipeline.jobs_jinja)
     yaml_template = Environment().from_string(settings.gitlab.build_pipeline.yaml_jinja)
 
-    with open(yaml_output, 'w') as fw:
+    with open(yaml_output, 'w', encoding='utf-8') as fw:
         fw.write(
             yaml_template.render(
                 job_template=job_template.render(
@@ -179,7 +179,7 @@ def test_child_pipeline(
 
     if not cases.grouped_cases:
         logger.info('No test cases found, generating fake_pass job to skip the entire test child pipeline')
-        with open(yaml_output, 'w') as fw:
+        with open(yaml_output, 'w', encoding='utf-8') as fw:
             yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.test_pipeline.workflow_name), fw)
         return
 
@@ -200,7 +200,7 @@ def test_child_pipeline(
     jobs_template = Environment().from_string(settings.gitlab.test_pipeline.jobs_jinja)
     yaml_template = Environment().from_string(settings.gitlab.test_pipeline.yaml_jinja)
 
-    with open(yaml_output, 'w') as fw:
+    with open(yaml_output, 'w', encoding='utf-8') as fw:
         fw.write(
             yaml_template.render(
                 default_template=job_template.render(
