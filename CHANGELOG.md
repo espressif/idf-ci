@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v0.4.1 (2025-09-02)
+
+### ✨ New Features
+
+- support `gitlab.build_pipeline.parent_pipeline_job_suffix`, and make need jobs optional *(Fu Hanxi - 0bd3b4c)*
+
+
 ## v0.4.0 (2025-09-02)
 
 ### ✨ New Features
