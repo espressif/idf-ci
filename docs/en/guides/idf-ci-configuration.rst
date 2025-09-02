@@ -16,7 +16,7 @@ Create or edit ``.idf_ci.toml`` at your repo root:
 
     [gitlab.build_pipeline]
     runs_per_job = 10
-    workflow_name = "-A"
+    workflow_name = "A workflow name"
 
 Override via CLI
 ----------------
@@ -29,12 +29,12 @@ Use dot-path assignments with ``--config``. If there are spaces around ``=``, qu
     idf-ci --config 'gitlab.build_pipeline.runs_per_job = 10' ...
 
     # without spaces
-    idf-ci --config 'gitlab.build_pipeline.workflow_name="-A"' ...
+    idf-ci --config 'gitlab.build_pipeline.workflow_name="A workflow name"' ...
 
     # multiple overrides
     idf-ci \
       --config 'gitlab.build_pipeline.runs_per_job=10' \
-      --config 'gitlab.build_pipeline.workflow_name="-A"' \
+      --config 'gitlab.build_pipeline.workflow_name="A workflow name"' \
       ...
 
 Where to find default values
