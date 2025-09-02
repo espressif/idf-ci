@@ -202,8 +202,8 @@ build_test_related_apps:
       job: pipeline_variables
   variables:
     IDF_CI_BUILD_ONLY_TEST_RELATED_APPS: "1"
-{%- endif %}
 
+{% endif %}
 {%- if non_test_related_apps_count > 0 %}
 build_non_test_related_apps:
   extends: {{ settings.gitlab.build_pipeline.job_template_name }}
@@ -217,7 +217,8 @@ build_non_test_related_apps:
       job: pipeline_variables
   variables:
     IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS: "1"
-{%- endif %}
+
+{% endif %}
 """.strip()
     """Jinja2 template for build jobs configuration."""
 
@@ -232,7 +233,7 @@ workflow:
   rules:
     - when: always
 
-{%- if settings.gitlab.build_pipeline.job_template_jinja %}
+{% if settings.gitlab.build_pipeline.job_template_jinja %}
 {{ job_template }}
 {%- endif %}
 
@@ -332,7 +333,7 @@ workflow:
   rules:
     - when: always
 
-{%- if settings.gitlab.test_pipeline.job_template_jinja %}
+{% if settings.gitlab.test_pipeline.job_template_jinja %}
 {{ default_template }}
 {%- endif %}
 
