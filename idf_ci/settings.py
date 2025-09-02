@@ -9,6 +9,7 @@ from pathlib import Path
 
 from idf_build_apps import App, json_list_files_to_apps
 from idf_build_apps.constants import BuildStatus
+from pydantic import BaseModel
 from pydantic_settings import (
     BaseSettings,
     InitSettingsSource,
@@ -78,6 +79,18 @@ class TomlConfigSettingsSource(InitSettingsSource):
         return None
 
 
+class CliOverridesSettingsSource(InitSettingsSource):
+    """A source class that loads variables from an in-memory dict for CLI overrides"""
+
+    def __init__(
+        self,
+        settings_cls: t.Type[BaseSettings],
+        overrides: t.Optional[t.Dict[str, t.Any]] = None,
+    ):
+        self.overrides = overrides or {}
+        super().__init__(settings_cls, self.overrides)
+
+
 class S3FilePatternConfig(TypedDict):
     bucket: str
     patterns: t.List[str]
@@ -85,7 +98,7 @@ class S3FilePatternConfig(TypedDict):
     """List of glob patterns for files to collect."""
 
 
-class ArtifactSettings(BaseSettings):
+class ArtifactSettings(BaseModel):
     ### in s3 buckets ###
     s3: t.Dict[str, S3FilePatternConfig] = {
         'debug': {
@@ -137,7 +150,7 @@ class ArtifactSettings(BaseSettings):
         return sorted(self.s3.keys())
 
 
-class BuildPipelineSettings(BaseSettings):
+class BuildPipelineSettings(BaseModel):
     workflow_name: str = 'Build Child Pipeline'
     """Name for the GitLab CI workflow."""
 
@@ -189,8 +202,8 @@ build_test_related_apps:
       job: pipeline_variables
   variables:
     IDF_CI_BUILD_ONLY_TEST_RELATED_APPS: "1"
-{%- endif %}
 
+{% endif %}
 {%- if non_test_related_apps_count > 0 %}
 build_non_test_related_apps:
   extends: {{ settings.gitlab.build_pipeline.job_template_name }}
@@ -204,7 +217,8 @@ build_non_test_related_apps:
       job: pipeline_variables
   variables:
     IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS: "1"
-{%- endif %}
+
+{% endif %}
 """.strip()
     """Jinja2 template for build jobs configuration."""
 
@@ -219,7 +233,7 @@ workflow:
   rules:
     - when: always
 
-{%- if settings.gitlab.build_pipeline.job_template_jinja %}
+{% if settings.gitlab.build_pipeline.job_template_jinja %}
 {{ job_template }}
 {%- endif %}
 
@@ -278,6 +292,9 @@ class TestPipelineSettings(BuildPipelineSettings):
     when: always
   variables:
     PYTEST_EXTRA_FLAGS: ""
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_test_related_apps
   script:
     - pytest ${nodes}
       --parallel-count ${CI_NODE_TOTAL:-1}
@@ -319,7 +336,7 @@ workflow:
   rules:
     - when: always
 
-{%- if settings.gitlab.test_pipeline.job_template_jinja %}
+{% if settings.gitlab.test_pipeline.job_template_jinja %}
 {{ default_template }}
 {%- endif %}
 
@@ -331,7 +348,7 @@ workflow:
     """Filename for the test child pipeline YAML file."""
 
 
-class GitlabSettings(BaseSettings):
+class GitlabSettings(BaseModel):
     project: str = 'espressif/esp-idf'
     """GitLab project path in the format 'owner/repo'."""
 
@@ -348,6 +365,9 @@ class GitlabSettings(BaseSettings):
 class CiSettings(BaseSettings):
     CONFIG_FILE_PATH: t.ClassVar[t.Optional[Path]] = None
     """Path to the configuration file to be used (class variable)."""
+
+    CLI_OVERRIDES: t.ClassVar[t.Dict[str, t.Any]] = {}
+    """Inline CLI overrides (class variable)."""
 
     component_mapping_regexes: t.List[str] = [
         '/components/(.+?)/',
@@ -432,6 +452,8 @@ class CiSettings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,  # noqa: ARG003
     ) -> t.Tuple[PydanticBaseSettingsSource, ...]:
         return (
+            # Precedence: CLI overrides > init kwargs > TOML file > defaults
+            CliOverridesSettingsSource(settings_cls, getattr(cls, 'CLI_OVERRIDES', None)),
             init_settings,
             TomlConfigSettingsSource(
                 settings_cls, cls.CONFIG_FILE_PATH if cls.CONFIG_FILE_PATH is not None else '.idf_ci.toml'

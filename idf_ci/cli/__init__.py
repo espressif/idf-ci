@@ -6,6 +6,8 @@ __all__ = ['click_cli']
 
 import logging
 import os
+import typing as t
+from ast import literal_eval
 
 import click
 
@@ -26,8 +28,19 @@ logger = logging.getLogger(__name__)
     type=click.Path(dir_okay=False, file_okay=True, exists=True),
     help='Path to the idf-ci config file',
 )
+@click.option(
+    '--config',
+    type=str,
+    multiple=True,
+    help=(
+        'Override settings via dot-path assignments (repeatable). '
+        'Format: path.to.key = value. '
+        'Values use Python literal syntax (ast.literal_eval): 10, True, "str", {..}, [..]. '
+        'Precedence: CLI > init > config file > defaults'
+    ),
+)
 @click.option('--debug', is_flag=True, default=False, help='Enable debug logging')
-def click_cli(config_file, debug):
+def click_cli(config_file, config, debug):
     """ESP-IDF CI CLI Tool."""
     if debug:
         setup_logging(logging.DEBUG)
@@ -37,6 +50,43 @@ def click_cli(config_file, debug):
     if config_file:
         logger.debug(f'Using config file: {config_file}')
         CiSettings.CONFIG_FILE_PATH = config_file
+
+    if config:
+
+        def _set_nested(target: t.Dict, path: str, value: t.Any):
+            parts = [p.strip() for p in path.split('.') if p.strip()]
+            if not parts:
+                raise click.BadParameter('Empty key in --config assignment')
+
+            cursor = target
+            for key in parts[:-1]:  # check all but last
+                if key not in cursor or not isinstance(cursor.get(key), dict):
+                    cursor[key] = {}
+                cursor = cursor[key]
+            cursor[parts[-1]] = value
+
+        overrides_dict = {}
+        for item in config:  # item like: "a.b = 1"
+            left, sep, right = item.partition('=')
+            if not sep:
+                raise click.BadParameter(f'Invalid --config entry `{item}`. Expected format: `path.to.key = value`')
+            try:
+                value = literal_eval(right.strip())
+            except Exception as e:
+                raise click.BadParameter(f'Failed to parse value in --config `{item}`: {e}')
+
+            _set_nested(overrides_dict, left.strip(), value)
+
+        # Merge with existing overrides if any
+        def _deep_merge(dst: t.Dict, src: t.Dict):
+            for k, v in src.items():
+                if isinstance(v, dict) and isinstance(dst.get(k), dict):
+                    _deep_merge(dst[k], v)
+                else:
+                    dst[k] = v
+            return dst
+
+        _deep_merge(CiSettings.CLI_OVERRIDES, overrides_dict)
 
 
 @click_cli.command()
