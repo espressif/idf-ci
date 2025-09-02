@@ -20,7 +20,14 @@
 </div>
 <hr>
 
-## v0.4.1 (2025-09-02)
+## v0.4.2 (2025-09-02)
+
+### 🐛 Bug Fixes
+
+- **gitlab**: needs:pipeline does not support optional *(Fu Hanxi - 3b7e410)*
+
+
+## v0.4.1 (2025-09-02) (yanked)
 
 ### ✨ New Features
 
