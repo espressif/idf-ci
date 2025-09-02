@@ -188,6 +188,9 @@ class BuildPipelineSettings(BaseModel):
     runs_per_job: int = 60
     """Maximum number of apps to build in a single job."""
 
+    parent_pipeline_job_suffix: str = ''
+    """Suffix to append to parent pipeline job names when referencing them."""
+
     jobs_jinja: str = """
 {%- if test_related_apps_count > 0 %}
 build_test_related_apps:
@@ -197,9 +200,11 @@ build_test_related_apps:
 {%- endif %}
   needs:
     - pipeline: $PARENT_PIPELINE_ID
-      job: generate_build_child_pipeline
+      job: generate_build_child_pipeline{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}
+      optional: true
     - pipeline: $PARENT_PIPELINE_ID
-      job: pipeline_variables
+      job: pipeline_variables{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}
+      optional: true
   variables:
     IDF_CI_BUILD_ONLY_TEST_RELATED_APPS: "1"
 
@@ -212,9 +217,11 @@ build_non_test_related_apps:
 {%- endif %}
   needs:
     - pipeline: $PARENT_PIPELINE_ID
-      job: generate_build_child_pipeline
+      job: generate_build_child_pipeline{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}
+      optional: true
     - pipeline: $PARENT_PIPELINE_ID
-      job: pipeline_variables
+      job: pipeline_variables{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}
+      optional: true
   variables:
     IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS: "1"
 
