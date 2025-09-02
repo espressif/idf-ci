@@ -9,6 +9,7 @@ from pathlib import Path
 
 from idf_build_apps import App, json_list_files_to_apps
 from idf_build_apps.constants import BuildStatus
+from pydantic import BaseModel
 from pydantic_settings import (
     BaseSettings,
     InitSettingsSource,
@@ -85,7 +86,7 @@ class S3FilePatternConfig(TypedDict):
     """List of glob patterns for files to collect."""
 
 
-class ArtifactSettings(BaseSettings):
+class ArtifactSettings(BaseModel):
     ### in s3 buckets ###
     s3: t.Dict[str, S3FilePatternConfig] = {
         'debug': {
@@ -137,7 +138,7 @@ class ArtifactSettings(BaseSettings):
         return sorted(self.s3.keys())
 
 
-class BuildPipelineSettings(BaseSettings):
+class BuildPipelineSettings(BaseModel):
     workflow_name: str = 'Build Child Pipeline'
     """Name for the GitLab CI workflow."""
 
@@ -331,7 +332,7 @@ workflow:
     """Filename for the test child pipeline YAML file."""
 
 
-class GitlabSettings(BaseSettings):
+class GitlabSettings(BaseModel):
     project: str = 'espressif/esp-idf'
     """GitLab project path in the format 'owner/repo'."""
 
