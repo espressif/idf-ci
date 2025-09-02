@@ -292,6 +292,9 @@ class TestPipelineSettings(BuildPipelineSettings):
     when: always
   variables:
     PYTEST_EXTRA_FLAGS: ""
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_test_related_apps
   script:
     - pytest ${nodes}
       --parallel-count ${CI_NODE_TOTAL:-1}
