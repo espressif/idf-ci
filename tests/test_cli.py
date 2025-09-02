@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from idf_ci.cli import click_cli
+from idf_ci.settings import CiSettings
 
 
 @pytest.mark.parametrize(
@@ -59,3 +60,58 @@ def test_init_but_already_exists(runner, tmp_dir):
 
     result = runner.invoke(click_cli, ['test', 'init', '--path', tmp_dir])
     assert result.exit_code == 0
+
+
+class TestConfig:
+    @pytest.fixture(autouse=True)
+    def _setup_method(self):
+        CiSettings.CLI_OVERRIDES = {}
+
+    @pytest.fixture(autouse=True)
+    def _teardown_method(self):
+        CiSettings.CLI_OVERRIDES = {}
+
+    def test_config_nested_assignment_with_spaces(self, runner):
+        result = runner.invoke(
+            click_cli,
+            ['--config', 'gitlab.build_pipeline.runs_per_job = 10', 'completions'],
+        )
+        assert result.exit_code == 0
+
+        settings = CiSettings()
+        assert settings.gitlab.build_pipeline.runs_per_job == 10
+
+    def test_config_multiple_overrides_merged(self, runner):
+        result = runner.invoke(
+            click_cli,
+            [
+                '--config',
+                'gitlab.build_pipeline.runs_per_job=10',
+                '--config',
+                'gitlab.build_pipeline.workflow_name="A"',
+                'completions',
+            ],
+        )
+        assert result.exit_code == 0
+
+        settings = CiSettings()
+        assert settings.gitlab.build_pipeline.runs_per_job == 10
+        assert settings.gitlab.build_pipeline.workflow_name == 'A'
+
+    def test_config_invalid_value_errors(self, runner):
+        result = runner.invoke(
+            click_cli,
+            ['--config', 'gitlab.build_pipeline.runs_per_job = not_a_literal', 'completions'],
+        )
+        assert result.exit_code != 0
+        assert 'Failed to parse value in --config `gitlab.build_pipeline.runs_per_job = not_a_literal`' in result.output
+
+    def test_config_invalid_format_errors(self, runner):
+        result = runner.invoke(click_cli, ['--config', 'abc', 'completions'])
+        assert result.exit_code != 0
+        assert 'Invalid --config entry `abc`' in result.output
+
+    def test_config_empty_key_errors(self, runner):
+        result = runner.invoke(click_cli, ['--config', ' = 1', 'completions'])
+        assert result.exit_code != 0
+        assert 'Empty key in --config assignment' in result.output

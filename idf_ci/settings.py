@@ -79,6 +79,18 @@ class TomlConfigSettingsSource(InitSettingsSource):
         return None
 
 
+class CliOverridesSettingsSource(InitSettingsSource):
+    """A source class that loads variables from an in-memory dict for CLI overrides"""
+
+    def __init__(
+        self,
+        settings_cls: t.Type[BaseSettings],
+        overrides: t.Optional[t.Dict[str, t.Any]] = None,
+    ):
+        self.overrides = overrides or {}
+        super().__init__(settings_cls, self.overrides)
+
+
 class S3FilePatternConfig(TypedDict):
     bucket: str
     patterns: t.List[str]
@@ -350,6 +362,9 @@ class CiSettings(BaseSettings):
     CONFIG_FILE_PATH: t.ClassVar[t.Optional[Path]] = None
     """Path to the configuration file to be used (class variable)."""
 
+    CLI_OVERRIDES: t.ClassVar[t.Dict[str, t.Any]] = {}
+    """Inline CLI overrides (class variable)."""
+
     component_mapping_regexes: t.List[str] = [
         '/components/(.+?)/',
         '/common_components/(.+?)/',
@@ -433,6 +448,8 @@ class CiSettings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,  # noqa: ARG003
     ) -> t.Tuple[PydanticBaseSettingsSource, ...]:
         return (
+            # Precedence: CLI overrides > init kwargs > TOML file > defaults
+            CliOverridesSettingsSource(settings_cls, getattr(cls, 'CLI_OVERRIDES', None)),
             init_settings,
             TomlConfigSettingsSource(
                 settings_cls, cls.CONFIG_FILE_PATH if cls.CONFIG_FILE_PATH is not None else '.idf_ci.toml'
