@@ -20,6 +20,26 @@
 </div>
 <hr>
 
+## v0.4.0 (2025-09-02)
+
+### ✨ New Features
+
+- support pass config via CLI *(Fu Hanxi - 16f4a60)*
+
+### 🐛 Bug Fixes
+
+- **test-pipeline**: download required built binaries *(Fu Hanxi - fe9362e)*
+- pydantic-settings sub model shall use BaseModel *(Fu Hanxi - 7c1a86f)*
+
+### 📖 Documentation
+
+- write a guide on how to config idf-ci *(Fu Hanxi - 6988020)*
+
+### 🏗️ Changes
+
+- **gitlab**: make newlines in yamls looks better *(Fu Hanxi - 51ee203)*
+
+
 ## v0.3.2 (2025-08-30)
 
 ### 🐛 Bug Fixes
