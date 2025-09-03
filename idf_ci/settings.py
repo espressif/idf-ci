@@ -175,6 +175,8 @@ class BuildPipelineSettings(BaseModel):
     {%- endfor %}
     expire_in: 1 week
     when: always
+  before_script:
+    - pip install -U 'idf-ci<1'
   script:
     - idf-ci build run
       --parallel-count ${CI_NODE_TOTAL:-1}
@@ -298,6 +300,8 @@ class TestPipelineSettings(BuildPipelineSettings):
   needs:
     - pipeline: $PARENT_PIPELINE_ID
       job: build_test_related_apps
+  before_script:
+    - pip install -U 'idf-ci<1'
   script:
     - pytest ${nodes}
       --parallel-count ${CI_NODE_TOTAL:-1}
