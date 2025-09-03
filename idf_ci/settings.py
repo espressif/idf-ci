@@ -160,6 +160,9 @@ class BuildPipelineSettings(BaseModel):
     job_template_name: str = '.default_build_settings'
     """Default template name for CI build jobs."""
 
+    job_image: str = 'espressif/idf:latest'
+    """Docker image to use for build jobs."""
+
     job_stage: str = 'build'
     """Default stage for build jobs in the pipeline."""
 
@@ -167,6 +170,7 @@ class BuildPipelineSettings(BaseModel):
 {{ settings.gitlab.build_pipeline.job_template_name }}:
   stage: {{ settings.gitlab.build_pipeline.job_stage }}
   tags: {{ settings.gitlab.build_pipeline.job_tags }}
+  image: {{ settings.gitlab.build_pipeline.job_image }}
   timeout: 1h
   artifacts:
     paths:
@@ -253,7 +257,9 @@ generate_test_child_pipeline:
     paths:
       - {{ settings.gitlab.test_pipeline.yaml_filename }}
   script:
-    - idf-ci gitlab test-child-pipeline
+    - idf-ci
+      --config 'gitlab.test_pipeline.job_image="{{ settings.gitlab.test_pipeline.job_image }}"'
+      gitlab test-child-pipeline
 
 test-child-pipeline:
   stage: .post
@@ -284,9 +290,13 @@ class TestPipelineSettings(BuildPipelineSettings):
     job_stage: str = 'test'
     """Default stage for test jobs in the pipeline."""
 
+    job_image: str = 'python:3-slim'
+    """Docker image to use for test jobs."""
+
     job_template_jinja: str = """
 {{ settings.gitlab.test_pipeline.job_template_name }}:
   stage: {{ settings.gitlab.test_pipeline.job_stage }}
+  image: {{ settings.gitlab.test_pipeline.job_image }}
   timeout: 1h
   artifacts:
     paths:
