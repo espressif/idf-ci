@@ -152,13 +152,30 @@ def test_child_pipeline(
 
         parallel:matrix does not support array as value, we generate all jobs here
 
+    .. warning::
+
+        temp workaround: ``eval pytest $nodes`` required.
+
+        if define nodes like ``"tests/test_example.py::test_example[param1 param2]
+        tests/test_another.py::test_another[param1 param2]"`` and call ``pytest
+        $nodes``, will raise error: ``ERROR: file or directory not found: param2]``
+
+        if define nodes like ``"'tests/test_example.py::test_example[param1 param2]'
+        'tests/test_another.py::test_another[param1 param2]'"``, and call ``pytest
+        $nodes``, will raise error: ``ERROR: file or directory not found:
+        'tests/test_example.py::test_example[param1``
+
+        Each node has to be single quoted, otherwise special chars or whitespaces in
+        nodeid may cause issues. It seems like ``eval pytest $nodes`` with nodes defined
+        as ``"'nodeid1' 'nodeid2'"`` is the only way to make it work.
+
     Example output:
 
     .. code-block:: yaml
 
         .default_test_settings:
             script:
-                - pytest ${nodes}
+                - eval pytest $nodes
 
         esp32 - generic:
             extends:
@@ -167,7 +184,7 @@ def test_child_pipeline(
                 - esp32
                 - generic
             variables:
-                nodes: "nodeid1 nodeid2"
+                nodes: "'nodeid1' 'nodeid2'"
     """
     settings = CiSettings()
 

@@ -160,6 +160,9 @@ class BuildPipelineSettings(BaseModel):
     job_template_name: str = '.default_build_settings'
     """Default template name for CI build jobs."""
 
+    job_image: str = 'espressif/idf:latest'
+    """Docker image to use for build jobs."""
+
     job_stage: str = 'build'
     """Default stage for build jobs in the pipeline."""
 
@@ -167,6 +170,7 @@ class BuildPipelineSettings(BaseModel):
 {{ settings.gitlab.build_pipeline.job_template_name }}:
   stage: {{ settings.gitlab.build_pipeline.job_stage }}
   tags: {{ settings.gitlab.build_pipeline.job_tags }}
+  image: {{ settings.gitlab.build_pipeline.job_image }}
   timeout: 1h
   artifacts:
     paths:
@@ -175,6 +179,8 @@ class BuildPipelineSettings(BaseModel):
     {%- endfor %}
     expire_in: 1 week
     when: always
+  before_script:
+    - pip install -U 'idf-ci<1'
   script:
     - idf-ci build run
       --parallel-count ${CI_NODE_TOTAL:-1}
@@ -251,14 +257,16 @@ generate_test_child_pipeline:
     paths:
       - {{ settings.gitlab.test_pipeline.yaml_filename }}
   script:
-    - idf-ci gitlab test-child-pipeline
+    - idf-ci
+      --config 'gitlab.test_pipeline.job_image="{{ settings.gitlab.test_pipeline.job_image }}"'
+      gitlab test-child-pipeline
 
 test-child-pipeline:
   stage: .post
   needs:
     - generate_test_child_pipeline
   variables:
-    PARENT_PIPELINE_ID: $PARENT_PIPELINE_ID
+    PARENT_PIPELINE_ID: $CI_PIPELINE_ID
   trigger:
     include:
       - artifact: {{ settings.gitlab.test_pipeline.yaml_filename }}
@@ -282,9 +290,13 @@ class TestPipelineSettings(BuildPipelineSettings):
     job_stage: str = 'test'
     """Default stage for test jobs in the pipeline."""
 
+    job_image: str = 'python:3-slim'
+    """Docker image to use for test jobs."""
+
     job_template_jinja: str = """
 {{ settings.gitlab.test_pipeline.job_template_name }}:
   stage: {{ settings.gitlab.test_pipeline.job_stage }}
+  image: {{ settings.gitlab.test_pipeline.job_image }}
   timeout: 1h
   artifacts:
     paths:
@@ -298,8 +310,10 @@ class TestPipelineSettings(BuildPipelineSettings):
   needs:
     - pipeline: $PARENT_PIPELINE_ID
       job: build_test_related_apps
+  before_script:
+    - pip install -U 'idf-ci<1'
   script:
-    - pytest ${nodes}
+    - eval pytest $nodes
       --parallel-count ${CI_NODE_TOTAL:-1}
       --parallel-index ${CI_NODE_INDEX:-1}
       --junitxml XUNIT_RESULT_${CI_JOB_NAME_SLUG}.xml
