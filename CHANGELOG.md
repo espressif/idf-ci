@@ -20,6 +20,19 @@
 </div>
 <hr>
 
+## v0.4.3 (2025-09-03)
+
+### ✨ New Features
+
+- **gitlab**: support declare job image *(Fu Hanxi - 72ffba7)*
+
+### 🐛 Bug Fixes
+
+- **gitlab**: use eval pytest instead of direct call to workaround the singlequotes *(Fu Hanxi - 94fe225)*
+- **gitlab**: pass `CI_PIPELINE_ID` in the 1st child pipeline to 2nd *(Fu Hanxi - 9a73cab)*
+- **gitlab**: install idf-ci in build and test jobs *(Fu Hanxi - 72fd3a7)*
+
+
 ## v0.4.2 (2025-09-02)
 
 ### 🐛 Bug Fixes
