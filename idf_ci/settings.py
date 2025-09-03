@@ -303,7 +303,7 @@ class TestPipelineSettings(BuildPipelineSettings):
   before_script:
     - pip install -U 'idf-ci<1'
   script:
-    - pytest ${nodes}
+    - eval pytest $nodes
       --parallel-count ${CI_NODE_TOTAL:-1}
       --parallel-index ${CI_NODE_INDEX:-1}
       --junitxml XUNIT_RESULT_${CI_JOB_NAME_SLUG}.xml
