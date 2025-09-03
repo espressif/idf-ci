@@ -260,7 +260,7 @@ test-child-pipeline:
   needs:
     - generate_test_child_pipeline
   variables:
-    PARENT_PIPELINE_ID: $PARENT_PIPELINE_ID
+    PARENT_PIPELINE_ID: $CI_PIPELINE_ID
   trigger:
     include:
       - artifact: {{ settings.gitlab.test_pipeline.yaml_filename }}
