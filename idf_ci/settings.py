@@ -168,17 +168,17 @@ class BuildPipelineSettings(BaseModel):
 
     job_template_jinja: str = """
 {{ settings.gitlab.build_pipeline.job_template_name }}:
-  stage: {{ settings.gitlab.build_pipeline.job_stage }}
+  stage: "{{ settings.gitlab.build_pipeline.job_stage }}"
   tags: {{ settings.gitlab.build_pipeline.job_tags }}
-  image: {{ settings.gitlab.build_pipeline.job_image }}
-  timeout: 1h
+  image: "{{ settings.gitlab.build_pipeline.job_image }}"
+  timeout: "1h"
   artifacts:
     paths:
     {%- for path in settings.gitlab.artifacts.build_job_filepatterns %}
-      - {{ path }}
+      - "{{ path }}"
     {%- endfor %}
-    expire_in: 1 week
-    when: always
+    expire_in: "1 week"
+    when: "always"
   before_script:
     - pip install -U 'idf-ci<1'
   script:
@@ -200,30 +200,30 @@ class BuildPipelineSettings(BaseModel):
     jobs_jinja: str = """
 {%- if test_related_apps_count > 0 %}
 build_test_related_apps:
-  extends: {{ settings.gitlab.build_pipeline.job_template_name }}
+  extends: "{{ settings.gitlab.build_pipeline.job_template_name }}"
 {%- if test_related_parallel_count > 1 %}
   parallel: {{ test_related_parallel_count }}
 {%- endif %}
   needs:
-    - pipeline: $PARENT_PIPELINE_ID
-      job: generate_build_child_pipeline{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}
-    - pipeline: $PARENT_PIPELINE_ID
-      job: pipeline_variables{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}
+    - pipeline: "$PARENT_PIPELINE_ID"
+      job: "generate_build_child_pipeline{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}"
+    - pipeline: "$PARENT_PIPELINE_ID"
+      job: "pipeline_variables{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}"
   variables:
     IDF_CI_BUILD_ONLY_TEST_RELATED_APPS: "1"
 
 {% endif %}
 {%- if non_test_related_apps_count > 0 %}
 build_non_test_related_apps:
-  extends: {{ settings.gitlab.build_pipeline.job_template_name }}
+  extends: "{{ settings.gitlab.build_pipeline.job_template_name }}"
 {%- if non_test_related_parallel_count > 1 %}
   parallel: {{ non_test_related_parallel_count }}
 {%- endif %}
   needs:
-    - pipeline: $PARENT_PIPELINE_ID
-      job: generate_build_child_pipeline{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}
-    - pipeline: $PARENT_PIPELINE_ID
-      job: pipeline_variables{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}
+    - pipeline: "$PARENT_PIPELINE_ID"
+      job: "generate_build_child_pipeline{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}"
+    - pipeline: "$PARENT_PIPELINE_ID"
+      job: "pipeline_variables{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}"
   variables:
     IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS: "1"
 
@@ -238,9 +238,9 @@ build_non_test_related_apps:
 {{ settings.gitlab.build_pipeline.pre_yaml_jinja }}
 
 workflow:
-  name: {{ settings.gitlab.build_pipeline.workflow_name }}
+  name: "{{ settings.gitlab.build_pipeline.workflow_name }}"
   rules:
-    - when: always
+    - when: "always"
 
 {% if settings.gitlab.build_pipeline.job_template_jinja %}
 {{ job_template }}
@@ -250,28 +250,28 @@ workflow:
 
 {%- if test_related_apps_count > 0 %}
 generate_test_child_pipeline:
-  extends: {{ settings.gitlab.build_pipeline.job_template_name }}
+  extends: "{{ settings.gitlab.build_pipeline.job_template_name }}"
   needs:
-    - build_test_related_apps
+    - "build_test_related_apps"
   artifacts:
     paths:
-      - {{ settings.gitlab.test_pipeline.yaml_filename }}
+      - "{{ settings.gitlab.test_pipeline.yaml_filename }}"
   script:
     - idf-ci
       --config 'gitlab.test_pipeline.job_image="{{ settings.gitlab.test_pipeline.job_image }}"'
       gitlab test-child-pipeline
 
 test-child-pipeline:
-  stage: .post
+  stage: ".post"
   needs:
-    - generate_test_child_pipeline
+    - "generate_test_child_pipeline"
   variables:
-    PARENT_PIPELINE_ID: $CI_PIPELINE_ID
+    PARENT_PIPELINE_ID: "$CI_PIPELINE_ID"
   trigger:
     include:
-      - artifact: {{ settings.gitlab.test_pipeline.yaml_filename }}
-        job: generate_test_child_pipeline
-    strategy: depend
+      - artifact: "{{ settings.gitlab.test_pipeline.yaml_filename }}"
+        job: "generate_test_child_pipeline"
+    strategy: "depend"
 {%- endif %}
 """.strip()
     """Jinja2 template for the build child pipeline YAML content."""
@@ -295,28 +295,28 @@ class TestPipelineSettings(BuildPipelineSettings):
 
     job_template_jinja: str = """
 {{ settings.gitlab.test_pipeline.job_template_name }}:
-  stage: {{ settings.gitlab.test_pipeline.job_stage }}
-  image: {{ settings.gitlab.test_pipeline.job_image }}
-  timeout: 1h
+  stage: "{{ settings.gitlab.test_pipeline.job_stage }}"
+  image: "{{ settings.gitlab.test_pipeline.job_image }}"
+  timeout: "1h"
   artifacts:
     paths:
     {%- for path in settings.gitlab.artifacts.test_job_filepatterns %}
-      - {{ path }}
+      - "{{ path }}"
     {%- endfor %}
-    expire_in: 1 week
-    when: always
+    expire_in: "1 week"
+    when: "always"
   variables:
     PYTEST_EXTRA_FLAGS: ""
   needs:
-    - pipeline: $PARENT_PIPELINE_ID
-      job: build_test_related_apps
+    - pipeline: "$PARENT_PIPELINE_ID"
+      job: "build_test_related_apps"
   before_script:
     - pip install -U 'idf-ci<1'
   script:
     - eval pytest $nodes
       --parallel-count ${CI_NODE_TOTAL:-1}
       --parallel-index ${CI_NODE_INDEX:-1}
-      --junitxml XUNIT_RESULT_${CI_JOB_NAME_SLUG}.xml
+      --junitxml "XUNIT_RESULT_${CI_JOB_NAME_SLUG}.xml"
       ${PYTEST_EXTRA_FLAGS}
 """.strip()
     """Default template for CI test jobs."""
@@ -331,9 +331,9 @@ class TestPipelineSettings(BuildPipelineSettings):
 {% for job in jobs %}
 {{ job['name'] }}:
   extends:
-    - {{ settings.gitlab.test_pipeline.job_template_name }}
+    - "{{ settings.gitlab.test_pipeline.job_template_name }}"
     {%- for extra_extend in job.get('extra_extends', []) %}
-    - {{ extra_extend }}
+    - "{{ extra_extend }}"
     {%- endfor %}
   tags: {{ job['tags'] }}
 {%- if job['parallel_count'] > 1 %}
@@ -349,9 +349,9 @@ class TestPipelineSettings(BuildPipelineSettings):
 {{ settings.gitlab.test_pipeline.pre_yaml_jinja }}
 
 workflow:
-  name: {{ settings.gitlab.test_pipeline.workflow_name }}
+  name: "{{ settings.gitlab.test_pipeline.workflow_name }}"
   rules:
-    - when: always
+    - when: "always"
 
 {% if settings.gitlab.test_pipeline.job_template_jinja %}
 {{ default_template }}
