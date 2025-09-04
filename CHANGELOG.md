@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v0.4.4 (2025-09-04)
+
+### 🐛 Bug Fixes
+
+- quotes in yamls *(Fu Hanxi - 179b815)*
+
+
 ## v0.4.3 (2025-09-03)
 
 ### ✨ New Features
