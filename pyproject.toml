@@ -36,9 +36,9 @@ dependencies = [
     # build related
     "idf-build-apps~=2.12",
     # test related
-    "pytest-embedded-idf[serial]~=1.16",
-    "pytest-embedded-jtag~=1.16",
-    "pytest-embedded-qemu~=1.16",
+    "pytest-embedded-idf[serial]>=1.16,<3",
+    "pytest-embedded-jtag>=1.16,<3",
+    "pytest-embedded-qemu>=1.16,<3",
     "pytest-ignore-test-results>=0.3.0,<1",
     "pytest-timeout",
     "pytest-rerunfailures",
