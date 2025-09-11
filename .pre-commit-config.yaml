@@ -34,7 +34,7 @@ repos:
           - minio!=7.2.16
           - pydantic-settings
           - pytest
-          - pytest-embedded~=1.16
+          - pytest-embedded>=1.16,<3
           - python-gitlab
           - rich
           - tomlkit
