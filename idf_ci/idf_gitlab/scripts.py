@@ -103,4 +103,11 @@ def pipeline_variables() -> t.Dict[str, str]:
                         res['IDF_CI_IS_DEBUG_PIPELINE'] = '1'
                         logger.info('Setting `IDF_CI_IS_DEBUG_PIPELINE=1` based on MR description "Test Case Filters"')
 
+                    if 'Select by Targets' in data:
+                        res['IDF_CI_SELECT_BY_TARGETS'] = ','.join(data.get('Select by Targets'))
+                        logger.info(
+                            f'Setting `IDF_CI_SELECT_BY_TARGETS={res["IDF_CI_SELECT_BY_TARGETS"]}` '
+                            f'based on MR description "Select by Targets"'
+                        )
+
     return {k: _doublequote_string(v) for k, v in res.items()}

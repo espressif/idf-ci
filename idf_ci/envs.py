@@ -46,6 +46,9 @@ class GitlabEnvVars(BaseSettings):
     IDF_CI_SELECT_ALL_PYTEST_CASES: t.Optional[bool] = None
     """Flag indicating whether to select all pytest cases."""
 
+    IDF_CI_SELECT_BY_TARGETS: t.Optional[str] = None
+    """comma-separated list of targets to be built and tested."""
+
     IDF_CI_BUILD_ONLY_TEST_RELATED_APPS: t.Optional[bool] = None
     """Flag indicating whether to build only test-related apps."""
 
@@ -79,5 +82,18 @@ class GitlabEnvVars(BaseSettings):
         if self.IDF_CI_SELECT_BY_FILTER_EXPR:
             logger.info('Selecting pytest cases with filter expression: %s', self.IDF_CI_SELECT_BY_FILTER_EXPR)
             return self.IDF_CI_SELECT_BY_FILTER_EXPR
+
+        return None
+
+    @property
+    def select_by_targets(self) -> t.Optional[t.List[str]]:
+        """Get the list of targets to be built and tested.
+
+        :returns: List of targets if set, None otherwise
+        """
+        if self.IDF_CI_SELECT_BY_TARGETS:
+            targets = [_t.strip() for _t in self.IDF_CI_SELECT_BY_TARGETS.split(',') if _t.strip()]
+            logger.info('Selecting targets: %s. ONLY build and test these targets!!!', targets)
+            return targets
 
         return None
