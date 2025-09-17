@@ -25,7 +25,7 @@ from minio import Minio
 from .._compat import UNDEF, is_undefined
 from .._vendor import translate
 from ..envs import GitlabEnvVars
-from ..settings import CiSettings
+from ..settings import get_ci_settings
 from ..utils import get_current_branch
 
 logger = logging.getLogger(__name__)
@@ -142,7 +142,7 @@ class ArtifactManager:
 
     def __init__(self):
         self.envs = GitlabEnvVars()
-        self.settings = CiSettings()
+        self.settings = get_ci_settings()
 
         self._s3_client: t.Optional[Minio] = UNDEF  # type: ignore
 

@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import typing as t
+from contextvars import ContextVar
 from pathlib import Path
 
 from idf_build_apps import App, json_list_files_to_apps
@@ -386,6 +387,8 @@ class CiSettings(BaseSettings):
     CLI_OVERRIDES: t.ClassVar[t.Dict[str, t.Any]] = {}
     """Inline CLI overrides (class variable)."""
 
+    # --- instance variables below ---
+
     component_mapping_regexes: t.List[str] = [
         '/components/(.+?)/',
         '/common_components/(.+?)/',
@@ -601,3 +604,29 @@ class CiSettings(BaseSettings):
         built_apps = [app for app in apps if app.build_status == BuildStatus.SUCCESS]
 
         return built_apps
+
+
+_ci_settings_context: ContextVar['CiSettings'] = ContextVar('ci_settings', default=CiSettings())
+
+
+def get_ci_settings() -> 'CiSettings':
+    """Get the current CiSettings instance from the context."""
+    return _ci_settings_context.get()
+
+
+def _refresh_ci_settings(
+    config_file: t.Optional[PathLike] = None,
+    config_overrides: t.Optional[t.Dict[str, t.Any]] = None,
+) -> 'CiSettings':
+    """Refresh the CiSettings instance in the context. shall be called only by CLI entry point."""
+    if config_file:
+        logger.debug(f'Loading from config file `{config_file}`...')
+        CiSettings.CONFIG_FILE_PATH = Path(config_file)
+
+    if config_overrides:
+        logger.debug('Loading from cli overrides...')
+        CiSettings.CLI_OVERRIDES = config_overrides
+
+    settings = CiSettings()
+    _ci_settings_context.set(settings)
+    return settings

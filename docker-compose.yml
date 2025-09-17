@@ -3,7 +3,7 @@
 services:
   minio:
     restart: unless-stopped
-    image: bitnami/minio:latest
+    image: bitnamilegacy/minio:latest
     ports:
       - 9100:9000
       - 9101:9001

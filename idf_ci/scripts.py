@@ -3,6 +3,7 @@
 import logging
 import os
 import typing as t
+from collections import defaultdict
 from dataclasses import dataclass
 
 from idf_build_apps import App, build_apps, find_apps
@@ -12,7 +13,10 @@ from idf_build_apps.utils import get_parallel_start_stop
 
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
 from .envs import GitlabEnvVars
-from .settings import CiSettings
+from .settings import get_ci_settings
+
+if t.TYPE_CHECKING:
+    from .idf_pytest import PytestCase
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +49,7 @@ def preprocess_args(
     :returns: Processed arguments as a ProcessedArgs object
     """
     envs = GitlabEnvVars()
-    settings = CiSettings()
+    settings = get_ci_settings()
 
     processed_targets = DEFAULT_BUILD_TARGETS.get() if default_build_targets is None else default_build_targets
     if settings.extra_default_build_targets:
@@ -129,7 +133,8 @@ def get_all_apps(
 
     :returns: Tuple of (test_related_apps, non_test_related_apps)
     """
-    settings = CiSettings()
+    envs = GitlabEnvVars()
+    settings = get_ci_settings()
     processed_args = preprocess_args(
         modified_files=modified_files,
         modified_components=modified_components,
@@ -175,6 +180,8 @@ def get_all_apps(
             )
         )
 
+    _select_by_targets = envs.select_by_targets
+
     # avoid circular import
     from .idf_pytest import get_pytest_cases
 
@@ -184,6 +191,10 @@ def get_all_apps(
     if not cases:
         for app in apps:
             app.preserve = settings.preserve_non_test_related_apps
+
+        if _select_by_targets:
+            apps = [app for app in apps if app.target in _select_by_targets]
+
         return [], sorted(apps)
 
     # Get modified pytest cases if any
@@ -200,34 +211,65 @@ def get_all_apps(
                 filter_expr=processed_args.filter_expr,
             )
 
+    if _select_by_targets:
+        cases = [case for case in cases if any(app.target in _select_by_targets for app in case.apps)]
+        modified_pytest_cases = [
+            case for case in modified_pytest_cases if any(app.target in _select_by_targets for app in case.apps)
+        ]
+
     # Create dictionaries mapping app info to test cases
-    def get_app_dict(_cases):
-        return {(case_app.path, case_app.target, case_app.config): _case for _case in _cases for case_app in _case.apps}
+    def get_app_dict(_cases: t.List['PytestCase']) -> t.Dict[t.Tuple[str, str, str], t.List['PytestCase']]:
+        app_dict = defaultdict(list)
+        for _case in _cases:
+            for _case_app in _case.apps:
+                app_dict[(_case_app.path, _case_app.target, _case_app.config)].append(_case)
+        return app_dict
 
     pytest_dict = get_app_dict(cases)
     modified_pytest_dict = get_app_dict(modified_pytest_cases)
 
+    modified_test_apps = set()  # set to SHOULD_BE_BUILT
     test_apps = set()
     non_test_apps = set()
 
+    app_map = {(os.path.abspath(app.app_dir), app.target, app.config_name or 'default'): app for app in apps}
+
+    def _get_case_apps(_case: 'PytestCase') -> t.Set[App]:
+        _apps = set()
+        for _app in _case.apps:
+            _app_key = (os.path.abspath(_app.path), _app.target, _app.config)
+            if _app_key in app_map:
+                _apps.add(app_map[_app_key])
+        return _apps
+
     for app in apps:
         app_key = (os.path.abspath(app.app_dir), app.target, app.config_name or 'default')
-        # override build_status if test script got modified
-        case = modified_pytest_dict.get(app_key)
-        if case:
-            test_apps.add(app)
-            app.build_status = BuildStatus.SHOULD_BE_BUILT
-            logger.debug('Found app: %s - required by modified test case %s', app, case.path)
-        elif app.build_status != BuildStatus.SKIPPED:
-            case = pytest_dict.get(app_key)
-            if case:
-                test_apps.add(app)
-                # build or not should be decided by the build stage
-                logger.debug('Found test-related app: %s - required by %s', app, case.path)
-            else:
-                non_test_apps.add(app)
-                logger.debug('Found non-test-related app: %s', app)
+        _modified_cases = modified_pytest_dict.get(app_key)
+        if _modified_cases:
+            for case in _modified_cases:
+                modified_test_apps.update(_get_case_apps(case))
+            continue
 
+        if app.build_status == BuildStatus.SKIPPED:
+            continue
+
+        _pytest_cases = pytest_dict.get(app_key)
+        if _pytest_cases:
+            for case in _pytest_cases:
+                test_apps.update(_get_case_apps(case))
+        else:
+            non_test_apps.add(app)
+
+    test_apps = test_apps - modified_test_apps
+    non_test_apps = non_test_apps - modified_test_apps - test_apps
+    for app in modified_test_apps:
+        app.build_status = BuildStatus.SHOULD_BE_BUILT  # must be built
+
+    if _select_by_targets:
+        # no need to remove test_apps, since they are not in non_test_apps
+        non_test_apps = {app for app in non_test_apps if app.target in _select_by_targets}
+
+    test_apps = test_apps.union(modified_test_apps)
     for app in test_apps:
         app.preserve = settings.preserve_test_related_apps
 
@@ -270,8 +312,8 @@ def build(
 
     :returns: Tuple of (built apps, build return code)
     """
-    settings = CiSettings()
     envs = GitlabEnvVars()
+    settings = get_ci_settings()
 
     # Preprocess arguments
     processed_args = preprocess_args(

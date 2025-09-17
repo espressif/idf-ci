@@ -14,9 +14,7 @@ from idf_ci.idf_gitlab import ArtifactManager
 from idf_ci.idf_gitlab import build_child_pipeline as build_child_pipeline_cmd
 from idf_ci.idf_gitlab import pipeline_variables as pipeline_variables_cmd
 from idf_ci.idf_gitlab import test_child_pipeline as test_child_pipeline_cmd
-from idf_ci.settings import CiSettings
-
-_SETTINGS = CiSettings()
+from idf_ci.settings import get_ci_settings
 
 
 @click.group()
@@ -68,13 +66,17 @@ def test_child_pipeline(yaml_output):
     test_child_pipeline_cmd(yaml_output)
 
 
+def option_artifact_type(func):
+    return click.option(
+        '--type',
+        'artifact_type',
+        type=click.Choice(get_ci_settings().gitlab.artifacts.available_s3_types),
+        help='Type of artifacts to download. If not specified, downloads all types.',
+    )(func)
+
+
 @gitlab.command()
-@click.option(
-    '--type',
-    'artifact_type',
-    type=click.Choice(_SETTINGS.gitlab.artifacts.available_s3_types),
-    help='Type of artifacts to download. If not specified, downloads all types.',
-)
+@option_artifact_type
 @option_commit_sha
 @option_branch
 @click.option(
@@ -113,12 +115,7 @@ def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json
 
 
 @gitlab.command()
-@click.option(
-    '--type',
-    'artifact_type',
-    type=click.Choice(_SETTINGS.gitlab.artifacts.available_s3_types),
-    help='Type of artifacts to upload',
-)
+@option_artifact_type
 @option_commit_sha
 @option_branch
 @click.argument('folder', required=False)
@@ -140,12 +137,7 @@ def upload_artifacts(artifact_type, commit_sha, branch, folder):
 @gitlab.command()
 @option_commit_sha
 @option_branch
-@click.option(
-    '--type',
-    'artifact_type',
-    type=click.Choice(_SETTINGS.gitlab.artifacts.available_s3_types),
-    help='Type of artifacts to generate presigned URLs for',
-)
+@option_artifact_type
 @click.option(
     '--expire-in-days',
     type=int,
@@ -189,7 +181,7 @@ def download_known_failure_cases_file(filename):
 
     if s3_client:
         s3_client.fget_object(
-            _SETTINGS.gitlab.known_failure_cases_bucket_name,
+            get_ci_settings().gitlab.known_failure_cases_bucket_name,
             filename,
             filename,
         )

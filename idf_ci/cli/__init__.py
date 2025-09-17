@@ -15,7 +15,7 @@ from idf_ci.cli._options import create_config_file
 from idf_ci.cli.build_group import build
 from idf_ci.cli.gitlab_group import gitlab
 from idf_ci.cli.test_group import test
-from idf_ci.settings import CiSettings
+from idf_ci.settings import _refresh_ci_settings
 from idf_ci.utils import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -47,10 +47,7 @@ def click_cli(config_file, config, debug):
     else:
         setup_logging()
 
-    if config_file:
-        logger.debug(f'Using config file: {config_file}')
-        CiSettings.CONFIG_FILE_PATH = config_file
-
+    overrides_dict = {}
     if config:
 
         def _set_nested(target: t.Dict, path: str, value: t.Any):
@@ -65,7 +62,6 @@ def click_cli(config_file, config, debug):
                 cursor = cursor[key]
             cursor[parts[-1]] = value
 
-        overrides_dict = {}
         for item in config:  # item like: "a.b = 1"
             left, sep, right = item.partition('=')
             if not sep:
@@ -77,16 +73,7 @@ def click_cli(config_file, config, debug):
 
             _set_nested(overrides_dict, left.strip(), value)
 
-        # Merge with existing overrides if any
-        def _deep_merge(dst: t.Dict, src: t.Dict):
-            for k, v in src.items():
-                if isinstance(v, dict) and isinstance(dst.get(k), dict):
-                    _deep_merge(dst[k], v)
-                else:
-                    dst[k] = v
-            return dst
-
-        _deep_merge(CiSettings.CLI_OVERRIDES, overrides_dict)
+    _refresh_ci_settings(config_file, overrides_dict)
 
 
 @click_cli.command()
