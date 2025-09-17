@@ -13,7 +13,7 @@ from _pytest.config import ExitCode
 
 from idf_ci._compat import UNDEF, UndefinedOr, is_undefined
 from idf_ci.envs import GitlabEnvVars
-from idf_ci.settings import CiSettings
+from idf_ci.settings import get_ci_settings
 
 from ..utils import remove_subfolders, setup_logging
 from .models import PytestCase
@@ -58,7 +58,7 @@ def get_pytest_cases(
     )
 
     check_dirs = []
-    not_in_folders = [Path(f).resolve() for f in CiSettings().exclude_dirs]
+    not_in_folders = [Path(f).resolve() for f in get_ci_settings().exclude_dirs]
     for folder in remove_subfolders(paths):
         for not_in_folder in not_in_folders:
             if not_in_folder == folder or not_in_folder in folder.parents:

@@ -13,6 +13,7 @@ from idf_build_apps.manifest import DEFAULT_BUILD_TARGETS
 from idf_ci import CiSettings, get_all_apps
 from idf_ci.cli import click_cli
 from idf_ci.idf_gitlab.pipeline import dump_apps_to_txt
+from idf_ci.settings import _refresh_ci_settings
 
 SUPPORTED_TARGETS = [
     'esp32',
@@ -261,6 +262,7 @@ class TestGetAllApps:
         create_project('bar', tmp_path)
 
         (tmp_path / '.idf_ci.toml').write_text('exclude_dirs = ["foo"]', encoding='utf-8')
+        _refresh_ci_settings()
 
         test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
 
@@ -269,6 +271,7 @@ class TestGetAllApps:
         assert len(non_test_related_apps) == len(SUPPORTED_TARGETS)
 
         (tmp_path / '.idf_ci.toml').write_text('exclude_dirs = ["foo", "bar"]', encoding='utf-8')
+        _refresh_ci_settings()
 
         test_related_apps, non_test_related_apps = get_all_apps(paths=[str(tmp_path)], target='all')
 

@@ -15,6 +15,7 @@ import requests
 from idf_ci.cli import click_cli
 from idf_ci.idf_gitlab import ArtifactManager
 from idf_ci.idf_gitlab.api import ArtifactError, S3Error
+from idf_ci.settings import _refresh_ci_settings
 
 
 # to run this test, don't forget to run "docker compose up -d" in the root directory of the project
@@ -61,6 +62,7 @@ class TestUploadDownloadArtifacts:
 
         curdir = os.getcwd()
         os.chdir(tmp_path)
+        _refresh_ci_settings()
 
         monkeypatch.setenv('IDF_S3_SERVER', 'http://localhost:9100')
         monkeypatch.setenv('IDF_S3_ACCESS_KEY', 'minioadmin')

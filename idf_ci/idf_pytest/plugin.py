@@ -17,7 +17,7 @@ from _pytest.python import Function
 from _pytest.stash import StashKey
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
-from ..settings import CiSettings
+from ..settings import get_ci_settings
 from ..utils import setup_logging
 from .models import PytestCase
 
@@ -49,7 +49,7 @@ class IdfPytestPlugin:
         self.cli_target = cli_target
         self.sdkconfig_name = sdkconfig_name
 
-        settings = CiSettings()
+        settings = get_ci_settings()
         if settings.is_in_ci:
             self.apps = settings.get_built_apps_list()
         else:

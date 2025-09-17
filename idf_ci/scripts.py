@@ -13,7 +13,7 @@ from idf_build_apps.utils import get_parallel_start_stop
 
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
 from .envs import GitlabEnvVars
-from .settings import CiSettings
+from .settings import get_ci_settings
 
 if t.TYPE_CHECKING:
     from .idf_pytest import PytestCase
@@ -49,7 +49,7 @@ def preprocess_args(
     :returns: Processed arguments as a ProcessedArgs object
     """
     envs = GitlabEnvVars()
-    settings = CiSettings()
+    settings = get_ci_settings()
 
     processed_targets = DEFAULT_BUILD_TARGETS.get() if default_build_targets is None else default_build_targets
     if settings.extra_default_build_targets:
@@ -134,7 +134,7 @@ def get_all_apps(
     :returns: Tuple of (test_related_apps, non_test_related_apps)
     """
     envs = GitlabEnvVars()
-    settings = CiSettings()
+    settings = get_ci_settings()
     processed_args = preprocess_args(
         modified_files=modified_files,
         modified_components=modified_components,
@@ -180,6 +180,8 @@ def get_all_apps(
             )
         )
 
+    _select_by_targets = envs.select_by_targets
+
     # avoid circular import
     from .idf_pytest import get_pytest_cases
 
@@ -190,8 +192,8 @@ def get_all_apps(
         for app in apps:
             app.preserve = settings.preserve_non_test_related_apps
 
-        if envs.select_by_targets:
-            apps = [app for app in apps if app.target in envs.select_by_targets]
+        if _select_by_targets:
+            apps = [app for app in apps if app.target in _select_by_targets]
 
         return [], sorted(apps)
 
@@ -209,10 +211,10 @@ def get_all_apps(
                 filter_expr=processed_args.filter_expr,
             )
 
-    if envs.select_by_targets:
-        cases = [case for case in cases if any(app.target in envs.select_by_targets for app in case.apps)]
+    if _select_by_targets:
+        cases = [case for case in cases if any(app.target in _select_by_targets for app in case.apps)]
         modified_pytest_cases = [
-            case for case in modified_pytest_cases if any(app.target in envs.select_by_targets for app in case.apps)
+            case for case in modified_pytest_cases if any(app.target in _select_by_targets for app in case.apps)
         ]
 
     # Create dictionaries mapping app info to test cases
@@ -263,9 +265,9 @@ def get_all_apps(
     for app in modified_test_apps:
         app.build_status = BuildStatus.SHOULD_BE_BUILT  # must be built
 
-    if envs.select_by_targets:
+    if _select_by_targets:
         # no need to remove test_apps, since they are not in non_test_apps
-        non_test_apps = {app for app in non_test_apps if app.target in envs.select_by_targets}
+        non_test_apps = {app for app in non_test_apps if app.target in _select_by_targets}
 
     test_apps = test_apps.union(modified_test_apps)
     for app in test_apps:
@@ -310,8 +312,8 @@ def build(
 
     :returns: Tuple of (built apps, build return code)
     """
-    settings = CiSettings()
     envs = GitlabEnvVars()
+    settings = get_ci_settings()
 
     # Preprocess arguments
     processed_args = preprocess_args(

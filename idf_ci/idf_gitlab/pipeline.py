@@ -13,7 +13,7 @@ from jinja2 import Environment
 from idf_ci.envs import GitlabEnvVars
 from idf_ci.idf_pytest import GroupedPytestCases, get_pytest_cases
 from idf_ci.scripts import get_all_apps
-from idf_ci.settings import CiSettings
+from idf_ci.settings import CiSettings, get_ci_settings
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def build_child_pipeline(
 ) -> None:
     """Generate build child pipeline."""
     envs = GitlabEnvVars()
-    settings = CiSettings()
+    settings = get_ci_settings()
 
     if compare_manifest_sha_filepath and not os.path.isfile(compare_manifest_sha_filepath):
         compare_manifest_sha_filepath = None
@@ -186,7 +186,7 @@ def test_child_pipeline(
             variables:
                 nodes: "'nodeid1' 'nodeid2'"
     """
-    settings = CiSettings()
+    settings = get_ci_settings()
 
     if yaml_output is None:
         yaml_output = settings.gitlab.test_pipeline.yaml_filename
