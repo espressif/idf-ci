@@ -96,6 +96,14 @@ def get_pytest_cases(
         stdout_content = stdout_buffer.getvalue()
         stderr_content = stderr_buffer.getvalue()
 
+    if plugin.plugins and 'no:idf-ci' in plugin.plugins:
+        logging.debug('Ignoring result from args `%s` because it contains no:idf-ci marker', args)
+        return []
+
+    if plugin.plugins and 'no:pytest-embedded' in plugin.plugins:
+        logging.debug('Ignoring result from args `%s` because it contains no:pytest-embedded marker', args)
+        return []
+
     # Restore logging level as redirection changes it
     setup_logging(level=original_log_level)
 
