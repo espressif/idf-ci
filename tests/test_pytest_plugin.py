@@ -1,49 +1,14 @@
 # SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import os
-from pathlib import Path
 
-import pytest
 from conftest import create_project
 
-from idf_ci import CiSettings, IdfPytestPlugin
 from idf_ci.cli import click_cli
+from idf_ci.settings import CiSettings
 
 
 class TestPytestPlugin:
-    @pytest.mark.parametrize(
-        'filename, content, expected_plugins',
-        [
-            ('pytest.ini', '[pytest]\naddopts = -p no:warnings', ['no:warnings']),
-            ('pytest.ini', '[pytest]\naddopts = -p no:warnings -p no:legacypath', ['no:legacypath', 'no:warnings']),
-            ('pytest.ini', '[pytest]\naddopts = --ignore=foo', []),
-        ],
-    )
-    def test_get_pytest_plugins_direct(self, tmp_path: Path, filename, content, expected_plugins):
-        (tmp_path / filename).write_text(content)
-
-        p = IdfPytestPlugin(cli_target='all')
-        pytest.main(tmp_path, plugins=[p])
-        assert p.plugins is not None
-        assert sorted(p.plugins) == expected_plugins
-
-    @pytest.mark.parametrize(
-        'filename, content, expected_plugins',
-        [
-            ('pytest.ini', '[pytest]\naddopts = -p no:warnings', ['no:warnings']),
-        ],
-    )
-    def test_get_pytest_plugins_nested(self, tmp_path: Path, filename, content, expected_plugins):
-        nested_dir = tmp_path / 'nested'
-        nested_dir.mkdir()
-        (nested_dir / 'test_foo.py').write_text('def test_foo(): pass')
-        (nested_dir / filename).write_text(content)
-
-        p = IdfPytestPlugin(cli_target='all')
-        pytest.main(nested_dir, plugins=[p])
-        assert p.plugins is not None
-        assert p.plugins == expected_plugins
-
     def test_skip_tests_with_apps_not_built(self, pytester, runner, monkeypatch):
         assert runner.invoke(click_cli, ['build', 'init', '--path', pytester.path]).exit_code == 0
         assert runner.invoke(click_cli, ['test', 'init', '--path', pytester.path]).exit_code == 0

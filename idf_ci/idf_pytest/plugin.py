@@ -56,7 +56,6 @@ class IdfPytestPlugin:
             self.apps = None
 
         self.cases: t.List[PytestCase] = []
-        self.plugins = None
 
     @staticmethod
     def get_case_by_item(item: pytest.Item) -> t.Optional[PytestCase]:
@@ -150,10 +149,6 @@ class IdfPytestPlugin:
             'No valid build directory found. '
             f'Please build the binary via "idf.py -B {check_dirs[0]} build" and run pytest again'
         )
-
-    def pytest_configure(self, config):
-        if hasattr(config, 'option') and hasattr(config.option, 'plugins'):
-            self.plugins = config.option.plugins
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_pycollect_makemodule(
