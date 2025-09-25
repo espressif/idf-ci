@@ -20,6 +20,21 @@
 </div>
 <hr>
 
+## v0.5.0 (2025-09-25)
+
+### ✨ New Features
+
+- support "select by targets" *(Fu Hanxi - 116f295)*
+
+### 🐛 Bug Fixes
+
+- exclude irrelevant folders if disabled idf-ci or pytest-embedded *(Fu Hanxi - 0e501b1)*
+
+### 🏗️ Changes
+
+- use `get_ci_settings` as a contextvar, to reduce the redundant log *(Fu Hanxi - b2a8a77)*
+
+
 ## v0.4.5 (2025-09-11)
 
 
