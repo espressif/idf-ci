@@ -93,7 +93,7 @@ def test_commit_sha_precedence(monkeypatch, feature_sha, local_sha):
 
     with pytest.raises(
         ValueError,
-        match='Failed to get commit SHA from git command. '
-        'Must set commit_sha or branch parameter, or set PIPELINE_COMMIT_SHA env var',
+        match=r'Failed to get commit SHA from git command. '
+        r'Must set commit_sha or branch parameter, or set PIPELINE_COMMIT_SHA env var',
     ):
         ArtifactParams()
