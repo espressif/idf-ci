@@ -247,11 +247,11 @@ class ArtifactManager:
             secure=secure,
             http_client=urllib3.PoolManager(
                 num_pools=10,
-                timeout=urllib3.Timeout.DEFAULT_TIMEOUT,
+                timeout=urllib3.Timeout(connect=5.0, read=60.0),
                 retries=urllib3.Retry(
                     total=5,
-                    backoff_factor=0.2,
-                    status_forcelist=[500, 502, 503, 504],
+                    backoff_factor=1,
+                    status_forcelist=(408, 429, 500, 502, 503, 504),
                 ),
             ),
         )
@@ -278,6 +278,7 @@ class ArtifactManager:
 
         def _download_task(_obj_name: str, _output_path: Path) -> None:
             logger.debug(f'Downloading {_obj_name} to {_output_path}')
+            _output_path.parent.mkdir(parents=True, exist_ok=True)
             s3_client.fget_object(bucket, _obj_name, str(_output_path))
 
         tasks = []
