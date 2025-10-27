@@ -272,7 +272,7 @@ class ArtifactManager:
         prefix: str,
         from_path: Path,
         patterns: t.List[str],
-    ) -> None:
+    ) -> int:
         s3_path = self._get_s3_path(prefix, from_path)
         patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
 
@@ -291,6 +291,7 @@ class ArtifactManager:
             )
 
         execute_concurrent_tasks(tasks, task_name='downloading object')
+        return len(tasks)
 
     def _upload_to_s3(
         self,
@@ -300,7 +301,7 @@ class ArtifactManager:
         prefix: str,
         from_path: Path,
         patterns: t.List[str],
-    ) -> None:
+    ) -> int:
         def _upload_task(_filepath: Path, _s3_path: str) -> None:
             logger.debug(f'Uploading {_filepath} to {_s3_path}')
             s3_client.fput_object(bucket, _s3_path, str(_filepath))
@@ -317,13 +318,15 @@ class ArtifactManager:
                 tasks.append(lambda _filepath=filepath, _s3_path=s3_path: _upload_task(_filepath, _s3_path))
 
         execute_concurrent_tasks(tasks, task_name='uploading file')
+        return len(tasks)
 
-    def _download_from_presigned_json(self, presigned_json: str, from_path: Path, patterns: t.List[str]) -> None:
+    def _download_from_presigned_json(self, presigned_json: str, from_path: Path, patterns: t.List[str]) -> int:
         with open(presigned_json) as f:
             presigned_urls = json.load(f)
 
         patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
 
+        downloaded_count = 0
         for rel_path, url in presigned_urls.items():
             if from_path not in Path(rel_path).parents:
                 continue
@@ -341,6 +344,9 @@ class ArtifactManager:
             with open(output_path, 'wb') as f:
                 f.write(response.content)
             logger.debug(f'Downloaded {rel_path} to {output_path}')
+            downloaded_count += 1
+
+        return downloaded_count
 
     def download_artifacts(
         self,
@@ -381,15 +387,16 @@ class ArtifactManager:
             logger.info(f'Downloading artifacts under {params.from_path} from s3 (commit sha: {params.commit_sha})')
 
             start_time = time.time()
+            downloaded_files = 0
             for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
-                self._download_from_s3(
+                downloaded_files += self._download_from_s3(
                     s3_client=self.s3_client,
                     bucket=bucket,
                     prefix=f'{self.settings.gitlab.project}/{params.commit_sha}/',
                     from_path=params.from_path,
                     patterns=patterns,
                 )
-            logger.info(f'Finished in {time.time() - start_time:.2f} seconds')
+            logger.info(f'Downloaded {downloaded_files} files in {time.time() - start_time:.2f} seconds')
             return
 
         if pipeline_id:
@@ -404,12 +411,12 @@ class ArtifactManager:
         logger.info(f'Downloading artifacts under {params.from_path} from pipeline {pipeline_id}')
 
         start_time = time.time()
-        self._download_from_presigned_json(
+        downloaded_files = self._download_from_presigned_json(
             presigned_json_path,
             params.from_path,
             [p for patterns in self._get_upload_details_by_type(artifact_type).values() for p in patterns],
         )
-        logger.info(f'Finished in {time.time() - start_time:.2f} seconds')
+        logger.info(f'Downloaded {downloaded_files} files in {time.time() - start_time:.2f} seconds')
 
     def upload_artifacts(
         self,
@@ -447,15 +454,16 @@ class ArtifactManager:
         logger.info(f'Uploading artifacts under {params.from_path} to s3 (commit sha: {params.commit_sha})')
 
         start_time = time.time()
+        uploaded_files = 0
         for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
-            self._upload_to_s3(
+            uploaded_files += self._upload_to_s3(
                 s3_client=self.s3_client,
                 bucket=bucket,
                 prefix=prefix,
                 from_path=params.from_path,
                 patterns=patterns,
             )
-        logger.info(f'Finished in {time.time() - start_time:.2f} seconds')
+        logger.info(f'Uploaded {uploaded_files} files in {time.time() - start_time:.2f} seconds')
 
     def generate_presigned_json(
         self,
