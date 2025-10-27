@@ -20,6 +20,17 @@
 </div>
 <hr>
 
+## v0.5.1 (2025-10-27)
+
+### ⚡ Performance Improvements
+
+- improve retry logic while downloading from s3 *(Fu Hanxi - c70de23)*
+
+### 🏗️ Changes
+
+- improve the s3 artifacts logs *(Fu Hanxi - 03115e2)*
+
+
 ## v0.5.0 (2025-09-25)
 
 ### ✨ New Features
