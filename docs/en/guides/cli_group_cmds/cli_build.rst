@@ -75,3 +75,52 @@ Example:
 
     # Create build configuration file in specific directory
     idf-ci build init --path /path/to/config
+
+Collect Applications
+~~~~~~~~~~~~~~~~~~~~
+
+This command collects all applications, corresponding test cases and outputs the result in JSON format.
+
+.. code-block:: bash
+
+    idf-ci build collect [OPTIONS]
+
+Options:
+
+- ``--paths PATHS`` - Paths to search for applications. If not provided, current directory is used
+- ``--output OUTPUT`` - Output destination. If not provided, stdout is used
+
+Output format:
+
+.. code-block:: json
+
+    {
+        "projects": {
+            "path/to/project": [
+                {
+                    "target": "esp32",
+                    "sdkconfig": "release",
+                    "build_status": "should be built",
+                    "build_comment": "",
+                    "test_comment": "",
+                    "test_cases": [
+                        "test_case_1",
+                        "test_case_2"
+                    ]
+                }
+            ]
+        }
+    }
+
+Examples:
+
+.. code-block:: bash
+
+    # Collect applications in current directory
+    idf-ci build collect
+
+    # Collect applications in specified directories
+    idf-ci build collect --paths /path/to/dir1 /path/to/dir2
+
+    # Collect applications and output to a file
+    idf-ci build collect --output /path/to/output.json
