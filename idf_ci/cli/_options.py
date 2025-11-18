@@ -93,6 +93,15 @@ def option_branch(func):
     )(func)
 
 
+def option_output(func):
+    return click.option(
+        '-o',
+        '--output',
+        type=click.Path(dir_okay=False, file_okay=True),
+        help='Output destination. Stdout if not provided',
+    )(func)
+
+
 #########
 # Utils #
 #########

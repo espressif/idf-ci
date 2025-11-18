@@ -165,6 +165,25 @@ class PytestCase:
     def all_markers(self) -> t.Set[str]:
         return {marker.name for marker in self.item.iter_markers()}
 
+    def skipped_targets(self) -> t.Dict[str, str]:
+        """Get targets that are marked with skip markers for current test case.
+
+        :returns: Dictionary of targets with skip reason
+        """
+        skip_markers = ['temp_skip_ci', 'temp_skip']
+        targets: t.Dict[str, str] = {}
+
+        for _m in self.item.own_markers:
+            if _m.name in skip_markers:
+                # if no targets or reason provided, ignore, there must be something wrong
+                if not _m.kwargs.get('targets') or not _m.kwargs.get('reason'):
+                    continue
+
+                for t_name in to_list(_m.kwargs['targets']):
+                    targets[t_name] = _m.kwargs['reason']
+
+        return targets
+
     def get_skip_reason_if_not_built(self, app_dirs: t.Optional[t.List[str]] = None) -> t.Optional[str]:
         """Check if all binaries of the test case are built in the app lists.
 
