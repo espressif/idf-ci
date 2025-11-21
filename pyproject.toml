@@ -116,7 +116,7 @@ quote-style = "single"
 docstring-code-format = true
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 [[tool.mypy.overrides]]
 module = [
     "pytest_embedded.plugin.*",
