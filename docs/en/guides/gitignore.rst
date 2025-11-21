@@ -5,6 +5,12 @@ The ``idf-ci`` tool provides default configurations for CI/CD processes. During 
 
 .. code-block:: text
 
+    # MacOS directory files
+    .DS_Store
+
+    # cache dir
+    .cache/
+
     .pytest_cache/
     __pycache__/
 
@@ -23,3 +29,8 @@ The ``idf-ci`` tool provides default configurations for CI/CD processes. During 
 
     # idf-component-manager output
     dependencies.lock
+
+    # idf-component-manager
+    managed_components/
+
+If you need more specific configurations, refer to `esp-idf's .gitignore on GitHub <https://github.com/espressif/esp-idf/blob/master/.gitignore>`_ for additional recommendations.
