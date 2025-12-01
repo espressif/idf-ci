@@ -29,6 +29,7 @@ def get_pytest_cases(
     sdkconfig_name: t.Optional[str] = None,
     marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
     filter_expr: t.Optional[str] = None,
+    additional_args: t.Optional[t.List[str]] = None,
 ) -> t.List[PytestCase]:
     """Collect pytest test cases from specified paths.
 
@@ -37,6 +38,7 @@ def get_pytest_cases(
     :param sdkconfig_name: Filter tests whose apps are built with this sdkconfig name
     :param marker_expr: Filter by pytest marker expression -m
     :param filter_expr: Filter by pytest filter expression -k
+    :param additional_args: Additional arguments to pass to pytest
 
     :returns: List of collected PytestCase objects
 
@@ -86,6 +88,9 @@ def get_pytest_cases(
         args.extend(['-m', f'{marker_expr}'])
     if filter_expr:
         args.extend(['-k', f'{filter_expr}'])
+
+    if additional_args is not None:
+        args.extend(additional_args)
 
     logger.debug('Collecting pytest test cases with args: %s', args)
 
