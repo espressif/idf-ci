@@ -1,5 +1,6 @@
-Config Files
-============
+##############
+ Config Files
+##############
 
 Config files are a way to store a set of settings. We have three types of config files:
 
@@ -7,18 +8,21 @@ Config files are a way to store a set of settings. We have three types of config
 - `Build Config File`_: settings for idf-build-apps_
 - `Test Config File`_: settings for pytest_ and pytest-embedded_
 
-CI Config File
---------------
+****************
+ CI Config File
+****************
 
 For more information, please refer to :doc:`../references/ci-config-file`.
 
-Build Config File
------------------
+*******************
+ Build Config File
+*******************
 
 For more information, please refer to :doc:`../references/build-config-file`.
 
-Test Config File
-----------------
+******************
+ Test Config File
+******************
 
 For more information, please refer to :doc:`../references/test-config-file`.
 
