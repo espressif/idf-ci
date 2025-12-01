@@ -1,10 +1,12 @@
-Preview CI Behavior Locally
-===========================
+#############################
+ Preview CI Behavior Locally
+#############################
 
 This guide will show you how to preview the behavior of the CI system locally.
 
-Build Stage
------------
+*************
+ Build Stage
+*************
 
 The build stage is the first stage of the CI system. It is responsible for building the project and running the tests.
 
@@ -31,8 +33,9 @@ Or pass ``--non-test-related`` to preview the behavior of the non-test-related b
 
     idf-ci build run --dry-run --non-test-related
 
-Test Stage
-----------
+************
+ Test Stage
+************
 
 The test stage is the second stage of the CI system. It is responsible for running the tests.
 

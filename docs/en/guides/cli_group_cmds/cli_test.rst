@@ -1,13 +1,15 @@
-Test Commands
-=============
+###############
+ Test Commands
+###############
 
 The IDF CI tool provides commands for managing and running tests. The ``idf-ci test`` commands allow you to collect test cases and manage test configurations.
 
-Test Commands
--------------
+***************
+ Test Commands
+***************
 
 Collect Test Cases
-~~~~~~~~~~~~~~~~~~
+==================
 
 To collect and process pytest cases, use the ``collect`` command:
 
@@ -48,7 +50,7 @@ Examples:
     idf-ci test collect --output test_cases.txt
 
 Initialize Test Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+=============================
 
 To create a test configuration file with default values, use the ``init`` command:
 
