@@ -45,7 +45,7 @@ These options are available for all commands and affect the overall behavior of 
 
     .. code-block:: bash
 
-        idf-ci --debug gitlab download_artifacts
+        idf-ci --debug gitlab download-artifacts
 
 Global Commands
 ---------------
