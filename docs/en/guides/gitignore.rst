@@ -1,5 +1,6 @@
-Recommended .gitignore Settings
-===============================
+#################################
+ Recommended .gitignore Settings
+#################################
 
 The ``idf-ci`` tool provides default configurations for CI/CD processes. During execution, it generates various output files like binaries, logs, and build reports. To keep your repository clean and prevent committing generated files, add these entries to your ``.gitignore`` file:
 

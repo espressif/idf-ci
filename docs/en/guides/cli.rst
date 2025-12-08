@@ -1,10 +1,12 @@
-CLI Overview
-============
+##############
+ CLI Overview
+##############
 
 The ``idf-ci`` tool provides a comprehensive command-line interface for managing builds, tests, and GitLab CI/CD operations. This document provides an overview of the CLI structure, global options, and available command groups.
 
-Basic Usage
------------
+*************
+ Basic Usage
+*************
 
 The basic syntax for using the IDF CI tool is:
 
@@ -12,8 +14,9 @@ The basic syntax for using the IDF CI tool is:
 
     idf-ci [GLOBAL_OPTIONS] COMMAND [COMMAND_OPTIONS] [ARGUMENTS]
 
-Getting Help
-------------
+**************
+ Getting Help
+**************
 
 You can get help for any command using the ``--help`` or ``-h`` option:
 
@@ -28,8 +31,9 @@ You can get help for any command using the ``--help`` or ``-h`` option:
     # Get help for a specific command
     idf-ci build run --help
 
-Global Options
---------------
+****************
+ Global Options
+****************
 
 These options are available for all commands and affect the overall behavior of the tool:
 
@@ -47,8 +51,9 @@ These options are available for all commands and affect the overall behavior of 
 
         idf-ci --debug gitlab download-artifacts
 
-Global Commands
----------------
+*****************
+ Global Commands
+*****************
 
 ``init``
     Create a default ``.idf_ci.toml`` configuration file in the current directory or specified path.
@@ -68,13 +73,15 @@ Global Commands
 
         idf-ci completions
 
-Shell Completion
-----------------
+******************
+ Shell Completion
+******************
 
 The tool supports shell autocompletion for Bash, Zsh, and Fish. Use ``idf-ci completions`` to get setup instructions for your shell.
 
-Command Groups
---------------
+****************
+ Command Groups
+****************
 
 For detailed information about specific command groups:
 
