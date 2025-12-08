@@ -1,5 +1,6 @@
-idf-ci |version| Documentation
-==============================
+################################
+ idf-ci |version| Documentation
+################################
 
 This documentation is for idf-ci. idf-ci is a tool A tool designed to streamline the CI/CD of ESP-IDF projects, with support for both GitLab CI/CD and GitHub Actions.
 

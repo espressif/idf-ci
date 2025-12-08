@@ -1,13 +1,15 @@
-Build Commands
-==============
+################
+ Build Commands
+################
 
 The IDF CI tool provides commands for building applications. The ``idf-ci build`` commands allow you to build applications and manage build configurations.
 
-Build Commands
---------------
+****************
+ Build Commands
+****************
 
 Run Build
-~~~~~~~~~
+=========
 
 To execute the build process for applications, use the ``run`` command:
 
@@ -54,7 +56,7 @@ Examples:
     idf-ci build run --parallel-count 4 --parallel-index 1
 
 Initialize Build Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+==============================
 
 To create a build configuration file with default values, use the ``init`` command:
 
