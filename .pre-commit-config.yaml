@@ -46,9 +46,13 @@ repos:
       - id: docstrfmt
         types: [rst]
         args: ['-l', '99999999999999999999999']
+        additional_dependencies:
+          - sphinx<9
   - repo: https://github.com/LilSpazJoekp/docstrfmt
     rev: v1.11.1
     hooks:
       - id: docstrfmt
         types: [python]
         args: ['--no-docstring-trailing-line']
+        additional_dependencies:
+          - sphinx<9
