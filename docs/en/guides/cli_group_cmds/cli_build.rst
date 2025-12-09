@@ -89,6 +89,7 @@ Options:
 
 - ``--paths PATHS`` - Paths to search for applications. If not provided, current directory is used
 - ``--output OUTPUT`` - Output destination. If not provided, stdout is used
+- ``--include-only-enabled`` - Include only enabled applications
 
 Output format:
 
@@ -96,20 +97,27 @@ Output format:
 
     {
         "projects": {
-            "path/to/project": [
-                {
-                    "target": "esp32",
-                    "sdkconfig": "release",
-                    "build_status": "should be built",
-                    "build_comment": "",
-                    "test_comment": "",
-                    "test_cases": [
-                        "test_case_1",
-                        "test_case_2"
-                    ]
-                }
-            ]
-        }
+            "path/to/project": {
+                "apps": [
+                    {
+                        "target": "esp32",
+                        "sdkconfig": "release",
+                        "build_status": "should be built",
+                        "build_comment": "",
+                        "test_comment": "",
+                        "test_cases": [
+                            "test_case_1",
+                            "test_case_2"
+                        ]
+                    }
+                ],
+                "test_cases_missing_config": [
+                    "esp32.default.test_case_3",
+                    "esp32.default.test_case_4"
+                ],
+            }
+        },
+        "total_test_cases_missing_config": 2,
     }
 
 Examples:

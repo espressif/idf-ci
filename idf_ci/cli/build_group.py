@@ -102,54 +102,69 @@ def init(path: str):
 @build.command()
 @option_paths
 @option_output
+@click.option('--include-only-enabled-apps', is_flag=True, default=False, help='Include only enabled apps')
 def collect(
     paths,
     output,
+    include_only_enabled_apps,
 ):
     """Collect all applications, corresponding test cases and output the result in JSON format."""
     apps = find_apps(
-        paths=paths,
         find_arguments=FindArguments(
-            include_all_apps=True,
+            paths=paths,
+            include_all_apps=not include_only_enabled_apps,
             recursive=True,
         ),
     )
 
     test_cases = get_pytest_cases(
         paths=paths,
-        target='all',
+        marker_expr='',  # pass empty marker to collect all test cases
         additional_args=['--ignore-no-tests-collected-error'],
     )
 
     # Create a dict with test cases for quick lookup
-    # Structure: path -> target -> sdkconfig -> PytestCase
-    test_cases_index: dict[str, dict[str, dict[str, PytestCase]]] = {}
+    # Structure: path -> target -> sdkconfig -> list[PytestCase]
+    test_cases_index: dict[str, dict[str, dict[str, t.List[PytestCase]]]] = {}
     for case in test_cases:
         case_path = Path(case.path).parent.as_posix()
-        test_cases_index.setdefault(case_path, {}).setdefault(case.target_selector, {})
-        for app in case.apps:
-            test_cases_index[case_path][case.target_selector][app.config] = case
+        targets = case.targets
+
+        # Handle multiple targets
+        for target in targets:
+            test_cases_index.setdefault(case_path, {}).setdefault(target, {})
+
+            for app in case.apps:
+                test_cases_index[case_path][target].setdefault(app.config, [])
+                test_cases_index[case_path][target][app.config].append(case)
 
     # Example output:
     #
     # {
     #     "projects": {
-    #         "path/to/project": [
-    #             {
-    #                 "target": "esp32",
-    #                 "sdkconfig": "release",
-    #                 "build_status": "should be built",
-    #                 "build_comment": "",
-    #                 "test_comment": "",
-    #                 "test_cases": [
-    #                     "test_case_1",
-    #                     "test_case_2"
-    #                 ]
-    #             }
-    #         ]
-    #     }
+    #         "path/to/project": {
+    #             "apps": [
+    #                 {
+    #                     "target": "esp32",
+    #                     "sdkconfig": "release",
+    #                     "build_status": "should be built",
+    #                     "build_comment": "",
+    #                     "test_comment": "",
+    #                     "test_cases": [
+    #                         "test_case_1",
+    #                         "test_case_2"
+    #                     ]
+    #                 }
+    #             ],
+    #             "test_cases_missing_config": [
+    #                 "esp32.default.test_case_3",
+    #                 "esp32.default.test_case_4"
+    #             ],
+    #         }
+    #     },
+    #     "total_test_cases_missing_config": 2,
     # }
-    result: dict[str, t.Any] = {'projects': {}}
+    result: dict[str, t.Any] = {'projects': {}, 'total_test_cases_missing_config': 0}
 
     # Gather apps by path
     apps_by_path: t.Dict[str, t.List[App]] = {}
@@ -159,32 +174,46 @@ def collect(
     for index, path in enumerate(sorted(apps_by_path)):
         logger.debug(f'Processing path {index + 1}/{len(apps_by_path)} with {len(apps_by_path[path])} apps: {path}')
 
-        project_path = result['projects'][path] = []
+        project_path = result['projects'][path] = {'apps': [], 'test_cases_missing_config': []}
+        project_test_cases: t.Set[str] = set()
+        used_test_cases: t.Set[str] = set()
 
         for app in apps_by_path[path]:
-            # Get sdkconfig name from sdkconfig path
-            # Example: "sdkconfig.ci.release" -> "release"
-            app_sdkconfig_name = Path(app.sdkconfig_path).name.split('.')[-1] if app.sdkconfig_path else 'default'
-
             app_abs_path = Path(path).absolute().as_posix()
 
             # Find test cases for current app by path, target and sdkconfig
-            app_test_cases: list[PytestCase] = []
+            app_test_cases: t.Set[str] = set()
             if app_abs_path in test_cases_index:
+                # Gather all test cases
+                for target_key in test_cases_index[app_abs_path]:
+                    for sdkconfig_key in test_cases_index[app_abs_path][target_key]:
+                        test_cases = test_cases_index[app_abs_path][target_key][sdkconfig_key]
+                        project_test_cases.update([case.caseid for case in test_cases])
+                # Find matching test cases
                 if app.target in test_cases_index[app_abs_path]:
-                    if app_sdkconfig_name in test_cases_index[app_abs_path][app.target]:
-                        app_test_cases.append(test_cases_index[app_abs_path][app.target][app_sdkconfig_name])
+                    if app.config_name in test_cases_index[app_abs_path][app.target]:
+                        test_cases = test_cases_index[app_abs_path][app.target][app.config_name]
+                        app_test_cases.update([case.name for case in test_cases])
+                        used_test_cases.update([case.caseid for case in test_cases])
 
-            project_path.append(
+            project_path['apps'].append(
                 {
                     'target': app.target,
-                    'sdkconfig': app_sdkconfig_name,
+                    'sdkconfig': app.config_name,
                     'build_status': app.build_status.value,
                     'build_comment': app.build_comment or '',
                     'test_comment': app.test_comment or '',
-                    'test_cases': [case.name for case in app_test_cases],
+                    'test_cases': list(app_test_cases),
                 }
             )
+
+        unused_test_cases = project_test_cases.copy()
+        unused_test_cases.difference_update(used_test_cases)
+
+        for case in unused_test_cases:
+            project_path['test_cases_missing_config'].append(case)
+
+        result['total_test_cases_missing_config'] += len(unused_test_cases)
 
     # Output result to file or stdout
     if output is not None:
