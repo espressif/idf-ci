@@ -46,7 +46,7 @@ def option_paths(func):
         multiple=True,
         type=click.Path(dir_okay=True, file_okay=False, exists=True),
         help=_OPTION_PATHS_HELP,
-        callback=lambda ctx, param, value: [os.getcwd()] if not value else value,  # noqa: ARG005
+        callback=lambda ctx, param, value: [os.curdir] if not value else value,  # noqa: ARG005
     )(func)
 
 
@@ -90,6 +90,15 @@ def option_branch(func):
     return click.option(
         '--branch',
         help='Git branch to use. If not provided, will use current git branch.',
+    )(func)
+
+
+def option_output(func):
+    return click.option(
+        '-o',
+        '--output',
+        type=click.Path(dir_okay=False, file_okay=True),
+        help='Output destination. Stdout if not provided',
     )(func)
 
 
