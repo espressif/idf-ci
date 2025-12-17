@@ -8,6 +8,7 @@ import typing as t
 from pathlib import Path
 
 import pytest
+from bs4 import BeautifulSoup
 from conftest import create_project
 from esp_bool_parser.constants import SUPPORTED_TARGETS
 
@@ -544,3 +545,26 @@ class TestBuildCollect:
             'test_comment',
             'Disabled by manifest rule: IDF_TARGET == "esp32" (reason: Disabled test for esp32)',
         )
+
+    def test_build_collect_html_output(self, tmp_path, runner) -> None:
+        output_file = tmp_path / 'output.html'
+
+        args = [
+            'build',
+            'collect',
+            '--format',
+            'html',
+            '--output',
+            str(output_file),
+        ]
+
+        result = runner.invoke(
+            click_cli,
+            args,
+        )
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+        with open(output_file) as fr:
+            soup = BeautifulSoup(fr, 'html.parser')
+            assert soup.find('html') is not None
