@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pre-build report</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+        Arial;
+      background: #fff;
+      color: #111;
+      padding: 16px;
+    }
+
+    .wrap {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .title {
+      font-size: 24px;
+      margin: 0 0 20px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+    }
+
+    .header-column {
+      flex: 1;
+    }
+
+    .header-column-legend {
+      flex: 0 0 700px;
+      min-width: 0;
+    }
+
+    @media (max-width: 1400px) {
+      .header-column-legend {
+        flex: 1 1 auto;
+        width: 100%;
+      }
+    }
+
+    /* Legend */
+    .legend {
+      background: #fafafa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 13px;
+      display: flex;
+      gap: 12px;
+      flex-direction: column;
+    }
+
+    .legend-sections {
+      display: flex;
+      gap: 24px;
+    }
+
+    .legend-section {
+      flex: 1;
+    }
+
+    .legend-section-title {
+      font-weight: 600;
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 4px;
+    }
+
+    .legend-items {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-color {
+      width: 20px;
+      height: 16px;
+      border-radius: 3px;
+      border: 1px solid rgba(0,0,0,0.1);
+      flex-shrink: 0;
+    }
+
+    .legend-code {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .legend-desc {
+      color: #555;
+    }
+
+    .legend-note {
+      font-size: 12px;
+      color: #777;
+      font-style: italic;
+      margin-top: 2px;
+    }
+
+    /* Search input */
+    .search-box {
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .search-box input {
+      width: 100%;
+      max-width: 360px;
+      padding: 8px 12px;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: #0066cc;
+    }
+
+    /* Filter container */
+    .filter {
+      margin-bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      margin-right: 4px;
+    }
+
+    /* Chip buttons */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid #ccc;
+      border-radius: 16px;
+      background: #fff;
+      color: #444;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .chip:hover {
+      background: #f0f0f0;
+      border-color: #aaa;
+    }
+
+    .chip.active {
+      background: #1976d2;
+      border-color: #1976d2;
+      color: #fff;
+    }
+
+    .chip.active:hover {
+      background: #1565c0;
+      border-color: #1565c0;
+    }
+
+    .chip.reset {
+      background: #f5f5f5;
+      border-color: #bbb;
+      color: #666;
+    }
+
+    .chip.reset:hover {
+      background: #e0e0e0;
+      border-color: #999;
+    }
+
+    /* Hidden states */
+    .hidden-by-target,
+    .hidden-by-search,
+    .hidden-by-status,
+    .hidden-by-other {
+      display: none !important;
+    }
+
+    /* Filter groups wrapper */
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px 32px;
+      margin-bottom: 16px;
+    }
+
+    .filters .filter {
+      margin-bottom: 0;
+    }
+
+    /* Common table styles */
+    table {
+      border: 1px solid #ddd;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #eee;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    /* Projects table */
+    .projects-table {
+      width: 100%;
+    }
+
+    .projects-table > thead > tr {
+      background: #fafafa;
+      box-shadow: 0 0 0 1px #ddd;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .projects-table > thead > tr > th {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .projects-table > thead > tr > th:hover {
+      background: #f0f0f0;
+    }
+
+    .projects-table > thead > tr > th.sorted-asc::after {
+      content: " \2191"; /* Arrow up */
+    }
+
+    .projects-table > thead > tr > th.sorted-desc::after {
+      content: " \2193"; /* Arrow down */
+    }
+
+    .projects-table > thead > tr > th.number-col,
+    .projects-table > tbody > tr > td.number-col {
+      width: 90px;
+      min-width: 90px;
+      max-width: 90px;
+    }
+
+    /* Details table */
+    .details-table {
+      max-width: 100%;
+      overflow-x: auto;
+    }
+
+    .details-table > thead > tr > th,
+    .details-table > tbody > tr > td {
+      padding: 4px 5px;
+      font-size: 13px;
+      text-align: center;
+      border: 1px solid #eee;
+    }
+
+    .details-table > thead > tr > th.sdkconfig,
+    .details-table > tbody > tr > td.sdkconfig {
+      width: 360px;
+      min-width: 360px;
+      max-width: 360px;
+      text-align: left;
+    }
+
+    .details-table > thead > tr > th.coverage,
+    .details-table > tbody > tr > td.coverage {
+      width: 90px;
+      min-width: 90px;
+      max-width: 90px;
+    }
+
+    .details-table > thead > tr > th {
+      color: #555;
+      font-weight: 600;
+    }
+
+    .details-table .highlighted-cell {
+      border: 2px solid #1976d2;
+    }
+
+    /* Tests unknown sdkconfig */
+    .tests-unknown-sdkconfig {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: #f9f9f9;
+      border: 1px solid #eee;
+      font-size: 13px;
+    }
+
+    .tests-unknown-sdkconfig-title {
+      font-weight: 600;
+      color: #b71c1c;
+      margin-bottom: 4px;
+    }
+
+    .tests-unknown-sdkconfig-list {
+      margin: 0;
+      padding-left: 25px;
+    }
+
+    .tests-unknown-sdkconfig li {
+      color: #333;
+      word-break: break-word;
+    }
+
+    /* Status colors */
+    .app-bt, .app-d, .app-ds { background-color: #a5d6a7; }
+    .app-bts { background-color: #c5e1a5; }
+    .app-bs { background-color: #e6ee9c; }
+    .app-b { background-color: #fff59d; }
+    .app-dts { background-color: #ffab91; }
+    .app-dt { background-color: #ef9a9a; }
+
+    .app-err { background-color: #ef9a9a; }
+    .app-u { background-color: #eee; }
+
+    /* Coverage colors */
+    .cov-l {
+      color: #b43b3b;
+      font-weight: 700;
+    }
+
+    /* Target cell */
+    .target-cell-label {
+      font-weight: 500;
+    }
+    .target-cell-test-count {
+      font-size: 11px;
+      color: #333;
+    }
+
+    /* Popup */
+    .popup {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      background: #fff;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      padding: 8px 12px;
+      max-width: 400px;
+      min-width: 280px;
+      font-size: 13px;
+      text-align: left;
+      white-space: normal;
+      pointer-events: none;
+    }
+
+    .popup-section {
+      margin-bottom: 8px;
+    }
+
+    .popup-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .popup-section-title {
+      font-weight: 600;
+      color: #b71c1c;
+      margin-bottom: 4px;
+    }
+
+    .popup-list {
+      margin: 0;
+      padding-left: 25px;
+    }
+
+    .popup-list li {
+      color: #333;
+      word-break: break-word;
+    }
+
+    /* Show cursor on cells with popups */
+    td[data-show-popup] {
+      cursor: pointer;
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">Pre-build report</h1>
+    <div class="header">
+      <div class="header-column">
+        <div class="filter" id="target-filter">
+          <span class="filter-label">Target:</span>
+          {% for target in targets %}
+            <span class="chip" data-value="{{ target }}">{{ target }}</span>
+          {% endfor %}
+        </div>
+        <div class="filters">
+          <div class="filter" id="app-filter" data-mode="single">
+            <span class="filter-label">App:</span>
+            <span class="chip" data-value="B">Should be built</span>
+            <span class="chip" data-value="D">Disabled</span>
+          </div>
+          <div class="filter" id="tests-filter" data-mode="multi">
+            <span class="filter-label">Tests:</span>
+            <span class="chip" data-value="T">Enabled</span>
+            <span class="chip" data-value="S">Skipped</span>
+          </div>
+        </div>
+        <div class="filter" id="errors-filter" data-mode="multi">
+          <span class="filter-label">Errors:</span>
+          <span class="chip" data-value="tests-has-mismatch">Tests have mismatch</span>
+          <span class="chip" data-value="no-sdkconfig">Projects with tests requiring unknown sdkconfig</span>
+        </div>
+        <div class="search-box">
+          <input type="text" id="search-input" placeholder="Search by project path" />
+          <button class="chip reset" id="reset-all">Reset all</button>
+        </div>
+      </div>
+      <div class="header-column header-column-legend">
+        <div class="legend">
+          <div class="legend-sections">
+            <div class="legend-section">
+              <div class="legend-section-title">Cell labels</div>
+              <div class="legend-items">
+                <div class="legend-item">
+                  <span class="legend-code">B</span>
+                  <span class="legend-desc">App should be built</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-code">D</span>
+                  <span class="legend-desc">App is disabled</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-code">(2/5)</span>
+                  <span class="legend-desc">Enabled tests / Total tests</span>
+                </div>
+              </div>
+            </div>
+            <div class="legend-section">
+              <div class="legend-section-title">Cell colors</div>
+              <div class="legend-items">
+                <div class="legend-item">
+                  <span class="legend-color app-bt"></span>
+                  <span class="legend-desc">All tests enabled OR app disabled</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-color app-bts"></span>
+                  <span class="legend-desc">App should be built, some tests are skipped</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-color app-bs"></span>
+                  <span class="legend-desc">App should be built, all tests are skipped</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-color app-b"></span>
+                  <span class="legend-desc">App should be built, no tests defined</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-color app-dts"></span>
+                  <span class="legend-desc">App disabled, some tests are enabled</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-color app-dt"></span>
+                  <span class="legend-desc">App disabled, all tests are enabled OR some tests have mismatch</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="legend-note">Example of test mismatch is when a test is disabled by manifest, but enabled by pytest marker</div>
+        </div>
+      </div>
+    </div>
+    <table class="projects-table">
+      <thead>
+        <tr>
+          <th class="sorted-asc">Path</th>
+          <th class="number-col">Apps</th>
+          <th class="number-col">Enabled tests</th>
+          <th class="number-col">Tests</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr
+            class="main-row"
+            data-targets="{{ row.target_list|join(',') }}"
+            {% if row.tests_unknown_sdkconfig|length > 0 %}data-has-tests-unknown-sdkconfig{% endif %}
+          >
+            <td data-project-path>{{ row.project_path }}</td>
+            <td class="number-col">{{ row.apps }}</td>
+            <td class="number-col">{{ row.enabled_tests }}</td>
+            <td class="number-col">{{ row.tests }}</td>
+          </tr>
+          <tr class="details-row">
+            <td colspan="4">
+              <table class="details-table">
+                <thead>
+                  <tr>
+                    <th class="sdkconfig">Config</th>
+                    <th class="coverage">Coverage</th>
+                    {% for target in row.target_list %}
+                      <th data-target="{{ target }}">{{ target }}</th>
+                    {% endfor %}
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for detail in row.details %}
+                    <tr>
+                      <td class="sdkconfig">{{ detail.sdkconfig }}</td>
+                      <td class="coverage {{ 'cov-l' if detail.coverage < 50 else '' }}">
+                        {{ "%.2f"|format(detail.coverage) }}%
+                      </td>
+                      {% for target in detail.targets %}
+                        <td class="app-{{ target.status|lower if not target.has_err else 'err' }}"
+                            data-target="{{ target.name }}"
+                            data-status="{{ target.status|lower }}"
+                            {% if target.has_err %} data-has-error{% endif %}
+                            {% if target.has_err or target.is_disabled %}data-show-popup tabindex="0"{% endif %}
+                        >
+                          <span class="target-cell-label">{{ target.status_label }}</span>
+                          {% if target.tests > 0 %}
+                            <span class="target-cell-test-count">({{ target.enabled_tests }}/{{ target.tests }})</span>
+                          {% endif %}
+                          {% if target.has_err or target.is_disabled %}
+                            <div class="popup">
+                              {% if target.is_disabled %}
+                                <div class="popup-section">
+                                  <div class="popup-section-title">Disable reason:</div>
+                                  <div>{{ target.disable_reason }}</div>
+                                </div>
+                              {% endif %}
+                              {% if target.disabled_by_manifest_only %}
+                                <div class="popup-section">
+                                  <div class="popup-section-title">Tests disabled by manifest only:</div>
+                                  <ul class="popup-list">
+                                    {% for case in target.disabled_by_manifest_only %}
+                                      <li><strong>{{ case.name }}</strong> ({{ case.test_comment }})</li>
+                                    {% endfor %}
+                                  </ul>
+                                </div>
+                              {% endif %}
+                              {% if target.disabled_by_marker_only %}
+                                <div class="popup-section">
+                                  <div class="popup-section-title">Tests disabled by pytest only:</div>
+                                  <ul class="popup-list">
+                                    {% for case in target.disabled_by_marker_only %}
+                                      <li><strong>{{ case.name }}</strong> ({{ case.skip_reason }})</li>
+                                    {% endfor %}
+                                  </ul>
+                                </div>
+                              {% endif %}
+                            </div>
+                          {% endif %}
+                        </td>
+                      {% endfor %}
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% if row.tests_unknown_sdkconfig|length > 0 %}
+                <div class="tests-unknown-sdkconfig">
+                  <div class="tests-unknown-sdkconfig-title">Tests requiring unknown sdkconfig:</div>
+                  <ul class="tests-unknown-sdkconfig-list">
+                    {% for test in row.tests_unknown_sdkconfig %}
+                      <li>{{ test }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function debounce(func, delay) {
+      let timeoutId;
+      return function (...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+
+    function addSorting(table) {
+      const header = table.querySelector("thead");
+      if (!header) return;
+
+      const headerCells = header.querySelectorAll("th");
+      const tbody = table.querySelector("tbody");
+
+      headerCells.forEach((header, columnIndex) => {
+        header.addEventListener("click", function () {
+          // Get sort direction
+          const currentSort = header.classList.contains("sorted-asc")
+            ? "asc"
+            : header.classList.contains("sorted-desc")
+            ? "desc"
+            : "";
+          const newSort = currentSort === "desc" ? "asc" : "desc";
+
+          // Remove sorting classes from all headers
+          headerCells.forEach((h) => {
+            h.classList.remove("sorted-asc", "sorted-desc");
+          });
+
+          // Add new sorting class
+          header.classList.add(
+            newSort === "asc" ? "sorted-asc" : "sorted-desc"
+          );
+
+          // Get main rows
+          const mainRows = Array.from(tbody.querySelectorAll("tr.main-row"));
+
+          // Sort rows
+          mainRows.sort((a, b) => {
+            const aCell = a.children[columnIndex];
+            const bCell = b.children[columnIndex];
+
+            const aValue = aCell ? aCell.textContent.trim() : "";
+            const bValue = bCell ? bCell.textContent.trim() : "";
+
+            const aNum = parseFloat(aValue);
+            const bNum = parseFloat(bValue);
+
+            let cmp = 0;
+            if (!isNaN(aNum) && !isNaN(bNum)) {
+              cmp = aNum - bNum;
+            } else {
+              // String comparison
+              cmp = aValue.localeCompare(bValue);
+            }
+
+            return newSort === "asc" ? cmp : -cmp;
+          });
+
+          // Re-append sorted rows
+          mainRows.forEach((row) => {
+            const detailRow = row.nextElementSibling;
+            tbody.appendChild(row); // Move parent
+            if (detailRow && detailRow.classList.contains("details-row")) {
+              tbody.appendChild(detailRow); // Move child right after
+            }
+          });
+        });
+      });
+    }
+
+    function addSearch(table, searchInput) {
+      const tbody = table.querySelector("tbody");
+      const mainRows = tbody.querySelectorAll("tr.main-row");
+
+      const performSearch = debounce(function (searchTerm) {
+        mainRows.forEach((row) => {
+          const detailRow = row.nextElementSibling;
+          const projectPath = row.querySelector("[data-project-path]").textContent.toLowerCase();
+          const hidden = !projectPath.includes(searchTerm);
+
+          row.classList.toggle("hidden-by-search", hidden);
+          detailRow.classList.toggle("hidden-by-search", hidden);
+        });
+      }, 300);
+
+      searchInput.addEventListener("input", function () {
+        const searchTerm = this.value.toLowerCase();
+        performSearch(searchTerm);
+      });
+
+      // Return reset function
+      return function resetSearch() {
+        searchInput.value = "";
+        performSearch("");
+      };
+    }
+
+    function addTargetFilter(table, onTargetChange) {
+      const filterContainer = document.getElementById("target-filter");
+      const chips = filterContainer.querySelectorAll(".chip[data-value]");
+      const tbody = table.querySelector("tbody");
+      const mainRows = tbody.querySelectorAll("tr.main-row");
+
+      let selectedTargets = new Set();
+
+      function applyTargetFilter() {
+        // Hide/show target columns
+        const allTargetCells = document.querySelectorAll(".details-table [data-target]");
+        allTargetCells.forEach((cell) => {
+          const target = cell.dataset.target;
+          if (selectedTargets.size === 0) {
+            cell.classList.remove("hidden-by-target");
+          } else {
+            if (selectedTargets.has(target)) {
+              cell.classList.remove("hidden-by-target");
+            } else {
+              cell.classList.add("hidden-by-target");
+            }
+          }
+        });
+
+        // Hide/show project rows based on whether they have any selected targets
+        mainRows.forEach((row) => {
+          const detailRow = row.nextElementSibling;
+          const rowTargets = row.dataset.targets ? row.dataset.targets.split(",") : [];
+
+          let hidden = false;
+          if (selectedTargets.size > 0) {
+            const hasMatch = rowTargets.some((t) => selectedTargets.has(t));
+            if (!hasMatch) {
+              hidden = true;
+            }
+          }
+
+          row.classList.toggle("hidden-by-target", hidden);
+          detailRow.classList.toggle("hidden-by-target", hidden);
+        });
+
+        if (onTargetChange) onTargetChange();
+      }
+
+      chips.forEach((chip) => {
+        chip.addEventListener("click", function () {
+          const value = this.dataset.value;
+          if (selectedTargets.has(value)) {
+            selectedTargets.delete(value);
+            this.classList.remove("active");
+          } else {
+            selectedTargets.add(value);
+            this.classList.add("active");
+          }
+          applyTargetFilter();
+        });
+      });
+
+      return function resetTargetFilter() {
+        selectedTargets.clear();
+        chips.forEach((chip) => chip.classList.remove("active"));
+        applyTargetFilter();
+      };
+    }
+
+    function addStatusFilter(table) {
+      const appFilter = document.getElementById("app-filter");
+      const testFilter = document.getElementById("tests-filter");
+      const errorsFilter = document.getElementById("errors-filter");
+      const testsHasMismatchChip = errorsFilter.querySelector('.chip[data-value="tests-has-mismatch"]');
+      const tbody = table.querySelector("tbody");
+      const mainRows = tbody.querySelectorAll("tr.main-row");
+
+      // Filter state
+      let appValue = null;                  // null, "B" or "D"
+      let testValue = new Set();            // "T", "S"
+      let testsHasMismatchValue = false;    // "tests-has-mismatch" filter from errors section
+
+      function normalizeValue(val) {
+        return [...val.toLowerCase()].sort().join("");
+      }
+
+      function matchFilterValue (val, cellHasMismatch) {
+        // Filter by mismatch
+        if (testsHasMismatchValue && !cellHasMismatch) {
+          return false;
+        }
+
+        // Filter by app and tests
+        const selectedApp = appValue ? [appValue] : ["B", "D"];
+        const selectedTests = testValue.size > 0 ? [[...testValue].join("")] : ["", "T", "S", "TS"];
+        const normalizedVal = normalizeValue(val);
+
+        for (const app of selectedApp) {
+          for (const test of selectedTests) {
+            const filterVal = normalizeValue(app + test);
+            if (normalizedVal === filterVal) {
+              return true;
+            }
+          }
+        }
+
+        return false
+      }
+
+      function applyStatusFilter() {
+        const filtersEnabled = appValue !== null || testValue.size > 0 || testsHasMismatchValue;
+
+        mainRows.forEach((mainRow) => {
+          const detailRow = mainRow.nextElementSibling;
+          const detailTable = detailRow.querySelector(".details-table");
+          const detailTableRows = detailTable.querySelectorAll("tbody > tr");
+          let detailRowsMatches = 0;
+
+          detailTableRows.forEach((row) => {
+            // Check if each cell matches filters
+            rowCells = row.querySelectorAll("[data-status]");
+            let cellMatches = 0;
+
+            rowCells.forEach((cell) => {
+              const hiddenByTarget = cell.classList.contains("hidden-by-target");
+
+              if (hiddenByTarget) {
+                // Skip cell hidden by target filter
+                return;
+              }
+
+              const cellHasMismatch = cell.hasAttribute("data-has-error");
+              const status = cell.dataset.status || "";
+              const matches = matchFilterValue(status, cellHasMismatch);
+
+              if (matches) {
+                cellMatches++;
+
+                // Highligt cell if filters are enabled
+                if (filtersEnabled) {
+                  cell.classList.add("highlighted-cell");
+                } else {
+                  cell.classList.remove("highlighted-cell");
+                }
+              } else {
+                cell.classList.remove("highlighted-cell");
+              }
+            })
+
+            // Hide detail row if no cells match
+            const rowHidden = cellMatches === 0;
+            row.classList.toggle("hidden-by-status", rowHidden);
+            if (!rowHidden) detailRowsMatches++;
+          });
+
+          // Hide project row if no visible detail rows
+          const projectRowHidden = detailRowsMatches === 0;
+          mainRow.classList.toggle("hidden-by-status", projectRowHidden);
+          detailRow.classList.toggle("hidden-by-status", projectRowHidden);
+        });
+      }
+
+      function setupSingleSelectFilter(container, getValue, setValue, onChange) {
+        const chips = container.querySelectorAll(".chip[data-value]");
+
+        chips.forEach((chip) => {
+          chip.addEventListener("click", function () {
+            const value = this.dataset.value;
+            if (getValue() === value) {
+              // Already selected, deselect
+              setValue(null);
+              this.classList.remove("active");
+            } else {
+              // Select this one, deselect others
+              chips.forEach((c) => c.classList.remove("active"));
+              setValue(value);
+              this.classList.add("active");
+            }
+            applyStatusFilter();
+          });
+        });
+      }
+
+      function setupMultiSelectFilter(container, getSet) {
+        const chips = container.querySelectorAll(".chip[data-value]");
+
+        chips.forEach((chip) => {
+          chip.addEventListener("click", function () {
+            const value = this.dataset.value;
+            if (getSet().has(value)) {
+              getSet().delete(value);
+              this.classList.remove("active");
+            } else {
+              getSet().add(value);
+              this.classList.add("active");
+            }
+            applyStatusFilter();
+          });
+        });
+      }
+
+      setupSingleSelectFilter(
+        appFilter,
+        () => appValue,
+        (v) => { appValue = v; }
+      );
+
+      setupMultiSelectFilter(
+        testFilter,
+        () => testValue
+      );
+
+      // Setup "tests-has-mismatch" filter from errors section
+      testsHasMismatchChip.addEventListener("click", function () {
+        testsHasMismatchValue = !testsHasMismatchValue;
+        this.classList.toggle("active", testsHasMismatchValue);
+        applyStatusFilter();
+      });
+
+      // Return both apply and reset functions
+      function resetStatusFilter() {
+        appValue = null;
+        testValue.clear();
+        testsHasMismatchValue = false;
+        appFilter.querySelectorAll(".chip[data-value]").forEach(c => c.classList.remove("active"));
+        testFilter.querySelectorAll(".chip[data-value]").forEach(c => c.classList.remove("active"));
+        testsHasMismatchChip.classList.remove("active");
+        applyStatusFilter();
+      }
+
+      return { applyStatusFilter, resetStatusFilter };
+    }
+
+    function addOtherFilter (table) {
+      const filterContainer = document.getElementById("errors-filter");
+      // Exclude has-mismatch chip as it's handled by status filter
+      const chips = filterContainer.querySelectorAll('.chip[data-value]:not([data-value="tests-has-mismatch"])');
+      const tbody = table.querySelector("tbody");
+      const mainRows = tbody.querySelectorAll("tr.main-row");
+
+      const selectedValues = new Set();
+
+      function applyOtherFilter() {
+        mainRows.forEach((row) => {
+          const detailRow = row.nextElementSibling;
+          let hidden = false;
+
+          // Check for no-sdkconfig
+          if (selectedValues.has("no-sdkconfig")) {
+            if (!row.hasAttribute("data-has-tests-unknown-sdkconfig")) {
+              hidden = true;
+            }
+          }
+
+          row.classList.toggle("hidden-by-other", hidden);
+          detailRow.classList.toggle("hidden-by-other", hidden);
+        });
+      }
+
+      chips.forEach((chip) => {
+        chip.addEventListener("click", function () {
+          const value = this.dataset.value;
+          if (selectedValues.has(value)) {
+            selectedValues.delete(value);
+            this.classList.remove("active");
+          } else {
+            selectedValues.add(value);
+            this.classList.add("active");
+          }
+          applyOtherFilter();
+        });
+      });
+
+      return function resetOtherFilter() {
+        selectedValues.clear();
+        chips.forEach((chip) => chip.classList.remove("active"));
+        applyOtherFilter();
+      };
+    }
+
+    function addErrorPopup() {
+      function showPopup(cell) {
+        const popup = cell.querySelector(".popup");
+        if (!popup) return;
+
+        popup.style.display = "block";
+
+        const rect = cell.getBoundingClientRect();
+        const popupRect = popup.getBoundingClientRect();
+
+        let left = rect.left;
+        let top = rect.bottom + 8;
+
+        // Set new left position if popup exceeds window width
+        if (left + popupRect.width > window.innerWidth) {
+          left = window.innerWidth - popupRect.width - 8;
+        }
+
+        // Set new top position if popup exceeds window height
+        if (top + popupRect.height > window.innerHeight) {
+          top = rect.top - popupRect.height - 8;
+        }
+
+        popup.style.left = left + "px";
+        popup.style.top = top + "px";
+      }
+
+      function hidePopup(cell) {
+        const popup = cell.querySelector(".popup");
+        if (popup) {
+          popup.style.display = "none";
+        }
+      }
+
+      // Add event listeners for cells with popups
+      document.querySelectorAll("td[data-show-popup]").forEach((cell) => {
+        cell.addEventListener("focus", () => showPopup(cell));
+        cell.addEventListener("blur", () => hidePopup(cell));
+        cell.addEventListener("mouseenter", () => showPopup(cell));
+        cell.addEventListener("mouseleave", () => hidePopup(cell));
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      const table = document.querySelector(".projects-table");
+      const searchInput = document.getElementById("search-input");
+      const resetAllBtn = document.getElementById("reset-all");
+
+      addSorting(table);
+      const resetSearch = addSearch(table, searchInput);
+      const { applyStatusFilter, resetStatusFilter } = addStatusFilter(table);
+      const resetTargetFilter = addTargetFilter(table, applyStatusFilter);
+      const resetOtherFilter = addOtherFilter(table);
+      addErrorPopup();
+
+      resetAllBtn.addEventListener("click", function () {
+        resetSearch();
+        resetTargetFilter();
+        resetStatusFilter();
+        resetOtherFilter();
+      });
+    });
+  </script>
+</body>
+</html>

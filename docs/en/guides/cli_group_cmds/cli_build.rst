@@ -91,6 +91,7 @@ Options:
 
 - ``--paths PATHS`` - Paths to search for applications. If not provided, current directory is used
 - ``--output OUTPUT`` - Output destination. If not provided, stdout is used
+- ``--format [json|html]`` - Output format. Default is json
 - ``--include-only-enabled`` - Include only enabled applications
 
 Output format:
@@ -158,6 +159,9 @@ Examples:
 
     # Collect applications and output to a file
     idf-ci build collect --output /path/to/output.json
+
+    # Collect applications and output in HTML format
+    idf-ci build collect --format html --output /path/to/output.html
 
     # Collect only enabled applications
     idf-ci build collect --include-only-enabled
