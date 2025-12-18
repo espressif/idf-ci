@@ -75,3 +75,87 @@ Example:
 
     # Create build configuration file in specific directory
     idf-ci build init --path /path/to/config
+
+Collect Applications
+~~~~~~~~~~~~~~~~~~~~
+
+This command collects all applications, corresponding test cases and outputs the result in JSON format.
+
+.. code-block:: bash
+
+    idf-ci build collect [OPTIONS]
+
+Options:
+
+- ``--paths PATHS`` - Paths to search for applications. If not provided, current directory is used
+- ``--output OUTPUT`` - Output destination. If not provided, stdout is used
+- ``--include-only-enabled`` - Include only enabled applications
+
+Output format:
+
+.. code-block:: json
+
+    {
+        "summary": {
+            "total_projects": 1,
+            "total_apps": 1,
+            "total_test_cases": 4,
+            "total_test_cases_used": 1,
+            "total_test_cases_disabled": 2,
+            "total_test_cases_requiring_nonexistent_app": 1
+        },
+        "projects": {
+            "path/to/project": {
+                "apps": [
+                    {
+                        "target": "esp32",
+                        "sdkconfig": "release",
+                        "build_status": "should be built",
+                        "build_comment": "",
+                        "test_comment": "Disabled by manifest rule: IDF_TARGET == \"esp32\" (reason: Disabled test for esp32)",
+                        "test_cases": [
+                            {
+                                "name": "test_case_1",
+                                "caseid": "esp32.release.test_case_1"
+                            },
+                            {
+                                "name": "test_case_2",
+                                "caseid": "esp32.release.test_case_2",
+                                "disabled": true,
+                                "disabled_by_manifest": false,
+                                "disabled_by_marker": true,
+                                "skip_reason": "skipped by marker"
+                            },
+                            {
+                                "name": "test_case_3",
+                                "caseid": "esp32.release.test_case_3",
+                                "disabled": true,
+                                "disabled_by_manifest": true,
+                                "disabled_by_marker": false,
+                                "test_comment": "Disabled by manifest rule: IDF_TARGET == \"esp32\" (reason: Disabled test for esp32)"
+                            }
+                        ]
+                    }
+                ],
+                "test_cases_requiring_nonexistent_app": [
+                    "esp32.default.test_case_4"
+                ]
+            }
+        }
+    }
+
+Examples:
+
+.. code-block:: bash
+
+    # Collect applications in current directory
+    idf-ci build collect
+
+    # Collect applications in specified directories
+    idf-ci build collect --paths /path/to/dir1 /path/to/dir2
+
+    # Collect applications and output to a file
+    idf-ci build collect --output /path/to/output.json
+
+    # Collect only enabled applications
+    idf-ci build collect --include-only-enabled
