@@ -7,6 +7,10 @@ on:
     branches: [main]
     paths:
       - "**.py"
+  pull_request_target:
+    branches: [main]
+    paths:
+      - "**.py"
 
 # https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs
 # `contents` is for permission to the contents of the repository.
