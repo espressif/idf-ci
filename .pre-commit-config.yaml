@@ -17,13 +17,13 @@ repos:
           - license_header.txt        # defaults to: LICENSE.txt
           - --use-current-year
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 'v0.14.2'
+    rev: 'v0.14.10'
     hooks:
       - id: ruff-check
         args: ['--fix']
       - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v1.18.2'
+    rev: 'v1.19.1'
     hooks:
       - id: mypy
         args: ['--warn-unused-ignores']
@@ -41,7 +41,7 @@ repos:
           - types-PyYAML
           - types-requests
   - repo: https://github.com/LilSpazJoekp/docstrfmt
-    rev: v1.11.1
+    rev: v2.0.0
     hooks:
       - id: docstrfmt
         types: [rst]
@@ -49,7 +49,7 @@ repos:
         additional_dependencies:
           - sphinx<9
   - repo: https://github.com/LilSpazJoekp/docstrfmt
-    rev: v1.11.1
+    rev: v2.0.0
     hooks:
       - id: docstrfmt
         types: [python]
