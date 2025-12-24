@@ -53,7 +53,7 @@ Repository = "https://github.com/espressif/idf-ci.git"
 Changelog = "https://github.com/espressif/idf-ci/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov"]
+test = ["pytest", "pytest-cov", "beautifulsoup4"]
 
 doc = [
     "sphinx",
