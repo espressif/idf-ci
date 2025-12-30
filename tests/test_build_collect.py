@@ -8,18 +8,28 @@ import typing as t
 from pathlib import Path
 
 import pytest
+from bs4 import BeautifulSoup
 from conftest import create_project
 from esp_bool_parser.constants import SUPPORTED_TARGETS
 
 from idf_ci.cli import click_cli
 
 
-def match_app(data: dict, path: str, target: str, sdkconfig: str, cb: t.Callable[[t.Dict[str, t.Any]], bool]) -> bool:
+def match_app(data: dict, path: Path, target: str, sdkconfig: str, cb: t.Callable[[t.Dict[str, t.Any]], bool]) -> bool:
     projects = data.get('projects', {})
-    if path not in projects:
+    normalized_path = Path(path).as_posix()
+    project = None
+
+    # Find project by path
+    for project_path in projects:
+        if Path(project_path).as_posix() == normalized_path:
+            project = projects[project_path]
+            break
+
+    if project is None:
         return False
 
-    for app in projects[path].get('apps', []):
+    for app in project.get('apps', []):
         if app.get('target') != target or app.get('sdkconfig') != sdkconfig:
             continue
 
@@ -29,7 +39,7 @@ def match_app(data: dict, path: str, target: str, sdkconfig: str, cb: t.Callable
     return False
 
 
-def has_test_case(data: dict, path: str, target: str, sdkconfig: str, test_case: str) -> bool:
+def has_test_case(data: dict, path: Path, target: str, sdkconfig: str, test_case: str) -> bool:
     return match_app(
         data,
         path,
@@ -39,7 +49,7 @@ def has_test_case(data: dict, path: str, target: str, sdkconfig: str, test_case:
     )
 
 
-def has_test_case_by_caseid(data: dict, path: str, target: str, sdkconfig: str, caseid: str) -> bool:
+def has_test_case_by_caseid(data: dict, path: Path, target: str, sdkconfig: str, caseid: str) -> bool:
     return match_app(
         data,
         path,
@@ -50,7 +60,7 @@ def has_test_case_by_caseid(data: dict, path: str, target: str, sdkconfig: str, 
 
 
 def check_property(
-    data: dict, path: str, target: str, sdkconfig: str, property_name: str, property_value: t.Any
+    data: dict, path: Path, target: str, sdkconfig: str, property_name: str, property_value: t.Any
 ) -> bool:
     return match_app(
         data,
@@ -62,7 +72,7 @@ def check_property(
 
 
 def check_test_case_property(
-    data: dict, path: str, target: str, sdkconfig: str, test_case: str, property_name: str, property_value: t.Any
+    data: dict, path: Path, target: str, sdkconfig: str, test_case: str, property_name: str, property_value: t.Any
 ) -> bool:
     return match_app(
         data,
@@ -163,9 +173,9 @@ class TestBuildCollect:
 
         data = self.run_build_collect(tmp_path, runner)
         assert data['summary']['total_test_cases_used'] == 3
-        assert has_test_case(data, './foo', 'esp32', 'default', 'test_foo')
-        assert has_test_case(data, './bar', 'esp32', 'default', 'test_bar')
-        assert has_test_case(data, './bar', 'esp32c3', 'default', 'test_bar')
+        assert has_test_case(data, Path('foo'), 'esp32', 'default', 'test_foo')
+        assert has_test_case(data, Path('bar'), 'esp32', 'default', 'test_bar')
+        assert has_test_case(data, Path('bar'), 'esp32c3', 'default', 'test_bar')
 
     def test_build_collect_with_sdkconfig(self, tmp_path, runner) -> None:
         with open(tmp_path / 'foo' / 'test_foo2.py', 'w') as fw:
@@ -200,8 +210,8 @@ class TestBuildCollect:
 
         data = self.run_build_collect(tmp_path, runner)
         assert data['summary']['total_test_cases_used'] == 2
-        assert has_test_case(data, './foo', 'esp32', 'cfg1', 'test_foo')
-        assert has_test_case(data, './foo', 'esp32', 'cfg2', 'test_foo')
+        assert has_test_case(data, Path('foo'), 'esp32', 'cfg1', 'test_foo')
+        assert has_test_case(data, Path('foo'), 'esp32', 'cfg2', 'test_foo')
 
     def test_build_collect_include_disabled_apps(self, tmp_path, runner) -> None:
         with open(tmp_path / '.build-test-rules.yml', 'w') as fw:
@@ -217,7 +227,7 @@ class TestBuildCollect:
         data = self.run_build_collect(tmp_path, runner)
         assert check_property(
             data,
-            './foo',
+            Path('foo'),
             'esp32',
             'default',
             'build_status',
@@ -261,7 +271,7 @@ class TestBuildCollect:
         # esp32
         assert check_property(
             data,
-            './foo',
+            Path('foo'),
             'esp32',
             'default',
             'build_comment',
@@ -270,7 +280,7 @@ class TestBuildCollect:
 
         assert check_property(
             data,
-            './foo',
+            Path('foo'),
             'esp32',
             'default',
             'test_comment',
@@ -280,7 +290,7 @@ class TestBuildCollect:
         # esp32c3
         assert check_property(
             data,
-            './foo',
+            Path('foo'),
             'esp32c3',
             'default',
             'build_comment',
@@ -289,7 +299,7 @@ class TestBuildCollect:
 
         assert check_property(
             data,
-            './foo',
+            Path('foo'),
             'esp32c3',
             'default',
             'test_comment',
@@ -375,7 +385,7 @@ class TestBuildCollect:
 
         data = self.run_build_collect(tmp_path, runner)
         assert data['summary']['total_test_cases_used'] == 1
-        assert has_test_case(data, './foo', 'esp32', 'default', 'test_host')
+        assert has_test_case(data, Path('foo'), 'esp32', 'default', 'test_host')
 
     def test_build_collect_include_only_enabled_apps(self, tmp_path, runner) -> None:
         with open(tmp_path / '.build-test-rules.yml', 'w') as fw:
@@ -403,8 +413,8 @@ class TestBuildCollect:
         data = self.run_build_collect(tmp_path, runner, additional_args=['--include-only-enabled-apps'])
         assert data['summary']['total_test_cases_used'] == 1
         assert data['summary']['total_test_cases_requiring_nonexistent_app'] == 1
-        assert has_test_case(data, './foo', 'esp32c3', 'default', 'test_foo')
-        assert not has_test_case(data, './foo', 'esp32', 'default', 'test_foo')
+        assert has_test_case(data, Path('foo'), 'esp32c3', 'default', 'test_foo')
+        assert not has_test_case(data, Path('foo'), 'esp32', 'default', 'test_foo')
 
     def test_build_collect_from_other_path(self, tmp_path, runner, monkeypatch) -> None:
         with open(tmp_path / 'foo' / 'test_foo8.py', 'w') as fw:
@@ -426,7 +436,7 @@ class TestBuildCollect:
 
         data = self.run_build_collect(other_path, runner, paths=[tmp_path / 'foo'])
         assert data['summary']['total_test_cases_used'] == 1
-        assert has_test_case(data, (tmp_path / 'foo').as_posix(), 'esp32', 'default', 'test_foo')
+        assert has_test_case(data, (tmp_path / 'foo'), 'esp32', 'default', 'test_foo')
 
     def test_build_collect_temp_skip_ci_marker(self, tmp_path, runner) -> None:
         with open(tmp_path / 'foo' / 'test_foo9.py', 'w') as fw:
@@ -450,11 +460,11 @@ class TestBuildCollect:
         assert data['summary']['total_test_cases'] == 4
         assert data['summary']['total_test_cases_used'] == 2
         assert data['summary']['total_test_cases_disabled'] == 2
-        assert has_test_case(data, './foo', 'esp32', 'default', 'test_foo1')
-        assert has_test_case(data, './foo', 'esp32', 'default', 'test_foo2')
+        assert has_test_case(data, Path('foo'), 'esp32', 'default', 'test_foo1')
+        assert has_test_case(data, Path('foo'), 'esp32', 'default', 'test_foo2')
         assert check_test_case_property(
             data,
-            './foo',
+            Path('foo'),
             'esp32c3',
             'default',
             'test_foo1',
@@ -463,7 +473,7 @@ class TestBuildCollect:
         )
         assert check_test_case_property(
             data,
-            './foo',
+            Path('foo'),
             'esp32c3',
             'default',
             'test_foo1',
@@ -495,8 +505,8 @@ class TestBuildCollect:
         data = self.run_build_collect(tmp_path, runner)
         assert data['summary']['total_test_cases'] == 2
         assert data['summary']['total_test_cases_used'] == 2
-        assert has_test_case_by_caseid(data, './foo', 'esp32', 'default', 'esp32.default.test_foo')
-        assert has_test_case_by_caseid(data, './foo', 'esp32', 'default', 'esp32_qemu.default.test_foo')
+        assert has_test_case_by_caseid(data, Path('foo'), 'esp32', 'default', 'esp32.default.test_foo')
+        assert has_test_case_by_caseid(data, Path('foo'), 'esp32', 'default', 'esp32_qemu.default.test_foo')
 
     def test_build_collect_test_disabled_by_manifest(self, tmp_path, runner) -> None:
         with open(tmp_path / '.build-test-rules.yml', 'w') as fw:
@@ -525,10 +535,10 @@ class TestBuildCollect:
         assert data['summary']['total_test_cases'] == 2
         assert data['summary']['total_test_cases_used'] == 1
         assert data['summary']['total_test_cases_disabled'] == 1
-        assert has_test_case(data, './foo', 'esp32c3', 'default', 'test_foo')
+        assert has_test_case(data, Path('foo'), 'esp32c3', 'default', 'test_foo')
         assert check_test_case_property(
             data,
-            './foo',
+            Path('foo'),
             'esp32',
             'default',
             'test_foo',
@@ -537,10 +547,33 @@ class TestBuildCollect:
         )
         assert check_test_case_property(
             data,
-            './foo',
+            Path('foo'),
             'esp32',
             'default',
             'test_foo',
             'test_comment',
             'Disabled by manifest rule: IDF_TARGET == "esp32" (reason: Disabled test for esp32)',
         )
+
+    def test_build_collect_html_output(self, tmp_path, runner) -> None:
+        output_file = tmp_path / 'output.html'
+
+        args = [
+            'build',
+            'collect',
+            '--format',
+            'html',
+            '--output',
+            str(output_file),
+        ]
+
+        result = runner.invoke(
+            click_cli,
+            args,
+        )
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+        with open(output_file) as fr:
+            soup = BeautifulSoup(fr, 'html.parser')
+            assert soup.find('html') is not None
