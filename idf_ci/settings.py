@@ -25,6 +25,10 @@ if sys.version_info < (3, 11):
 else:
     from typing import NotRequired
 
+if sys.version_info < (3, 8):
+    from typing_extensions import Literal
+else:
+    from typing import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +119,11 @@ class S3ZipPatternConfig(TypedDict):
 
 class ArtifactSettings(BaseModel):
     ### in s3 buckets ###
-    s3_file_mode: t.Literal['zip', 'file'] = 'file'
+    s3_file_mode: Literal['zip', 'file'] = 'file'
     """Mode to upload artifacts to S3. 'zip' to upload zip files, 'file' to upload single files"""
+
+    s3_download_from_public: bool = False
+    """Whether to download artifacts from public S3 buckets without authentication."""
 
     s3: t.Dict[str, S3FilePatternConfig] = {
         'debug': {
