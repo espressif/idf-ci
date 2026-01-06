@@ -147,6 +147,7 @@ class ArtifactManager:
         self.settings = get_ci_settings()
 
         self._s3_client: t.Optional[Minio] = UNDEF  # type: ignore
+        self._s3_public_client: t.Optional[Minio] = UNDEF  # type: ignore
 
     @property
     @lru_cache()
@@ -172,16 +173,39 @@ class ArtifactManager:
             self._s3_client = self._create_s3_client()
         return self._s3_client
 
-    def _create_s3_client(self) -> t.Optional[minio.Minio]:
-        if not all(
-            [
-                self.envs.IDF_S3_SERVER,
-                self.envs.IDF_S3_ACCESS_KEY,
-                self.envs.IDF_S3_SECRET_KEY,
-            ]
-        ):
+    @property
+    def s3_public_client(self) -> t.Optional[minio.Minio]:
+        """Get or create an anonymous S3 client for public buckets."""
+        if is_undefined(self._s3_public_client):
+            self._s3_public_client = self._create_s3_client(public=True)
+        return self._s3_public_client
+
+    def _create_s3_client(self, public: bool = False) -> t.Optional[minio.Minio]:
+        """Create a Minio client with the given credentials.
+
+        :param public: Whether to create an anonymous client for public access
+
+        :returns: Minio client instance
+        """
+        if not self.envs.IDF_S3_SERVER:
             logger.info('S3 credentials not available. Skipping S3 features...')
             return None
+
+        if public:
+            access_key = ''
+            secret_key = ''
+        else:
+            if not all(
+                [
+                    self.envs.IDF_S3_ACCESS_KEY,
+                    self.envs.IDF_S3_SECRET_KEY,
+                ]
+            ):
+                logger.info('S3 credentials not available. Skipping S3 features...')
+                return None
+
+            access_key = self.envs.IDF_S3_ACCESS_KEY
+            secret_key = self.envs.IDF_S3_SECRET_KEY
 
         if self.envs.IDF_S3_SERVER.startswith('https://'):
             host = self.envs.IDF_S3_SERVER.replace('https://', '')
@@ -192,11 +216,11 @@ class ArtifactManager:
         else:
             raise ValueError('Please provide a http or https server URL for S3')
 
-        logger.debug(f'S3 host: {host}')
+        logger.debug('S3 Host: %s', host)
         return minio.Minio(
             host,
-            access_key=self.envs.IDF_S3_ACCESS_KEY,
-            secret_key=self.envs.IDF_S3_SECRET_KEY,
+            access_key=access_key,
+            secret_key=secret_key,
             secure=secure,
             http_client=urllib3.PoolManager(
                 num_pools=10,
@@ -585,7 +609,10 @@ class ArtifactManager:
             folder=folder,
         )
 
-        if self.s3_client:
+        s3_client_to_use = (
+            self.s3_public_client if self.settings.gitlab.artifacts.s3_download_from_public else self.s3_client
+        )
+        if s3_client_to_use:
             logger.info(f'Downloading artifacts under {params.from_path} from s3 (commit sha: {params.commit_sha})')
 
             start_time = time.time()
@@ -596,7 +623,7 @@ class ArtifactManager:
                 # Use zip mode - download zip files and extract them
                 for bucket, artifact_types in self._get_upload_zip_details_by_type(artifact_type).items():
                     downloaded_count += self._download_zip_from_s3(
-                        s3_client=self.s3_client,
+                        s3_client=s3_client_to_use,
                         bucket=bucket,
                         prefix=f'{self.settings.gitlab.project}/{params.commit_sha}/',
                         from_path=params.from_path,
@@ -609,7 +636,7 @@ class ArtifactManager:
                 # Use file mode (default)
                 for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
                     downloaded_count += self._download_from_s3(
-                        s3_client=self.s3_client,
+                        s3_client=s3_client_to_use,
                         bucket=bucket,
                         prefix=f'{self.settings.gitlab.project}/{params.commit_sha}/',
                         from_path=params.from_path,
