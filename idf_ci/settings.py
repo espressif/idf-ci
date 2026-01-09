@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import logging
 import os
@@ -25,6 +25,10 @@ if sys.version_info < (3, 11):
 else:
     from typing import NotRequired
 
+if sys.version_info < (3, 8):
+    from typing_extensions import Literal
+else:
+    from typing import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -94,13 +98,33 @@ class CliOverridesSettingsSource(InitSettingsSource):
 
 class S3FilePatternConfig(TypedDict):
     bucket: str
+
     patterns: t.List[str]
-    if_clause: NotRequired[str]
     """List of glob patterns for files to collect."""
+
+    if_clause: NotRequired[str]
+
+
+class S3ZipPatternConfig(TypedDict):
+    bucket: str
+
+    zip_basedir_pattern: NotRequired[str]
+    """zip base directory pattern to locate the zip files. If not set, use the current directory."""
+
+    zip_file_patterns: t.List[str]
+    """zip file pattern relative to the base pattern."""
+
+    if_clause: NotRequired[str]
 
 
 class ArtifactSettings(BaseModel):
     ### in s3 buckets ###
+    s3_file_mode: Literal['zip', 'file'] = 'file'
+    """Mode to upload artifacts to S3. 'zip' to upload zip files, 'file' to upload single files"""
+
+    s3_download_from_public: bool = False
+    """Whether to download artifacts from public S3 buckets without authentication."""
+
     s3: t.Dict[str, S3FilePatternConfig] = {
         'debug': {
             'bucket': 'idf-artifacts',
@@ -128,6 +152,35 @@ class ArtifactSettings(BaseModel):
     }
     """Dictionary mapping artifact types to their bucket and file patterns."""
 
+    s3_zip: t.Dict[str, S3ZipPatternConfig] = {
+        'debug': {
+            'bucket': 'idf-artifacts',
+            'zip_basedir_pattern': '**/build*/',
+            'zip_file_patterns': [
+                'bootloader/*.map',
+                'bootloader/*.elf',
+                '*.map',
+                '*.elf',
+                'build.log',  # build_log_filename
+            ],
+        },
+        'flash': {
+            'bucket': 'idf-artifacts',
+            'zip_basedir_pattern': '**/build*/',
+            'zip_file_patterns': [
+                'bootloader/*.bin',
+                '*.bin',
+                'partition_table/*.bin',
+                'flasher_args.json',
+                'flash_project_args',
+                'config/sdkconfig.json',
+                'sdkconfig',
+                'project_description.json',
+            ],
+        },
+    }
+    """Dictionary mapping artifact types to their bucket and file patterns."""
+
     ### not in s3 buckets ###
 
     build_job_filepatterns: t.List[str] = [
@@ -148,7 +201,12 @@ class ArtifactSettings(BaseModel):
 
         :returns: List of artifact type names
         """
-        return sorted(self.s3.keys())
+        if self.s3_file_mode == 'zip':
+            return sorted(self.s3_zip.keys())
+        elif self.s3_file_mode == 'file':
+            return sorted(self.s3.keys())
+        else:
+            raise NotImplementedError(f'Unknown s3_file_mode: {self.s3_file_mode}')
 
 
 class BuildPipelineSettings(BaseModel):
