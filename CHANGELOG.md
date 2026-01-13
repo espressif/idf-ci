@@ -20,6 +20,22 @@
 </div>
 <hr>
 
+## v0.6.0 (2026-01-13)
+
+### ✨ New Features
+
+- support download artifacts from public bucket *(Fu Hanxi - 055e8af)*
+- support upload/download artifacts to s3 in zip mode *(Fu Hanxi - 0b6093f)*
+- add html output for build collect command *(Evgeny Torbin - 4ab8dbf)*
+- create build collect command *(Evgeny Torbin - c61f72d)*
+
+### 📖 Documentation
+
+- add `README.md` with guide to build/run docs locally *(Evgeny Torbin - 7a2d79f)*
+- fix command download-artifacts *(igor.udot - 126dec7)*
+
+---
+
 ## v0.5.1 (2025-10-27)
 
 ### ⚡ Performance Improvements
@@ -30,6 +46,7 @@
 
 - improve the s3 artifacts logs *(Fu Hanxi - 03115e2)*
 
+---
 
 ## v0.5.0 (2025-09-25)
 
@@ -45,9 +62,11 @@
 
 - use `get_ci_settings` as a contextvar, to reduce the redundant log *(Fu Hanxi - b2a8a77)*
 
+---
 
 ## v0.4.5 (2025-09-11)
 
+---
 
 ## v0.4.4 (2025-09-04)
 
@@ -55,6 +74,7 @@
 
 - quotes in yamls *(Fu Hanxi - 179b815)*
 
+---
 
 ## v0.4.3 (2025-09-03)
 
@@ -68,6 +88,7 @@
 - **gitlab**: pass `CI_PIPELINE_ID` in the 1st child pipeline to 2nd *(Fu Hanxi - 9a73cab)*
 - **gitlab**: install idf-ci in build and test jobs *(Fu Hanxi - 72fd3a7)*
 
+---
 
 ## v0.4.2 (2025-09-02)
 
@@ -75,13 +96,15 @@
 
 - **gitlab**: needs:pipeline does not support optional *(Fu Hanxi - 3b7e410)*
 
+---
 
-## v0.4.1 (2025-09-02) (yanked)
+## v0.4.1 (2025-09-02)
 
 ### ✨ New Features
 
 - support `gitlab.build_pipeline.parent_pipeline_job_suffix`, and make need jobs optional *(Fu Hanxi - 0bd3b4c)*
 
+---
 
 ## v0.4.0 (2025-09-02)
 
@@ -102,6 +125,7 @@
 
 - **gitlab**: make newlines in yamls looks better *(Fu Hanxi - 51ee203)*
 
+---
 
 ## v0.3.2 (2025-08-30)
 
@@ -109,6 +133,7 @@
 
 - **gitlab**: build-child-pipeline not working properly *(Fu Hanxi - be25e49)*
 
+---
 
 ## v0.3.1 (2025-08-14)
 
@@ -116,6 +141,7 @@
 
 - when select all pytest cases, respect app list files in ci *(Fu Hanxi - 457a998)*
 
+---
 
 ## v0.3.0 (2025-08-12)
 
@@ -132,6 +158,7 @@
 
 - depends on idf-build-apps~=2.12 *(Fu Hanxi - 6a3cb6a)*
 
+---
 
 ## v0.2.7 (2025-08-05)
 
@@ -139,6 +166,7 @@
 
 - remove non-existent folders from list *(igor.udot - 51b446e)*
 
+---
 
 ## v0.2.6 (2025-07-21)
 
@@ -146,6 +174,7 @@
 
 - filter test script by .py extension. not by filename *(Fu Hanxi - 25b2f20)*
 
+---
 
 ## v0.2.5 (2025-07-14)
 
@@ -157,6 +186,7 @@
 
 - lazy matching component regex while `get_modified_components` *(Fu Hanxi - 44151f9)*
 
+---
 
 ## v0.2.4 (2025-07-11)
 
@@ -164,6 +194,7 @@
 
 - **build**: will only build test-related apps when `-k` or `-m` is passed *(Fu Hanxi - c32360d)*
 
+---
 
 ## v0.2.3 (2025-07-09)
 
@@ -171,6 +202,7 @@
 
 - **fake_pass**: add `workflow:rules:always` to avoid empty pipeline *(Fu Hanxi - a6c828b)*
 
+---
 
 ## v0.2.2 (2025-07-09)
 
@@ -178,6 +210,7 @@
 
 - **fake_pass**: simplify the job, inherit build pipeline job stage and tags *(Fu Hanxi - abf4c3f)*
 
+---
 
 ## v0.2.1 (2025-07-09)
 
@@ -196,12 +229,15 @@
 - reorganize cli guide. add global cli commands and options *(Fu Hanxi - 33de0a6)*
 - more related links *(Fu Hanxi - 428a70a)*
 
+---
 
 ## v0.2.0 (2025-07-08)
 
 ### 🐛 Bug Fixes
 
 - job name env selector use comma, instead of "and" *(Fu Hanxi - 1579603)*
+
+---
 
 ## v0.1.35 (2025-06-30)
 
@@ -214,11 +250,15 @@
 - only load apps from local collect files on CI *(Fu Hanxi - bf1f060)*
 - remove `is_in_ci` in `PytestCase` class, use `CiSettings().is_in_ci` instead *(Fu Hanxi - 8c2ce79)*
 
+---
+
 ## v0.1.34 (2025-06-18)
 
 ### 🐛 Bug Fixes
 
 - gitlab pipeline doublequote the variable *(Fu Hanxi - 6c1094e)*
+
+---
 
 ## v0.1.33 (2025-06-18)
 
@@ -227,11 +267,15 @@
 - singlequote the nodes in gitlab to avoid special chars issues *(Fu Hanxi - 7be286f)*
 - runner tags shall not be concat with '+' *(Fu Hanxi - c242144)*
 
+---
+
 ## v0.1.32 (2025-06-17)
 
 ### 🐛 Bug Fixes
 
 - doublequote pipeline variable when contains space or newline *(Fu Hanxi - e178854)*
+
+---
 
 ## v0.1.31 (2025-06-16)
 
@@ -239,17 +283,23 @@
 
 - select all pytest cases boolean compare *(Fu Hanxi - 4db9dfe)*
 
+---
+
 ## v0.1.30 (2025-06-11)
 
 ### ✨ New Features
 
 - support download artifacts from pipeline id *(Fu Hanxi - 6a401fd)*
 
+---
+
 ## v0.1.29 (2025-06-10)
 
 ### 🐛 Bug Fixes
 
 - default build system set to UNDEF *(Fu Hanxi - a4000ae)*
+
+---
 
 ## v0.1.28 (2025-06-03)
 
@@ -266,11 +316,15 @@
 
 - update idf-build-apps minimum version *(Fu Hanxi - 5904d57)*
 
+---
+
 ## v0.1.26 (2025-05-19)
 
 ### ⚡ Performance Improvements
 
 - s3 operations with ThreadPoolExecutor *(Fu Hanxi - 4e6242c)*
+
+---
 
 ## v0.1.25 (2025-05-14)
 
@@ -278,11 +332,15 @@
 
 - env file values shall not include doublequotes *(Fu Hanxi - b75b23b)*
 
+---
+
 ## v0.1.24 (2025-05-13)
 
 ### ✨ New Features
 
 - support `if_clause` in s3 artifacts *(Fu Hanxi - 826a637)*
+
+---
 
 ## v0.1.23 (2025-05-07)
 
@@ -293,6 +351,8 @@
 ### 🐛 Bug Fixes
 
 - s3 artifacts support relative path *(Fu Hanxi - 61a0a20)*
+
+---
 
 ## v0.1.22 (2025-05-06)
 
@@ -309,6 +369,8 @@
 - rename `ArtifactsSettings` to `ArtifactSettings` *(Fu Hanxi - 3171c71)*
 - remove `metrics` from the default `gitlab.s3` settings *(Fu Hanxi - 1ae3128)*
 
+---
+
 ## v0.1.21 (2025-05-05)
 
 ### ⚡ Performance Improvements
@@ -316,11 +378,15 @@
 - load apps from collect app info files faster *(Fu Hanxi - a790ac5)*
 - load settings when needed *(Fu Hanxi - f9a740f)*
 
+---
+
 ## v0.1.20 (2025-04-30)
 
 ### 🐛 Bug Fixes
 
 - return apps that belongs to the current concurrent build *(Fu Hanxi - eef11cc)*
+
+---
 
 ## v0.1.19 (2025-04-29)
 
@@ -332,6 +398,8 @@
 
 - record additional info in jobs *(Fu Hanxi - 0adb4e9)*
 
+---
+
 ## v0.1.18 (2025-04-29)
 
 ### ✨ New Features
@@ -341,6 +409,8 @@
 ### 🔧 Code Refactoring
 
 - improve collection, `IdfPytestPlugin.cases` keep original order *(Fu Hanxi - f52f208)*
+
+---
 
 ## v0.1.17 (2025-04-25)
 
@@ -352,11 +422,15 @@
 
 - rename `idf-ci gitlab dynamic-pipeline-variables` to `idf-ci gitlab pipeline-variables` *(Fu Hanxi - 137f93d)*
 
+---
+
 ## v0.1.16 (2025-04-23)
 
 ### ✨ New Features
 
 - support `idf-ci gitlab download-artifacts` from presigned json *(Fu Hanxi - ec8ae20)*
+
+---
 
 ## v0.1.15 (2025-04-23)
 
@@ -370,6 +444,8 @@
 - `filepatterns` fields under gitlab.artifact renamed to `gitlab.artifact.s3` *(Fu Hanxi - 0d19a58)*
 - rename `gitlab.template` related settings names *(Fu Hanxi - cbddd6f)*
 
+---
+
 ## v0.1.14 (2025-04-17)
 
 ### 🐛 Bug Fixes
@@ -379,6 +455,8 @@
 ### 🏗️ Changes
 
 - caseid add `_qemu` as an extra identifier *(Fu Hanxi - 1b43569)*
+
+---
 
 ## v0.1.13 (2025-04-16)
 
@@ -400,11 +478,15 @@
 
 - require idf-build-apps 2.9 *(Fu Hanxi - 9cdbbfd)*
 
+---
+
 ## v0.1.12 (2025-04-14)
 
 ### ✨ New Features
 
 - support build job tag defined in settings *(Fu Hanxi - 921aba6)*
+
+---
 
 ## v0.1.11 (2025-04-14)
 
@@ -413,11 +495,15 @@
 - default test stage *(Fu Hanxi - bf511d3)*
 - small fixes on the default values of ci settings *(Fu Hanxi - 4c53332)*
 
+---
+
 ## v0.1.10 (2025-04-10)
 
 ### 🔧 Code Refactoring
 
 - settings sub sections *(Fu Hanxi - 83239ba)*
+
+---
 
 ## v0.1.9 (2025-04-10)
 
@@ -457,17 +543,23 @@
 - use docstrfmt instead of rstfmt *(Fu Hanxi - f211052)*
 - unify the cli api of download-artifacts and upload-artifacts *(Fu Hanxi - 15fb0cd)*
 
+---
+
 ## v0.1.8 (2025-03-24)
 
 ### 🐛 Bug Fixes
 
 - plugin load sequence. idf-ci must load after pytest-embedded *(Fu Hanxi - 1761709)*
 
+---
+
 ## v0.1.7 (2025-03-24)
 
 ### 🐛 Bug Fixes
 
 - make sure the plugin override sequence *(Fu Hanxi - c6827a9)*
+
+---
 
 ## v0.1.6 (2025-03-21)
 
@@ -479,11 +571,15 @@
 
 - update recommended gitignore list *(Fu Hanxi - 2b5222b)*
 
+---
+
 ## v0.1.5 (2025-03-13)
 
 ### 🐛 Bug Fixes
 
 - `env_selector` shall return markers with `and` joined *(Fu Hanxi - d1271b4)*
+
+---
 
 ## v0.1.4 (2025-03-13)
 
@@ -503,6 +599,8 @@
 
 - don't use relative import in __all__ *(Fu Hanxi - 5833c17)*
 - by default check manifest rules *(Fu Hanxi - 224008f)*
+
+---
 
 ## v0.1.3 (2025-02-20)
 
@@ -541,17 +639,23 @@
 - log date format *(Fu Hanxi - 6339856)*
 - remove redundant log *(Fu Hanxi - 19c5359)*
 
+---
+
 ## v0.1.2 (2025-02-10)
 
 ### 🐛 Bug Fixes
 
 - return all apps as non-test-related apps when no pytest case found *(Fu Hanxi - c5a7888)*
 
+---
+
 ## v0.1.1 (2025-02-10)
 
 ### 🐛 Bug Fixes
 
 - pass modified_files and modified_components to build_apps call *(Fu Hanxi - 0d390e4)*
+
+---
 
 ## v0.1.0 (2025-02-07)
 
@@ -607,6 +711,6 @@
             <a href="https://www.github.com/espressif/cz-plugin-espressif">Commitizen Espressif plugin</a>
         </b>
     <br>
-        <sup><a href="https://www.espressif.com">Espressif Systems CO LTD. (2025)</a><sup>
+        <sup><a href="https://www.espressif.com">Espressif Systems CO LTD. (2026)</a><sup>
     </small>
 </div>
