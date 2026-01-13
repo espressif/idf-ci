@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import json
 import logging
@@ -30,7 +30,7 @@ class TestUploadDownloadArtifacts:
         (build_dir / 'build.log').write_text('Test build log', encoding='utf-8')
         (build_dir / 'test.bin').write_text('Binary content', encoding='utf-8')
         (build_dir / 'size.json').write_text('{"size": 1024}', encoding='utf-8')
-        (build_dir / 'optional.txt').write_text('Optional content', encoding='utf-8')
+        (tmp_path / 'optional.txt').write_text('Optional content', encoding='utf-8')
 
         return build_dir
 
@@ -55,7 +55,7 @@ class TestUploadDownloadArtifacts:
 
                 [gitlab.artifacts.s3.optional]
                 bucket = "test-bucket"
-                patterns = ["**/build*/optional.txt"]
+                patterns = ["**/optional.txt"]
                 if_clause = 'ENV_VAR_FOO == "foo"'
             """)
         )
@@ -90,6 +90,49 @@ class TestUploadDownloadArtifacts:
             pass
         client.make_bucket('test-bucket')
         return client
+
+    def test_cli_upload_download_zip_artifacts(self, s3_client, sample_artifacts_dir):
+        commit_sha = 'cli_test_sha_123'
+
+        # Upload artifacts
+        subprocess.run(
+            [
+                'idf-ci',
+                '--config',
+                'gitlab.artifacts.s3_file_mode = "zip"',
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--type',
+                'flash',
+            ],
+            check=True,
+        )
+        objs = list(s3_client.list_objects('idf-artifacts', recursive=True))
+        assert len(objs) == 1
+        assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip'
+
+        shutil.rmtree(sample_artifacts_dir)
+
+        # download and check if the files were uploaded
+        subprocess.run(
+            [
+                'idf-ci',
+                '--config',
+                'gitlab.artifacts.s3_file_mode = "zip"',
+                '--config',
+                'gitlab.artifacts.s3_download_from_public = True',
+                'gitlab',
+                'download-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--type',
+                'flash',
+            ],
+            check=True,
+        )
+        assert sorted(os.listdir(sample_artifacts_dir)) == ['test.bin']
 
     @pytest.mark.parametrize(
         'set_env_var_foo',
@@ -142,7 +185,7 @@ class TestUploadDownloadArtifacts:
         objs = list(s3_client.list_objects('test-bucket', recursive=True))
         if set_env_var_foo:
             assert len(objs) == 2
-            assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/optional.txt'
+            assert objs[1].object_name == f'espressif/esp-idf/{commit_sha}/optional.txt'
         else:
             assert len(objs) == 1
             assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/test.bin'
