@@ -69,6 +69,10 @@ doc = [
     "autodoc-pydantic",         # pydantic support
 ]
 
+dev = [
+    'ruff',
+]
+
 [project.scripts]
 idf-ci = "idf_ci.cli:click_cli"
 
