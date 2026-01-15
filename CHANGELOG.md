@@ -20,6 +20,21 @@
 </div>
 <hr>
 
+## v0.7.0 (2026-01-15)
+
+### ✨ New Features
+
+- support `idf-ci config` command group *(Fu Hanxi - fafe0ec)*
+
+### 📖 Documentation
+
+- improve by LLM *(Fu Hanxi - c9b8ddf)*
+
+### 🏗️ Changes
+
+- prolong read write timeout *(Fu Hanxi - 2008cda)*
+
+
 ## v0.6.0 (2026-01-13)
 
 ### ✨ New Features
