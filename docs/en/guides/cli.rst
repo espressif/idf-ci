@@ -2,13 +2,13 @@
  CLI Overview
 ##############
 
-The ``idf-ci`` tool provides a comprehensive command-line interface for managing builds, tests, and GitLab CI/CD operations. This document provides an overview of the CLI structure, global options, and available command groups.
+The ``idf-ci`` tool provides a command-line interface for managing builds, tests, and GitLab CI/CD operations. This document provides an overview of the CLI structure, global options, and available command groups.
 
 *************
  Basic Usage
 *************
 
-The basic syntax for using the IDF CI tool is:
+The basic syntax for using the idf-ci tool is:
 
 .. code-block:: bash
 
@@ -38,11 +38,25 @@ You can get help for any command using the ``--help`` or ``-h`` option:
 These options are available for all commands and affect the overall behavior of the tool:
 
 ``--config-file, -c PATH``
-    Path to the idf-ci config file. Use this to specify a custom configuration file location instead of the default ``.idf_ci.toml``.
+    Path to the idf-ci config file. Use this to specify a custom configuration file instead of the default ``.idf_ci.toml``.
 
     .. code-block:: bash
 
         idf-ci --config-file /path/to/custom.toml build run
+
+``--config VALUE``
+    Override settings via dot-path assignments (repeatable). Values use Python literal syntax.
+
+    .. code-block:: bash
+
+        # single override
+        idf-ci --config 'gitlab.build_pipeline.runs_per_job = 10' build run
+
+        # multiple overrides
+        idf-ci \
+          --config 'gitlab.build_pipeline.runs_per_job=10' \
+          --config 'gitlab.build_pipeline.workflow_name="A workflow name"' \
+          build run
 
 ``--debug``
     Enable debug logging. This provides detailed output for troubleshooting.
@@ -67,7 +81,7 @@ These options are available for all commands and affect the overall behavior of 
         idf-ci init --path /path/to/project
 
 ``completions``
-    Display instructions for enabling shell autocompletion for the idf-ci command. Supports Bash, Zsh, and Fish shells.
+    Display instructions for enabling shell autocompletion for the idf-ci command. Supports Bash, Zsh, and Fish.
 
     .. code-block:: bash
 
@@ -83,7 +97,7 @@ The tool supports shell autocompletion for Bash, Zsh, and Fish. Use ``idf-ci com
  Command Groups
 ****************
 
-For detailed information about specific command groups:
+For detailed guides about specific command groups:
 
 .. toctree::
     :maxdepth: 1
@@ -91,3 +105,11 @@ For detailed information about specific command groups:
     :glob:
 
     cli_group_cmds/*
+
+*************************
+ Command Group Reference
+*************************
+
+For complete command syntax and options, see the reference pages:
+
+- :doc:`../references/cli-commands`

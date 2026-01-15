@@ -2,7 +2,7 @@
  idf-ci |version| Documentation
 ################################
 
-This documentation is for idf-ci. idf-ci is a tool A tool designed to streamline the CI/CD of ESP-IDF projects, with support for both GitLab CI/CD and GitHub Actions.
+This documentation describes idf-ci, a tool designed to streamline CI/CD for ESP-IDF projects, with support for both GitLab CI/CD and GitHub Actions.
 
 **Key Features:**
 
@@ -12,7 +12,7 @@ This documentation is for idf-ci. idf-ci is a tool A tool designed to streamline
 
 - **Build Management**
 
-  Build ESP-IDF apps for multiple targets (ESP32, ESP32-S2, ESP32-C3, etc.) with parallel builds and smart filtering based on changed files or test needs.
+  Build ESP-IDF apps for multiple targets (ESP32, ESP32-S2, ESP32-C3, etc.) with parallel builds and filtering based on changed files or test needs.
 
 - **Test Management**
 
@@ -24,7 +24,11 @@ This documentation is for idf-ci. idf-ci is a tool A tool designed to streamline
 
 - **GitHub Actions Integration**
 
-  Generate test matrix from project settings.
+  Generate a test matrix from project settings.
+
+- **Configuration Visibility**
+
+  Inspect resolved configuration values, defaults, and override sources.
 
 .. toctree::
     :maxdepth: 1

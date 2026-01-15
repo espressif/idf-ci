@@ -12,9 +12,12 @@ from idf_build_apps import App, json_list_files_to_apps
 from idf_build_apps.constants import BuildStatus
 from pydantic import BaseModel
 from pydantic_settings import (
-    BaseSettings,
+    BaseSettings as _BaseSettings,
+)
+from pydantic_settings import (
     InitSettingsSource,
     PydanticBaseSettingsSource,
+    SettingsConfigDict,
 )
 from tomlkit import load
 
@@ -33,6 +36,12 @@ else:
 logger = logging.getLogger(__name__)
 
 
+class BaseSettings(_BaseSettings):
+    model_config = SettingsConfigDict(
+        use_attribute_docstrings=True,
+    )
+
+
 class TomlConfigSettingsSource(InitSettingsSource):
     """A source class that loads variables from a TOML file"""
 
@@ -41,10 +50,7 @@ class TomlConfigSettingsSource(InitSettingsSource):
         settings_cls: t.Type[BaseSettings],
         toml_file: t.Optional[PathLike] = Path(''),
     ):
-        self.toml_file_path = self._pick_toml_file(
-            toml_file,
-            '.idf_ci.toml',
-        )
+        self.toml_file_path = pick_toml_file(toml_file)
         self.toml_data = self._read_file(self.toml_file_path)
         super().__init__(settings_cls, self.toml_data)
 
@@ -55,33 +61,33 @@ class TomlConfigSettingsSource(InitSettingsSource):
         with open(path) as f:
             return load(f)
 
-    @staticmethod
-    def _pick_toml_file(provided: t.Optional[PathLike], filename: str) -> t.Optional[Path]:
-        """Pick a file path to use.
 
-        If a file path is provided, use it. Otherwise, search up the directory tree for
-        a file with the given name.
+def pick_toml_file(provided: t.Optional[PathLike], filename: str = '.idf_ci.toml') -> t.Optional[Path]:
+    """Pick a file path to use.
 
-        :param provided: Explicit path provided when instantiating this class.
-        :param filename: Name of the file to search for.
-        """
-        if provided:
-            provided_p = Path(provided)
-            if provided_p.is_file():
-                fp = provided_p.resolve()
-                logger.debug(f'Loading config file: {fp}')
-                return fp
+    If a file path is provided, use it. Otherwise, search up the directory tree for a
+    file with the given name.
 
-        rv = Path.cwd()
-        while len(rv.parts) > 1:
-            fp = rv / filename
-            if fp.is_file():
-                logger.debug(f'Loading config file: {fp}')
-                return fp
+    :param provided: Explicit path provided when instantiating this function.
+    :param filename: Name of the file to search for.
+    """
+    if provided:
+        provided_p = Path(provided)
+        if provided_p.is_file():
+            fp = provided_p.resolve()
+            logger.debug(f'Loading config file: {fp}')
+            return fp
 
-            rv = rv.parent
+    rv = Path.cwd()
+    while len(rv.parts) > 1:
+        fp = rv / filename
+        if fp.is_file():
+            logger.debug(f'Loading config file: {fp}')
+            return fp
 
-        return None
+        rv = rv.parent
+
+    return None
 
 
 class CliOverridesSettingsSource(InitSettingsSource):
@@ -523,7 +529,7 @@ class CiSettings(BaseSettings):
     @classmethod
     def settings_customise_sources(
         cls,
-        settings_cls: t.Type[BaseSettings],
+        settings_cls: t.Type[BaseSettings],  # type: ignore[override]
         init_settings: PydanticBaseSettingsSource,
         env_settings: PydanticBaseSettingsSource,  # noqa: ARG003
         dotenv_settings: PydanticBaseSettingsSource,  # noqa: ARG003

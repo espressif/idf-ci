@@ -2,7 +2,7 @@
  CI Config File
 ################
 
-By default, it is located at ``.idf_ci.toml`` in the root of the project.
+This page is a reference for available keys and their defaults. For step-by-step usage and examples, see :doc:`../guides/idf-ci-configuration`. To generate a starter file, run ``idf-ci init``.
 
 ******************
  Default Settings
@@ -15,7 +15,7 @@ By default, it is located at ``.idf_ci.toml`` in the root of the project.
  Configuration Options
 ***********************
 
-The following sections describe all configuration options available in the CI config file.
+The following sections describe all configuration options in the CI config file.
 
 .. autopydantic_settings:: idf_ci.settings.CiSettings
 

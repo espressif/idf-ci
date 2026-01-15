@@ -31,6 +31,7 @@ extensions = [
     'sphinxarg.ext',
     'sphinx_tabs.tabs',
     'sphinxcontrib.autodoc_pydantic',
+    'sphinx_click',
 ]
 
 templates_path = ['../_templates']

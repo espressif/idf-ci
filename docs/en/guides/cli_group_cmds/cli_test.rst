@@ -2,14 +2,11 @@
  Test Commands
 ###############
 
-The IDF CI tool provides commands for managing and running tests. The ``idf-ci test`` commands allow you to collect test cases and manage test configurations.
+Reference for the ``idf-ci test`` command group, which collects test cases and manages ``pytest.ini``.
 
-***************
- Test Commands
-***************
-
-Collect Test Cases
-==================
+**************
+ test collect
+**************
 
 To collect and process pytest cases, use the ``collect`` command:
 
@@ -17,15 +14,15 @@ To collect and process pytest cases, use the ``collect`` command:
 
     idf-ci test collect [OPTIONS] [PATHS]
 
-This command collects pytest cases from the specified paths and processes them according to the options.
+This command collects pytest cases from the specified paths (defaults to the current directory) and processes them according to the options.
 
 Options:
 
-- ``--target TARGET`` - Target to be processed (default: all)
+- ``--target TARGET`` - Target to process (default: all)
 - ``--marker-expr EXPR`` - Pytest marker expression
 - ``--filter-expr EXPR`` - Pytest filter expression
 - ``--format FORMAT`` - Output format (raw or github, default: raw)
-- ``--output OUTPUT`` - Output destination (stdout if not provided)
+- ``--output OUTPUT`` - Output destination (defaults to stdout)
 
 Examples:
 
@@ -49,10 +46,11 @@ Examples:
     # Save output to file
     idf-ci test collect --output test_cases.txt
 
-Initialize Test Configuration
-=============================
+***********
+ test init
+***********
 
-To create a test configuration file with default values, use the ``init`` command:
+To create a test configuration file with default values (``pytest.ini``), use the ``init`` command:
 
 .. code-block:: bash
 
@@ -62,7 +60,7 @@ Options:
 
 - ``--path PATH`` - Path to create the config file
 
-Example:
+Examples:
 
 .. code-block:: bash
 

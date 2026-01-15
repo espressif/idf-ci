@@ -67,6 +67,11 @@ doc = [
     "sphinx-argparse",          # auto-generate cli help message
     "sphinx-tabs",              # tabs
     "autodoc-pydantic",         # pydantic support
+    "sphinx-click",             # click support
+]
+
+dev = [
+    'ruff',
 ]
 
 [project.scripts]
