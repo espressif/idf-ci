@@ -1,0 +1,25 @@
+---
+alwaysApply: true
+---
+
+# Code Style
+
+## Error Handling
+- No defensive coding — only handle errors that can actually occur
+- Let exceptions propagate; catch only when you can meaningfully recover
+
+## Functions
+- Extract to a function only when called multiple times
+- Use positional-only and keyword-only args wisely: `foo(pos_only, /, *, kw_only)`
+
+## Variables
+- Avoid temp variables unless they save repeated computation or improve readability significantly
+
+## Docstrings
+- Use Sphinx-style RST format
+- Only write docstrings when behavior isn't obvious from the name and type hints
+
+## Documentation
+- For user docs under `docs/` folder, use `.rst` files
+- For developer-facing docs, use `.md` files
+- Keep paragraphs short; assume readers are professionals

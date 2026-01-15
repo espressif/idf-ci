@@ -32,6 +32,9 @@ class GitlabEnvVars(BaseSettings):
     IDF_S3_SECRET_KEY: t.Optional[str] = None
     """S3 secret key for authentication."""
 
+    IDF_S3_TIMEOUT_TOTAL: float = 300.0
+    """S3 total request timeout in seconds."""
+
     # other env vars used
     IDF_PATH: str = ''
     """Path to the ESP-IDF directory."""
