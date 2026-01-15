@@ -2,14 +2,11 @@
  Build Commands
 ################
 
-The IDF CI tool provides commands for building applications. The ``idf-ci build`` commands allow you to build applications and manage build configurations.
+Reference for the ``idf-ci build`` command group, which builds applications and manages ``.idf_build_apps.toml``.
 
-****************
- Build Commands
-****************
-
-Run Build
-=========
+***********
+ build run
+***********
 
 To execute the build process for applications, use the ``run`` command:
 
@@ -21,15 +18,15 @@ This command builds applications based on the specified options and paths.
 
 Options:
 
-- ``--paths PATHS`` - Paths to process
-- ``--target TARGET`` - Target to be processed (default: all)
+- ``--paths PATHS`` - Paths to process (defaults to the current directory)
+- ``--target TARGET`` - Target to process (default: all)
 - ``--parallel-count COUNT`` - Number of parallel builds
 - ``--parallel-index INDEX`` - Index of parallel build (1-based)
 - ``--modified-files FILES`` - List of modified files
 - ``--only-test-related`` - Run build only for test-related apps
 - ``--only-non-test-related`` - Run build only for non-test-related apps
 - ``--dry-run`` - Run build in dry-run mode
-- ``--build-system SYSTEM`` - Filter the apps by build system. Can be "cmake", "make" or a custom App class path (default: cmake)
+- ``--build-system SYSTEM`` - Filter apps by build system. Can be "cmake", "make", or a custom App class path (default: cmake)
 - ``--marker-expr EXPR`` - Pytest marker expression
 - ``--filter-expr EXPR`` - Pytest filter expression
 
@@ -55,10 +52,11 @@ Examples:
     # Build with parallel processing
     idf-ci build run --parallel-count 4 --parallel-index 1
 
-Initialize Build Configuration
-==============================
+************
+ build init
+************
 
-To create a build configuration file with default values, use the ``init`` command:
+To create a build configuration file with default values (``.idf_build_apps.toml``), use the ``init`` command:
 
 .. code-block:: bash
 
@@ -78,10 +76,11 @@ Example:
     # Create build configuration file in specific directory
     idf-ci build init --path /path/to/config
 
-Collect Applications
-====================
+***************
+ build collect
+***************
 
-This command collects all applications, corresponding test cases and outputs the result in JSON format.
+This command collects all applications and their test cases, and outputs the result in JSON format.
 
 .. code-block:: bash
 
@@ -89,9 +88,9 @@ This command collects all applications, corresponding test cases and outputs the
 
 Options:
 
-- ``--paths PATHS`` - Paths to search for applications. If not provided, current directory is used
-- ``--output OUTPUT`` - Output destination. If not provided, stdout is used
-- ``--format [json|html]`` - Output format. Default is json
+- ``--paths PATHS`` - Paths to search for applications (defaults to the current directory)
+- ``--output OUTPUT`` - Output destination (defaults to stdout)
+- ``--format [json|html]`` - Output format (default: json)
 - ``--include-only-enabled`` - Include only enabled applications
 
 Output format:

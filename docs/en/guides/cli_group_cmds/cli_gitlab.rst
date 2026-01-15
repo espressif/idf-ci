@@ -2,23 +2,25 @@
  GitLab Commands
 #################
 
+Reference for the ``idf-ci gitlab`` command group.
+
 ***********
  Artifacts
 ***********
 
-We have several types of artifacts enabled by default:
+The following artifact types are enabled by default:
 
 - debug
 - flash
 
-When set all required s3 env vars, the artifacts with ``debug``, ``flash`` could be uploaded to s3 bucket, instead of internal gitlab.
+When all required S3 environment variables are set, ``debug`` and ``flash`` artifacts are uploaded to S3 instead of GitLab built-in storage.
 
-You can override the default file patterns in your project's ``.idf_ci.toml`` file.
+You can override default file patterns in ``.idf_ci.toml``. See :doc:`../../references/ci-config-file` for the full schema.
 
-Customizing Artifact Patterns
-=============================
+Artifact Pattern Overrides
+==========================
 
-You can customize which files are uploaded as artifacts by modifying your project's ``.idf_ci.toml`` file. Here's an example of how to add custom artifact patterns:
+Customize which files are uploaded by editing ``.idf_ci.toml``:
 
 .. code-block:: toml
 
@@ -32,29 +34,22 @@ You can customize which files are uploaded as artifacts by modifying your projec
         "**/build*/custom/*.txt"
     ]
 
-Artifact Management Commands
-============================
+Artifact Commands
+=================
 
-The IDF CI tool provides commands for managing artifacts in GitLab pipelines. The ``idf-ci gitlab`` commands allow you to download artifacts from a GitLab pipeline or upload artifacts to S3 storage associated with a GitLab project.
-
-These commands are especially useful when:
-
-- You need to access build artifacts from a CI pipeline
-- You want to share artifacts between CI jobs
-- You need to download debug information for troubleshooting
-- You want to use build outputs from a CI pipeline for local testing
+Use these commands to download artifacts from pipelines or upload artifacts to S3 storage associated with a GitLab project.
 
 Prerequisites
 -------------
 
-To use these commands, you need:
+To use these commands, configure:
 
 1. GitLab API access:
 
    - ``GITLAB_HTTPS_SERVER`` - GitLab server URL (default: https://gitlab.com)
    - ``GITLAB_ACCESS_TOKEN`` - GitLab API access token
 
-2. S3 storage configuration (only required for S3 features):
+2. S3 storage (only required for S3 features):
 
    - ``IDF_S3_SERVER`` - S3 server URL
    - ``IDF_S3_BUCKET`` - S3 bucket name (default: idf-artifacts)
@@ -62,25 +57,25 @@ To use these commands, you need:
    - ``IDF_S3_SECRET_KEY`` - S3 secret key
    - ``IDF_PATH`` - Path to the ESP-IDF installation
 
-These variables can be set in your environment or configured in your ``.idf_ci.toml`` configuration file.
+You can set these in the environment or in ``.idf_ci.toml``. For the full list of GitLab-related variables, see :doc:`../../references/gitlab-env-vars`.
 
 Pipeline Variables
 ------------------
 
-To output dynamic pipeline variables, use the ``pipeline-variables`` command:
+To output dynamic pipeline variables, use ``pipeline-variables``:
 
 .. code-block:: bash
 
     idf-ci gitlab pipeline-variables
 
-This command analyzes the current GitLab pipeline environment and determines what variables to set for controlling pipeline behavior. It outputs variables in the format KEY="VALUE" for each determined variable, which can be used with GitLab's `export` feature.
+This command analyzes the current GitLab pipeline environment and outputs variables as ``KEY=VALUE`` for use with GitLab's export feature.
 
 For more details about the generated variables, please refer to the API documentation.
 
 Build Child Pipeline
 --------------------
 
-To generate a build child pipeline YAML file, use the ``build-child-pipeline`` command:
+Generate a build child pipeline YAML file. If ``YAML_OUTPUT`` is omitted, the YAML is written to stdout:
 
 .. code-block:: bash
 
@@ -95,31 +90,31 @@ Options:
 Test Child Pipeline
 -------------------
 
-To generate a test child pipeline YAML file, use the ``test-child-pipeline`` command:
+Generate a test child pipeline YAML file. If ``YAML_OUTPUT`` is omitted, the YAML is written to stdout:
 
 .. code-block:: bash
 
     idf-ci gitlab test-child-pipeline [YAML_OUTPUT]
 
-Downloading Artifacts
----------------------
+Download Artifacts
+------------------
 
-To download artifacts from a GitLab pipeline, use the ``download-artifacts`` command:
+Download artifacts from a GitLab pipeline with ``download-artifacts``:
 
 .. code-block:: bash
 
     idf-ci gitlab download-artifacts [OPTIONS] [FOLDER]
 
-This command downloads artifacts from either GitLab's built-in storage or S3 storage, depending on the configuration and available access. Only the artifacts under the specified folder will be downloaded in-place. If no folder is specified, the artifacts under the current directory will be downloaded.
+Artifacts are downloaded from GitLab built-in storage or S3, depending on configuration and access. If you provide a folder, only artifacts under that folder are downloaded into it. If no folder is specified, artifacts under the current directory are downloaded into the current directory.
 
 There are two main use cases for downloading artifacts:
 
-**With S3 Access**
-==================
+With S3 Access
+^^^^^^^^^^^^^^
 
-When you have direct S3 credentials configured, you can download artifacts directly from S3 storage using commit SHA or branch information.
+With direct S3 credentials, you can download artifacts from S3 using a commit SHA or branch.
 
-Supported Options:
+Supported options:
 
 - ``--type [...]`` - Type of artifacts to download (if not specified, downloads all types)
 - ``--commit-sha COMMIT_SHA`` - Commit SHA to download artifacts from
@@ -141,12 +136,12 @@ Examples:
     # Download debug artifacts from latest pipeline of a specific branch
     idf-ci gitlab download-artifacts --type debug --branch feature/new-feature
 
-**Without S3 Access**
-=====================
+Without S3 Access
+^^^^^^^^^^^^^^^^^
 
-When you don't have direct S3 credentials but have GitLab access, you can download artifacts using the pipeline ID. The system will first download the presigned JSON using your GitLab account, then use the presigned URLs to download the artifacts.
+Without S3 credentials but with GitLab access, you can download artifacts using the pipeline ID. The system first fetches presigned JSON using your GitLab account, then uses presigned URLs to download the artifacts.
 
-Supported Options:
+Supported options:
 
 - ``--type [...]`` - Type of artifacts to download (if not specified, downloads all types)
 - ``--pipeline-id PIPELINE_ID`` - Main pipeline ID to download artifacts from
@@ -164,8 +159,8 @@ Examples:
     # Download flash artifacts from a specific pipeline
     idf-ci gitlab download-artifacts --pipeline-id 12345 --type flash
 
-Artifact Types Details
-----------------------
+Artifact Type Details
+---------------------
 
 The following artifact types are supported:
 
@@ -184,16 +179,16 @@ The following artifact types are supported:
    - ELF files (``**/build*/bootloader/*.elf``, ``**/build*/*.elf``)
    - Build logs (``**/build*/build.log``)
 
-Uploading Artifacts
--------------------
+Upload Artifacts
+----------------
 
-To upload artifacts to S3 storage, use the ``upload_artifacts`` command:
+Upload artifacts to S3 storage with ``upload-artifacts``:
 
 .. code-block:: bash
 
-    idf-ci gitlab upload_artifacts [OPTIONS] [FOLDER]
+    idf-ci gitlab upload-artifacts [OPTIONS] [FOLDER]
 
-This command uploads artifacts to S3 storage only. GitLab's built-in storage is not supported. The commit SHA is required to identify where to store the artifacts. Only the artifacts under the specified folder will be downloaded in-place. If no folder is specified, the artifacts under the current directory will be downloaded.
+This command uploads to S3 only; GitLab built-in storage is not supported. The commit SHA is required to identify where to store the artifacts. If you provide a folder, only artifacts under that folder are uploaded. If no folder is specified, artifacts under the current directory are uploaded.
 
 Options:
 
@@ -206,15 +201,15 @@ Example:
 .. code-block:: bash
 
     # Upload all debug artifacts from current directory to a specific commit
-    idf-ci gitlab upload_artifacts --type debug --commit-sha abc123
+    idf-ci gitlab upload-artifacts --type debug --commit-sha abc123
 
     # Upload flash artifacts from a specific directory
-    idf-ci gitlab upload_artifacts --type flash --commit-sha abc123 /path/to/build
+    idf-ci gitlab upload-artifacts --type flash --commit-sha abc123 /path/to/build
 
 Generate Presigned URLs
 -----------------------
 
-To generate presigned URLs for artifacts in S3 storage, use the ``generate-presigned-json`` command:
+Generate presigned URLs for S3 artifacts with ``generate-presigned-json``:
 
 .. code-block:: bash
 
@@ -239,24 +234,24 @@ Example:
 Download Known Failure Cases
 ----------------------------
 
-To download known failure cases file from S3 storage, use the ``download-known-failure-cases-file`` command:
+Download a known failure cases file from S3 with ``download-known-failure-cases-file``:
 
 .. code-block:: bash
 
     idf-ci gitlab download-known-failure-cases-file FILENAME
 
-This command downloads a known failure cases file from S3 storage. S3 storage must be configured for this command to work.
+S3 storage must be configured for this command to work.
 
 Implementation Details
 ----------------------
 
-Internally, the artifact management commands use the ``ArtifactManager`` class, which handles:
+Internally, the artifact commands use the ``ArtifactManager`` class, which handles:
 
 1. GitLab API operations (pipeline, merge request queries)
 2. S3 storage operations (artifact upload/download)
 3. Fallback to GitLab storage when S3 is not configured
 
-The artifacts are stored with a prefix that includes the project ID and commit SHA: ``{project_namespace}/{project_name}/{commit_sha}/path/to/artifact``
+Artifacts are stored with a prefix that includes the project ID and commit SHA: ``{project_namespace}/{project_name}/{commit_sha}/path/to/artifact``
 
 This structure ensures artifacts are properly organized and can be easily located by commit.
 
@@ -264,11 +259,11 @@ This structure ensures artifacts are properly organized and can be easily locate
  CI Pipeline
 *************
 
-Usually in each CI pipeline we have two stages:
+A typical CI pipeline has two stages:
 
 - build
 - test
 
-``build`` stage is responsible for building the test apps, which compiled the binaries required by running the tests, and target test is
+The ``build`` stage builds test apps and the binaries required for tests.
 
-``test`` stage is responsible for running the tests.
+The ``test`` stage runs the tests.

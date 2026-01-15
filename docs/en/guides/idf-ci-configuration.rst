@@ -2,16 +2,39 @@
  idf-ci Configuration
 ######################
 
-*******************************
- How configuration is resolved
-*******************************
+This guide explains how to inspect and override idf-ci settings. For command syntax and options, see :doc:`../references/cli-commands`.
 
-- Precedence: **CLI overrides > TOML file > Defaults**
-- Config file: ``.idf_ci.toml`` (auto-discovered upward) or pass ``--config-file``.
+*********************************
+ Check the current configuration
+*********************************
 
-*******************
- Override via TOML
-*******************
+Use the ``config`` command group to inspect the effective configuration after all overrides are applied.
+
+Show a resolved value and its source (default, config file, or CLI override):
+
+.. code-block:: bash
+
+    idf-ci config show gitlab.project_name
+
+*************************
+ Understand a config key
+*************************
+
+Use ``explain`` to see a key's type, default, and available subkeys:
+
+.. code-block:: bash
+
+    idf-ci config explain gitlab
+
+Use dot-separated paths for nested keys:
+
+.. code-block:: bash
+
+    idf-ci config explain gitlab.build_pipeline.runs_per_job
+
+******************************
+ Put overrides in a TOML file
+******************************
 
 Create or edit ``.idf_ci.toml`` at your repo root:
 
@@ -21,9 +44,17 @@ Create or edit ``.idf_ci.toml`` at your repo root:
     runs_per_job = 10
     workflow_name = "A workflow name"
 
-******************
- Override via CLI
-******************
+You can also generate a starter file with:
+
+.. code-block:: bash
+
+    idf-ci init
+
+If the file lives elsewhere, point to it with ``--config-file``.
+
+******************************
+ Override values from the CLI
+******************************
 
 Use dot-path assignments with ``--config``. If there are spaces around ``=``, quote the whole assignment. Values use Python literal syntax (``10``, ``True``, ``"str"``, ``{...}``, ``[...]``).
 
@@ -41,8 +72,20 @@ Use dot-path assignments with ``--config``. If there are spaces around ``=``, qu
       --config 'gitlab.build_pipeline.workflow_name="A workflow name"' \
       ...
 
+***********************************
+ Understand how config is resolved
+***********************************
+
+Configuration resolution (highest to lowest priority):
+
+- CLI overrides (``--config``)
+- Config file (``.idf_ci.toml`` or ``--config-file``)
+- Defaults
+
+Config file discovery searches upward from the current working directory for ``.idf_ci.toml``. Use ``--config-file`` to bypass discovery and point to an explicit file.
+
 ******************************
  Where to find default values
 ******************************
 
-See the reference: :doc:`../references/ci-config-file` (all fields and defaults). You may expand "Show JSON schema" section to see the full structure.
+See the reference: :doc:`../references/ci-config-file` (all fields and defaults). You can expand "Show JSON schema" to see the full structure.
