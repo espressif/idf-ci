@@ -224,7 +224,9 @@ class ArtifactManager:
             secure=secure,
             http_client=urllib3.PoolManager(
                 num_pools=10,
-                timeout=urllib3.Timeout(connect=5.0, read=60.0),
+                timeout=urllib3.Timeout(
+                    total=self.envs.IDF_S3_TIMEOUT_TOTAL,
+                ),
                 retries=urllib3.Retry(
                     total=5,
                     backoff_factor=1,
