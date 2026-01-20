@@ -76,6 +76,7 @@ dev = [
 
 [project.scripts]
 idf-ci = "idf_ci.cli:click_cli"
+check-tests-missing-config = "idf_ci.hooks.check_tests_missing_config:main"
 
 [project.entry-points.pytest11]
 idf-ci = "idf_ci.idf_pytest.plugin"
