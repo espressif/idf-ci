@@ -10,7 +10,7 @@ from idf_ci.cli._options import (
     option_modified_files,
     option_paths,
 )
-from idf_ci.idf_gitlab import S3ArtifactManager
+from idf_ci.idf_gitlab import ArtifactManager
 from idf_ci.idf_gitlab import build_child_pipeline as build_child_pipeline_cmd
 from idf_ci.idf_gitlab import pipeline_variables as pipeline_variables_cmd
 from idf_ci.idf_gitlab import test_child_pipeline as test_child_pipeline_cmd
@@ -71,7 +71,7 @@ def option_artifact_type(func):
         '--type',
         'artifact_type',
         type=click.Choice(get_ci_settings().gitlab.artifacts.available_s3_types),
-        help='Type of S3 artifacts to upload/download. If not specified, processes all types.',
+        help='Type of artifacts to download. If not specified, downloads all types.',
     )(func)
 
 
@@ -89,12 +89,12 @@ def option_artifact_type(func):
     help='GitLab pipeline ID to download presigned.json from. Cannot be used together with --presigned-json.',
 )
 @click.argument('folder', required=False)
-def download_s3_artifacts(artifact_type, commit_sha, branch, folder, presigned_json, pipeline_id):
-    """Download artifacts from S3 storage or via presigned URLs.
+def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json, pipeline_id):
+    """Download artifacts from a GitLab pipeline.
 
-    This command downloads artifacts from S3 storage when credentials are available, or
-    from presigned URLs when S3 credentials are not available. The artifacts are
-    downloaded to the specified folder (or current directory if not specified).
+    This command downloads artifacts from either GitLab's built-in storage or S3
+    storage, depending on the configuration. The artifacts are downloaded to the
+    specified folder (or current directory if not specified).
 
     When using --pipeline-id, the command will download the presigned.json file from the
     specified pipeline and use it to download artifacts. This option cannot be used
@@ -103,8 +103,8 @@ def download_s3_artifacts(artifact_type, commit_sha, branch, folder, presigned_j
     if presigned_json and pipeline_id:
         raise click.ClickException('Cannot use both --presigned-json and --pipeline-id options together')
 
-    manager = S3ArtifactManager()
-    manager.download_s3_artifacts(
+    manager = ArtifactManager()
+    manager.download_artifacts(
         commit_sha=commit_sha,
         branch=branch,
         artifact_type=artifact_type,
@@ -119,14 +119,14 @@ def download_s3_artifacts(artifact_type, commit_sha, branch, folder, presigned_j
 @option_commit_sha
 @option_branch
 @click.argument('folder', required=False)
-def upload_s3_artifacts(artifact_type, commit_sha, branch, folder):
+def upload_artifacts(artifact_type, commit_sha, branch, folder):
     """Upload artifacts to S3 storage.
 
     This command uploads artifacts to S3 storage only. GitLab's built-in storage is not
     supported. The commit SHA is required to identify where to store the artifacts.
     """
-    manager = S3ArtifactManager()
-    manager.upload_s3_artifacts(
+    manager = ArtifactManager()
+    manager.upload_artifacts(
         commit_sha=commit_sha,
         branch=branch,
         artifact_type=artifact_type,
@@ -157,7 +157,7 @@ def generate_presigned_json(commit_sha, branch, artifact_type, expire_in_days, o
     This command generates presigned URLs for artifacts that would be uploaded to S3
     storage. The URLs can be used to download the artifacts directly from S3.
     """
-    manager = S3ArtifactManager()
+    manager = ArtifactManager()
     presigned_urls = manager.generate_presigned_json(
         commit_sha=commit_sha,
         branch=branch,
@@ -177,7 +177,7 @@ def generate_presigned_json(commit_sha, branch, artifact_type, expire_in_days, o
 @click.argument('filename', required=True)
 def download_known_failure_cases_file(filename):
     """Download known failure cases file from S3 storage."""
-    s3_client = S3ArtifactManager().s3_client
+    s3_client = ArtifactManager().s3_client
 
     if s3_client:
         s3_client.fget_object(
