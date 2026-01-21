@@ -13,7 +13,7 @@ The following artifact types are enabled by default:
 - debug
 - flash
 
-When all required S3 environment variables are set, ``debug`` and ``flash`` artifacts are uploaded to S3 instead of GitLab built-in storage.
+When S3 credentials are configured and ``gitlab.artifacts.s3.enable`` is ``true``, the enabled artifact types are stored in S3 as zip files.
 
 You can override default file patterns in ``.idf_ci.toml``. See :doc:`../../references/ci-config-file` for the full schema.
 
@@ -24,15 +24,22 @@ Customize which files are uploaded by editing ``.idf_ci.toml``:
 
 .. code-block:: toml
 
-    [gitlab.s3.flash]
-    patterns = []  # this overrides the default patterns to empty list
+    [gitlab.artifacts.s3]
+    enable = true
 
-    [gitlab.s3.custom_group]
+    [gitlab.artifacts.s3.configs.flash]
+    bucket = "idf-artifacts"
+    base_dir_pattern = "**/build*/"
+    file_patterns = []  # this overrides the default patterns to empty list
+
+    [gitlab.artifacts.s3.configs.custom_group]
     bucket = "custom-bucket"
-    patterns = [
-        "**/build*/custom/*.log",
-        "**/build*/custom/*.txt"
+    base_dir_pattern = "**/build*/"
+    file_patterns = [
+        "custom/*.log",
+        "custom/*.txt"
     ]
+    if_clause = 'ENV_VAR_FOO == "foo"'
 
 Artifact Commands
 =================
@@ -52,7 +59,6 @@ To use these commands, configure:
 2. S3 storage (only required for S3 features):
 
    - ``IDF_S3_SERVER`` - S3 server URL
-   - ``IDF_S3_BUCKET`` - S3 bucket name (default: idf-artifacts)
    - ``IDF_S3_ACCESS_KEY`` - S3 access key
    - ``IDF_S3_SECRET_KEY`` - S3 secret key
    - ``IDF_PATH`` - Path to the ESP-IDF installation
@@ -96,16 +102,16 @@ Generate a test child pipeline YAML file. If ``YAML_OUTPUT`` is omitted, the YAM
 
     idf-ci gitlab test-child-pipeline [YAML_OUTPUT]
 
-Download Artifacts
-------------------
+Download S3 Artifacts
+---------------------
 
-Download artifacts from a GitLab pipeline with ``download-artifacts``:
+Download artifacts from S3 storage with ``download-s3-artifacts``:
 
 .. code-block:: bash
 
-    idf-ci gitlab download-artifacts [OPTIONS] [FOLDER]
+    idf-ci gitlab download-s3-artifacts [OPTIONS] [FOLDER]
 
-Artifacts are downloaded from GitLab built-in storage or S3, depending on configuration and access. If you provide a folder, only artifacts under that folder are downloaded into it. If no folder is specified, artifacts under the current directory are downloaded into the current directory.
+Artifacts are downloaded from S3 when credentials are available. If you provide a folder, only artifacts under that folder are downloaded into it. If no folder is specified, artifacts under the current directory are downloaded into the current directory. When S3 access is not available, the command can download from presigned URLs (via ``--presigned-json`` or ``--pipeline-id``).
 
 There are two main use cases for downloading artifacts:
 
@@ -125,25 +131,28 @@ Examples:
 .. code-block:: bash
 
     # Download all artifacts from a specific commit under the current directory
-    idf-ci gitlab download-artifacts --commit-sha abc123
+    idf-ci gitlab download-s3-artifacts --commit-sha abc123
 
     # Download only flash artifacts from a specific commit under a specific folder
-    idf-ci gitlab download-artifacts --type flash --commit-sha abc123 /path/to/folder
+    idf-ci gitlab download-s3-artifacts --type flash --commit-sha abc123 /path/to/folder
 
     # Download all artifacts from latest pipeline of current branch
-    idf-ci gitlab download-artifacts
+    idf-ci gitlab download-s3-artifacts
 
     # Download debug artifacts from latest pipeline of a specific branch
-    idf-ci gitlab download-artifacts --type debug --branch feature/new-feature
+    idf-ci gitlab download-s3-artifacts --type debug --branch feature/new-feature
 
 Without S3 Access
 ^^^^^^^^^^^^^^^^^
 
-Without S3 credentials but with GitLab access, you can download artifacts using the pipeline ID. The system first fetches presigned JSON using your GitLab account, then uses presigned URLs to download the artifacts.
+Without S3 credentials but with GitLab access, you can download artifacts using ``--presigned-json`` or ``--pipeline-id``. With ``--pipeline-id``, the system first fetches presigned JSON using your GitLab account, then uses presigned URLs to download the artifacts.
+
+The ``--pipeline-id`` option requires ``gitlab.build_pipeline.presigned_json_job_name`` to be configured so the presigned JSON artifact can be located.
 
 Supported options:
 
 - ``--type [...]`` - Type of artifacts to download (if not specified, downloads all types)
+- ``--presigned-json PATH`` - Path to a presigned.json file
 - ``--pipeline-id PIPELINE_ID`` - Main pipeline ID to download artifacts from
 
 Examples:
@@ -151,49 +160,49 @@ Examples:
 .. code-block:: bash
 
     # Download all artifacts from a specific pipeline under the current directory
-    idf-ci gitlab download-artifacts --pipeline-id 12345
+    idf-ci gitlab download-s3-artifacts --pipeline-id 12345
 
     # Download only debug artifacts from a specific pipeline under a specific folder
-    idf-ci gitlab download-artifacts --pipeline-id 12345 --type debug /path/to/folder
+    idf-ci gitlab download-s3-artifacts --pipeline-id 12345 --type debug /path/to/folder
 
     # Download flash artifacts from a specific pipeline
-    idf-ci gitlab download-artifacts --pipeline-id 12345 --type flash
+    idf-ci gitlab download-s3-artifacts --pipeline-id 12345 --type flash
 
 Artifact Type Details
 ---------------------
 
-The following artifact types are supported:
+Artifact types are defined under ``gitlab.artifacts.s3.configs``. By default, the following types are configured with ``base_dir_pattern = "**/build*/"``. Each matching base directory generates a ``<artifact_type>.zip`` containing the matching files.
 
 1. **Flash artifacts** (``--type flash``):
 
-   - Bootloader binaries (``**/build*/bootloader/*.bin``)
-   - Application binaries (``**/build*/*.bin``)
-   - Partition table binaries (``**/build*/partition_table/*.bin``)
-   - Flasher arguments (``**/build*/flasher_args.json``, ``**/build*/flash_project_args``)
-   - Configuration files (``**/build*/config/sdkconfig.json``, ``**/build*/sdkconfig``)
-   - Project information (``**/build*/project_description.json``)
+   - Bootloader binaries (``bootloader/*.bin``)
+   - Application binaries (``*.bin``)
+   - Partition table binaries (``partition_table/*.bin``)
+   - Flasher arguments (``flasher_args.json``, ``flash_project_args``)
+   - Configuration files (``config/sdkconfig.json``, ``sdkconfig``)
+   - Project information (``project_description.json``)
 
 2. **Debug artifacts** (``--type debug``):
 
-   - Map files (``**/build*/bootloader/*.map``, ``**/build*/*.map``)
-   - ELF files (``**/build*/bootloader/*.elf``, ``**/build*/*.elf``)
-   - Build logs (``**/build*/build.log``)
+   - Map files (``bootloader/*.map``, ``*.map``)
+   - ELF files (``bootloader/*.elf``, ``*.elf``)
+   - Build logs (``build.log``)
 
-Upload Artifacts
-----------------
+Upload S3 Artifacts
+-------------------
 
-Upload artifacts to S3 storage with ``upload-artifacts``:
+Upload artifacts to S3 storage with ``upload-s3-artifacts``:
 
 .. code-block:: bash
 
-    idf-ci gitlab upload-artifacts [OPTIONS] [FOLDER]
+    idf-ci gitlab upload-s3-artifacts [OPTIONS] [FOLDER]
 
-This command uploads to S3 only; GitLab built-in storage is not supported. The commit SHA is required to identify where to store the artifacts. If you provide a folder, only artifacts under that folder are uploaded. If no folder is specified, artifacts under the current directory are uploaded.
+This command uploads to S3 only; GitLab built-in storage is not supported. If the commit SHA is omitted, it is resolved from ``PIPELINE_COMMIT_SHA`` or the latest commit on the selected branch. If you provide a folder, only artifacts under that folder are uploaded. If no folder is specified, artifacts under the current directory are uploaded.
 
 Options:
 
 - ``--type [debug|flash]`` - Type of artifacts to upload
-- ``--commit-sha COMMIT_SHA`` - Commit SHA to upload artifacts to (required)
+- ``--commit-sha COMMIT_SHA`` - Commit SHA to upload artifacts to
 - ``--branch BRANCH`` - Git branch to use (if not provided, will use current git branch)
 
 Example:
@@ -201,10 +210,10 @@ Example:
 .. code-block:: bash
 
     # Upload all debug artifacts from current directory to a specific commit
-    idf-ci gitlab upload-artifacts --type debug --commit-sha abc123
+    idf-ci gitlab upload-s3-artifacts --type debug --commit-sha abc123
 
     # Upload flash artifacts from a specific directory
-    idf-ci gitlab upload-artifacts --type flash --commit-sha abc123 /path/to/build
+    idf-ci gitlab upload-s3-artifacts --type flash --commit-sha abc123 /path/to/build
 
 Generate Presigned URLs
 -----------------------
@@ -245,11 +254,11 @@ S3 storage must be configured for this command to work.
 Implementation Details
 ----------------------
 
-Internally, the artifact commands use the ``ArtifactManager`` class, which handles:
+Internally, the artifact commands use the ``S3ArtifactManager`` class, which handles:
 
 1. GitLab API operations (pipeline, merge request queries)
 2. S3 storage operations (artifact upload/download)
-3. Fallback to GitLab storage when S3 is not configured
+3. Fallback to presigned URLs when S3 access is unavailable or fails
 
 Artifacts are stored with a prefix that includes the project ID and commit SHA: ``{project_namespace}/{project_name}/{commit_sha}/path/to/artifact``
 
