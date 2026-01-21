@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import shutil
-import subprocess
 import sys
 import textwrap
 
@@ -14,7 +13,7 @@ import requests
 
 from idf_ci.cli import click_cli
 from idf_ci.idf_gitlab import ArtifactManager
-from idf_ci.idf_gitlab.api import ArtifactError, S3Error
+from idf_ci.idf_gitlab.api import S3Error
 from idf_ci.settings import _refresh_ci_settings
 
 
@@ -41,21 +40,30 @@ class TestUploadDownloadArtifacts:
                 [gitlab]
                 project = "espressif/esp-idf"
 
-                [gitlab.artifacts.s3.debug]
-                bucket = "test-bucket"
-                patterns = ["**/build*/build.log"]
+                [gitlab.artifacts.s3]
+                enable = true
 
-                [gitlab.artifacts.s3.flash]
-                bucket = "test-bucket"
-                patterns = ["**/build*/*.bin"]
+                [gitlab.artifacts.s3.configs.debug]
+                bucket = "private"
+                base_dir_pattern = "**/build*/"
+                file_patterns = ["build.log"]
 
-                [gitlab.artifacts.s3.metrics]
-                bucket = "test-bucket"
-                patterns = ["**/build*/size.json"]
+                [gitlab.artifacts.s3.configs.flash]
+                bucket = "private"
+                base_dir_pattern = "**/build*/"
+                file_patterns = ["*.bin"]
 
-                [gitlab.artifacts.s3.optional]
-                bucket = "test-bucket"
-                patterns = ["**/optional.txt"]
+                [gitlab.artifacts.s3.configs.metrics]
+                bucket = "private"
+                zip_first = false
+                base_dir_pattern = "**/build*/"
+                file_patterns = ["size.json"]
+
+                [gitlab.artifacts.s3.configs.optional]
+                bucket = "public"
+                is_public = true
+                zip_first = false
+                file_patterns = ["**/optional.txt"]
                 if_clause = 'ENV_VAR_FOO == "foo"'
             """)
         )
@@ -79,173 +87,127 @@ class TestUploadDownloadArtifacts:
         client = ArtifactManager().s3_client
         assert client is not None
 
-        # Drop and recreate bucket before test
-        try:
-            for obj in client.list_objects('test-bucket', recursive=True):
-                client.remove_object('test-bucket', obj.object_name)
+        # remove all objects in both buckets before test
+        for bucket in ['private', 'public']:
+            for obj in client.list_objects(bucket, recursive=True):
+                try:
+                    client.remove_object(bucket, obj.object_name)
+                except minio.error.S3Error as e:
+                    logging.error(f'Error removing object: {e}')
 
-            client.remove_bucket('test-bucket')
-        except minio.error.S3Error as e:
-            logging.error(f'Error removing bucket: {e}')
-            pass
-        client.make_bucket('test-bucket')
         return client
 
-    def test_cli_upload_download_zip_artifacts(self, s3_client, sample_artifacts_dir):
+    def test_all_without_optional(self, runner, s3_client, sample_artifacts_dir):
         commit_sha = 'cli_test_sha_123'
 
-        # Upload artifacts
-        subprocess.run(
+        result = runner.invoke(
+            click_cli,
             [
-                'idf-ci',
-                '--config',
-                'gitlab.artifacts.s3_file_mode = "zip"',
                 'gitlab',
                 'upload-artifacts',
                 '--commit-sha',
                 commit_sha,
-                '--type',
-                'flash',
             ],
-            check=True,
         )
-        objs = list(s3_client.list_objects('idf-artifacts', recursive=True))
-        assert len(objs) == 1
-        assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip'
+        assert result.exit_code == 0
+
+        objs = list(s3_client.list_objects('private', recursive=True))
+        assert len(objs) == 3
+        assert sorted(obj.object_name for obj in objs) == [
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/debug.zip',
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip',
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size.json',
+        ]
 
         shutil.rmtree(sample_artifacts_dir)
 
-        # download and check if the files were uploaded
-        subprocess.run(
+        result = runner.invoke(
+            click_cli,
             [
-                'idf-ci',
-                '--config',
-                'gitlab.artifacts.s3_file_mode = "zip"',
-                '--config',
-                'gitlab.artifacts.s3_download_from_public = True',
                 'gitlab',
                 'download-artifacts',
                 '--commit-sha',
                 commit_sha,
-                '--type',
-                'flash',
             ],
-            check=True,
         )
-        assert sorted(os.listdir(sample_artifacts_dir)) == ['test.bin']
+        assert result.exit_code == 0
 
-    @pytest.mark.parametrize(
-        'set_env_var_foo',
-        [
-            True,
-            False,
-        ],
-    )
-    def test_cli_upload_download_artifacts(
-        self, s3_client, tmp_path, sample_artifacts_dir, monkeypatch, set_env_var_foo
-    ):
-        # in this test we use subprocess, since env var is monkeypatched
+        assert sorted(os.listdir(sample_artifacts_dir)) == [
+            'build.log',
+            'size.json',
+            'test.bin',
+        ]
 
-        # Mock git functions that would be called
-        commit_sha = 'cli_test_sha_123'
-
-        if set_env_var_foo:
-            monkeypatch.setenv('ENV_VAR_FOO', 'foo')
-
-        # Upload artifacts
-        subprocess.run(
-            [
-                'idf-ci',
-                'gitlab',
-                'upload-artifacts',
-                '--commit-sha',
-                commit_sha,
-                '--type',
-                'flash',
-            ],
-            check=True,
-        )
-        objs = list(s3_client.list_objects('test-bucket', recursive=True))
-        assert len(objs) == 1
-        assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/test.bin'
-
-        # upload optional
-        subprocess.run(
-            [
-                'idf-ci',
-                'gitlab',
-                'upload-artifacts',
-                '--commit-sha',
-                commit_sha,
-                '--type',
-                'optional',
-            ],
-            check=True,
-        )
-        objs = list(s3_client.list_objects('test-bucket', recursive=True))
-        if set_env_var_foo:
-            assert len(objs) == 2
-            assert objs[1].object_name == f'espressif/esp-idf/{commit_sha}/optional.txt'
-        else:
-            assert len(objs) == 1
-            assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/test.bin'
-
+        # test single artifact type download
         shutil.rmtree(sample_artifacts_dir)
 
-        # download and check if the files were uploaded
-        subprocess.run(
+        result = runner.invoke(
+            click_cli,
             [
-                'idf-ci',
                 'gitlab',
                 'download-artifacts',
                 '--commit-sha',
                 commit_sha,
                 '--type',
                 'flash',
-                str(tmp_path),
             ],
-            check=True,
         )
+        assert result.exit_code == 0
+        assert sorted(os.listdir(sample_artifacts_dir)) == [
+            'test.bin',
+        ]
 
-        assert sorted(os.listdir(sample_artifacts_dir)) == ['test.bin']
-        assert open(sample_artifacts_dir / 'test.bin').read() == 'Binary content'
+    def test_all_with_optional(self, runner, s3_client, sample_artifacts_dir, tmp_path, monkeypatch):
+        commit_sha = 'cli_test_sha_123'
 
-        # generate presigned URL
-        presigned_urls = ArtifactManager().generate_presigned_json(
-            commit_sha=commit_sha,
-            artifact_type='flash',
-        )
+        monkeypatch.setenv('ENV_VAR_FOO', 'foo')
 
-        # Save presigned URLs to a file
-        presigned_json_path = os.path.join(tmp_path, 'presigned.json')
-        with open(presigned_json_path, 'w') as f:
-            json.dump(presigned_urls, f)
-
-        # Remove S3 credentials
-        monkeypatch.delenv('IDF_S3_ACCESS_KEY')
-
-        # Try to download using presigned.json
-        subprocess.run(
+        result = runner.invoke(
+            click_cli,
             [
-                'idf-ci',
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+            ],
+        )
+        assert result.exit_code == 0
+        private_objs = list(s3_client.list_objects('private', recursive=True))
+        public_objs = list(s3_client.list_objects('public', recursive=True))
+
+        assert len(private_objs) == 3
+        assert sorted(obj.object_name for obj in private_objs) == [
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/debug.zip',
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip',
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size.json',
+        ]
+
+        assert len(public_objs) == 1
+        assert public_objs[0].object_name == f'espressif/esp-idf/{commit_sha}/optional.txt'
+
+        shutil.rmtree(sample_artifacts_dir)
+        (tmp_path / 'optional.txt').unlink(missing_ok=True)
+
+        result = runner.invoke(
+            click_cli,
+            [
                 'gitlab',
                 'download-artifacts',
                 '--commit-sha',
                 commit_sha,
-                '--presigned-json',
-                presigned_json_path,
-                str(tmp_path),
             ],
-            check=True,
         )
-
-        assert os.path.exists(os.path.join(tmp_path, 'app/build_esp32_build/test.bin'))
+        assert result.exit_code == 0
+        assert sorted(os.listdir(sample_artifacts_dir)) == [
+            'build.log',
+            'size.json',
+            'test.bin',
+        ]
+        assert (tmp_path / 'optional.txt').exists()
 
     def test_cli_generate_presigned_json(self, runner):
-        # Mock git functions that would be called
         commit_sha = 'cli_test_sha_123'
 
-        # First upload some artifacts
         result = runner.invoke(
             click_cli,
             [
@@ -254,12 +216,11 @@ class TestUploadDownloadArtifacts:
                 '--commit-sha',
                 commit_sha,
                 '--type',
-                'flash',
+                'metrics',
             ],
         )
         assert result.exit_code == 0
 
-        # Generate presigned URLs
         result = runner.invoke(
             click_cli,
             [
@@ -268,21 +229,88 @@ class TestUploadDownloadArtifacts:
                 '--commit-sha',
                 commit_sha,
                 '--type',
+                'metrics',
+            ],
+        )
+        assert result.exit_code == 0
+
+        presigned_urls = json.loads(result.stdout)
+        assert sorted(presigned_urls.keys()) == ['app/build_esp32_build/size.json']
+
+        response = requests.get(presigned_urls['app/build_esp32_build/size.json'])
+        assert response.status_code == 200
+
+    def test_cli_download_with_presigned_json(self, runner, tmp_path, sample_artifacts_dir):
+        commit_sha = 'presigned_test_sha_123'
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--type',
                 'flash',
             ],
         )
         assert result.exit_code == 0
 
-        # Parse the output JSON
-        presigned_urls = json.loads(result.output)
-        assert len(presigned_urls) == 1
-        assert 'app/build_esp32_build/test.bin' in presigned_urls
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--type',
+                'metrics',
+            ],
+        )
+        assert result.exit_code == 0
 
-        # Verify the presigned URL is valid by downloading the file
-        response = requests.get(presigned_urls['app/build_esp32_build/test.bin'])
-        assert response.status_code == 200
-        assert response.text == 'Binary content'
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'generate-presigned-json',
+                '--commit-sha',
+                commit_sha,
+                '-o',
+                str(tmp_path / 'presigned.json'),
+            ],
+        )
+        assert result.exit_code == 0
 
+        assert (tmp_path / 'presigned.json').exists()
+        with open('presigned.json') as fr:
+            assert sorted(json.load(fr).keys()) == [
+                'app/build_esp32_build/flash.zip',
+                'app/build_esp32_build/size.json',
+            ]
+
+        shutil.rmtree(sample_artifacts_dir, ignore_errors=True)
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'download-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--presigned-json',
+                str(tmp_path / 'presigned.json'),
+            ],
+        )
+        assert result.exit_code == 0
+
+        # Verify the file was downloaded and extracted
+        assert (sample_artifacts_dir / 'test.bin').exists()
+        assert (sample_artifacts_dir / 'test.bin').read_text() == 'Binary content'
+        assert (sample_artifacts_dir / 'size.json').exists()
+        assert (sample_artifacts_dir / 'size.json').read_text() == '{"size": 1024}'
+
+    # Error Handling Tests
     def test_download_without_s3_credentials(self, runner, tmp_path, monkeypatch):
         # Remove S3 credentials
         monkeypatch.delenv('IDF_S3_ACCESS_KEY')
@@ -300,15 +328,17 @@ class TestUploadDownloadArtifacts:
                 str(tmp_path),
             ],
         )
-
         assert result.exit_code != 0
-        assert isinstance(result.exception, ArtifactError)
-        assert (
-            'Either presigned_json or pipeline_id must be provided to download artifacts, if S3 is not configured'
-            in result.exception.args
-        )
+        assert isinstance(result.exception, S3Error)
+        assert 'S3 client is not configured properly' in result.exception.args[0]
 
-    def test_upload_without_s3_credentials(self, runner, tmp_path, monkeypatch):
+    def test_upload_without_s3_credentials(
+        self,
+        runner,
+        tmp_path,
+        sample_artifacts_dir,  # noqa
+        monkeypatch,
+    ):
         # Remove S3 credentials
         monkeypatch.delenv('IDF_S3_ACCESS_KEY')
 
@@ -328,4 +358,4 @@ class TestUploadDownloadArtifacts:
 
         assert result.exit_code != 0
         assert isinstance(result.exception, S3Error)
-        assert 'Configure S3 storage to upload artifacts' in result.exception.args
+        assert 'Configure S3 storage to upload artifacts' in result.exception.args[0]

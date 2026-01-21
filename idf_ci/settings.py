@@ -3,14 +3,13 @@
 import logging
 import os
 import re
-import sys
 import typing as t
 from contextvars import ContextVar
 from pathlib import Path
 
 from idf_build_apps import App, json_list_files_to_apps
 from idf_build_apps.constants import BuildStatus
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from pydantic_settings import (
     BaseSettings as _BaseSettings,
 )
@@ -21,17 +20,7 @@ from pydantic_settings import (
 )
 from tomlkit import load
 
-from idf_ci._compat import PathLike, TypedDict
-
-if sys.version_info < (3, 11):
-    from typing_extensions import NotRequired
-else:
-    from typing import NotRequired
-
-if sys.version_info < (3, 8):
-    from typing_extensions import Literal
-else:
-    from typing import Literal
+from idf_ci._compat import PathLike
 
 logger = logging.getLogger(__name__)
 
@@ -102,67 +91,45 @@ class CliOverridesSettingsSource(InitSettingsSource):
         super().__init__(settings_cls, self.overrides)
 
 
-class S3FilePatternConfig(TypedDict):
+class S3ArtifactConfig(BaseModel):
     bucket: str
+    """S3 bucket used to store artifacts for this type."""
 
-    patterns: t.List[str]
-    """List of glob patterns for files to collect."""
+    is_public: bool = False
+    """Whether the S3 bucket is public. Requires ListBucket and GetObject permissions."""
 
-    if_clause: NotRequired[str]
+    zip_first: bool = True
+    """Whether to create zip files before uploading to S3.
+
+    If False, files are uploaded individually without zipping.
+    """
+
+    base_dir_pattern: t.Optional[str] = None
+    """Glob pattern for base directories to create zip files from.
+
+    The pattern should match directories only (for example, ``**/build*/``). If not set,
+    the current folder is used as the base directory.
+    """
+
+    file_patterns: t.List[str] = ['**/*']
+    """Glob patterns (relative to each base directory) for files to include.
+
+    If empty or omitted, all files under the base directory are included.
+    """
+
+    if_clause: t.Optional[str] = None
+    """Optional boolean expression to decide whether this artifact type is enabled."""
 
 
-class S3ZipPatternConfig(TypedDict):
-    bucket: str
+class ArtifactSettingsS3(BaseModel):
+    enable: bool = False
+    """Whether to enable S3 artifact upload/download and presigned URL generation."""
 
-    zip_basedir_pattern: NotRequired[str]
-    """zip base directory pattern to locate the zip files. If not set, use the current directory."""
-
-    zip_file_patterns: t.List[str]
-    """zip file pattern relative to the base pattern."""
-
-    if_clause: NotRequired[str]
-
-
-class ArtifactSettings(BaseModel):
-    ### in s3 buckets ###
-    s3_file_mode: Literal['zip', 'file'] = 'file'
-    """Mode to upload artifacts to S3. 'zip' to upload zip files, 'file' to upload single files"""
-
-    s3_download_from_public: bool = False
-    """Whether to download artifacts from public S3 buckets without authentication."""
-
-    s3: t.Dict[str, S3FilePatternConfig] = {
+    configs: t.Union[t.Dict[str, S3ArtifactConfig], t.Dict[str, t.Dict[str, t.Any]]] = {
         'debug': {
             'bucket': 'idf-artifacts',
-            'patterns': [
-                '**/build*/bootloader/*.map',
-                '**/build*/bootloader/*.elf',
-                '**/build*/*.map',
-                '**/build*/*.elf',
-                '**/build*/build.log',  # build_log_filename
-            ],
-        },
-        'flash': {
-            'bucket': 'idf-artifacts',
-            'patterns': [
-                '**/build*/bootloader/*.bin',
-                '**/build*/*.bin',
-                '**/build*/partition_table/*.bin',
-                '**/build*/flasher_args.json',
-                '**/build*/flash_project_args',
-                '**/build*/config/sdkconfig.json',
-                '**/build*/sdkconfig',
-                '**/build*/project_description.json',
-            ],
-        },
-    }
-    """Dictionary mapping artifact types to their bucket and file patterns."""
-
-    s3_zip: t.Dict[str, S3ZipPatternConfig] = {
-        'debug': {
-            'bucket': 'idf-artifacts',
-            'zip_basedir_pattern': '**/build*/',
-            'zip_file_patterns': [
+            'base_dir_pattern': '**/build*/',
+            'file_patterns': [
                 'bootloader/*.map',
                 'bootloader/*.elf',
                 '*.map',
@@ -172,8 +139,8 @@ class ArtifactSettings(BaseModel):
         },
         'flash': {
             'bucket': 'idf-artifacts',
-            'zip_basedir_pattern': '**/build*/',
-            'zip_file_patterns': [
+            'base_dir_pattern': '**/build*/',
+            'file_patterns': [
                 'bootloader/*.bin',
                 '*.bin',
                 'partition_table/*.bin',
@@ -185,11 +152,45 @@ class ArtifactSettings(BaseModel):
             ],
         },
     }
-    """Dictionary mapping artifact types to their bucket and file patterns."""
+    """Dictionary mapping artifact types to their S3 upload configuration.
 
-    ### not in s3 buckets ###
+    Depending on the corresponding :class:`S3ArtifactConfig`'s ``zip_first`` setting,
+    each matching base directory either produces a ``<artifact_type>.zip`` that is
+    uploaded to the configured bucket, or uploads the matching files directly without
+    creating a zip archive.
+    """
+
+    @model_validator(mode='after')
+    def validate_configs(self):
+        if isinstance(self.configs, dict):
+            self.configs = {
+                key: S3ArtifactConfig.model_validate(value) if isinstance(value, dict) else value
+                for key, value in self.configs.items()
+            }
+        return self
+
+
+class ArtifactSettingsNative(BaseModel):
+    enable: bool = True
+    """Whether to use GitLab native artifacts."""
 
     build_job_filepatterns: t.List[str] = [
+        # debug
+        '**/build*/bootloader/*.map',
+        '**/build*/bootloader/*.elf',
+        '**/build*/*.map',
+        '**/build*/*.elf',
+        # flash
+        '**/build*/bootloader/*.bin',
+        '**/build*/*.bin',
+        '**/build*/partition_table/*.bin',
+        '**/build*/flasher_args.json',
+        '**/build*/flash_project_args',
+        '**/build*/config/sdkconfig.json',
+        '**/build*/sdkconfig',
+        '**/build*/project_description.json',
+        # info
+        '**/build*/build.log',  # build_log_filename
         'app_info_*.txt',  # collect_app_info_filename
         'build_summary_*.xml',  # junitxml
     ]
@@ -201,18 +202,13 @@ class ArtifactSettings(BaseModel):
     ]
     """List of glob patterns for CI test jobs artifacts to collect."""
 
-    @property
-    def available_s3_types(self) -> t.List[str]:
-        """Get list of available S3 artifact types.
 
-        :returns: List of artifact type names
-        """
-        if self.s3_file_mode == 'zip':
-            return sorted(self.s3_zip.keys())
-        elif self.s3_file_mode == 'file':
-            return sorted(self.s3.keys())
-        else:
-            raise NotImplementedError(f'Unknown s3_file_mode: {self.s3_file_mode}')
+class ArtifactSettings(BaseModel):
+    s3: ArtifactSettingsS3 = ArtifactSettingsS3()
+    """S3 artifact upload settings."""
+
+    native: ArtifactSettingsNative = ArtifactSettingsNative()
+    """GitLab native artifact settings."""
 
 
 class BuildPipelineSettings(BaseModel):
@@ -220,7 +216,7 @@ class BuildPipelineSettings(BaseModel):
     """Name for the GitLab CI workflow."""
 
     presigned_json_job_name: str = 'generate_presigned_json'
-    """Name of the job within the child pipeline that creates the presigned.json file."""
+    """Name of the job within the child pipeline that creates presigned.json."""
 
     job_template_name: str = '.default_build_settings'
     """Default template name for CI build jobs."""
@@ -239,13 +235,13 @@ class BuildPipelineSettings(BaseModel):
   timeout: "1h"
   artifacts:
     paths:
-    {%- for path in settings.gitlab.artifacts.build_job_filepatterns %}
+    {%- for path in settings.gitlab.artifacts.native.build_job_filepatterns %}
       - "{{ path }}"
     {%- endfor %}
     expire_in: "1 week"
     when: "always"
   before_script:
-    - pip install -U 'idf-ci<1'
+    - pip install -U idf-ci
   script:
     - idf-ci build run
       --parallel-count ${CI_NODE_TOTAL:-1}
@@ -365,7 +361,7 @@ class TestPipelineSettings(BuildPipelineSettings):
   timeout: "1h"
   artifacts:
     paths:
-    {%- for path in settings.gitlab.artifacts.test_job_filepatterns %}
+    {%- for path in settings.gitlab.artifacts.native.test_job_filepatterns %}
       - "{{ path }}"
     {%- endfor %}
     expire_in: "1 week"
@@ -376,7 +372,7 @@ class TestPipelineSettings(BuildPipelineSettings):
     - pipeline: "$PARENT_PIPELINE_ID"
       job: "build_test_related_apps"
   before_script:
-    - pip install -U 'idf-ci<1'
+    - pip install -U idf-ci
   script:
     - eval pytest $nodes
       --parallel-count ${CI_NODE_TOTAL:-1}
