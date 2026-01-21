@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
-import io
 import json
 import logging
 import os
@@ -8,15 +7,14 @@ import shutil
 import subprocess
 import sys
 import textwrap
-import zipfile
 
 import minio
 import pytest
 import requests
 
 from idf_ci.cli import click_cli
-from idf_ci.idf_gitlab import S3ArtifactManager
-from idf_ci.idf_gitlab.api import ArtifactError
+from idf_ci.idf_gitlab import ArtifactManager
+from idf_ci.idf_gitlab.api import ArtifactError, S3Error
 from idf_ci.settings import _refresh_ci_settings
 
 
@@ -43,27 +41,21 @@ class TestUploadDownloadArtifacts:
                 [gitlab]
                 project = "espressif/esp-idf"
 
-                [gitlab.artifacts.s3]
-                enable = true
-
-                [gitlab.artifacts.s3.configs.debug]
+                [gitlab.artifacts.s3.debug]
                 bucket = "test-bucket"
-                base_dir_pattern = "**/build*/"
-                file_patterns = ["build.log"]
+                patterns = ["**/build*/build.log"]
 
-                [gitlab.artifacts.s3.configs.flash]
+                [gitlab.artifacts.s3.flash]
                 bucket = "test-bucket"
-                base_dir_pattern = "**/build*/"
-                file_patterns = ["*.bin"]
+                patterns = ["**/build*/*.bin"]
 
-                [gitlab.artifacts.s3.configs.metrics]
+                [gitlab.artifacts.s3.metrics]
                 bucket = "test-bucket"
-                base_dir_pattern = "**/build*/"
-                file_patterns = ["size.json"]
+                patterns = ["**/build*/size.json"]
 
-                [gitlab.artifacts.s3.configs.optional]
+                [gitlab.artifacts.s3.optional]
                 bucket = "test-bucket"
-                file_patterns = ["**/optional.txt"]
+                patterns = ["**/optional.txt"]
                 if_clause = 'ENV_VAR_FOO == "foo"'
             """)
         )
@@ -84,21 +76,19 @@ class TestUploadDownloadArtifacts:
 
     @pytest.fixture
     def s3_client(self) -> minio.Minio:
-        client = S3ArtifactManager().s3_client
+        client = ArtifactManager().s3_client
         assert client is not None
 
         # Drop and recreate bucket before test
-        for bucket in ['test-bucket', 'idf-artifacts']:
-            try:
-                for obj in client.list_objects(bucket, recursive=True):
-                    client.remove_object(bucket, obj.object_name)
+        try:
+            for obj in client.list_objects('test-bucket', recursive=True):
+                client.remove_object('test-bucket', obj.object_name)
 
-                client.remove_bucket(bucket)
-            except minio.error.S3Error as e:
-                logging.error(f'Error removing bucket: {e}')
-                pass
-            client.make_bucket(bucket)
-
+            client.remove_bucket('test-bucket')
+        except minio.error.S3Error as e:
+            logging.error(f'Error removing bucket: {e}')
+            pass
+        client.make_bucket('test-bucket')
         return client
 
     def test_cli_upload_download_zip_artifacts(self, s3_client, sample_artifacts_dir):
@@ -108,9 +98,10 @@ class TestUploadDownloadArtifacts:
         subprocess.run(
             [
                 'idf-ci',
-                '--debug',
+                '--config',
+                'gitlab.artifacts.s3_file_mode = "zip"',
                 'gitlab',
-                'upload-s3-artifacts',
+                'upload-artifacts',
                 '--commit-sha',
                 commit_sha,
                 '--type',
@@ -118,7 +109,7 @@ class TestUploadDownloadArtifacts:
             ],
             check=True,
         )
-        objs = list(s3_client.list_objects('test-bucket', recursive=True))
+        objs = list(s3_client.list_objects('idf-artifacts', recursive=True))
         assert len(objs) == 1
         assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip'
 
@@ -128,8 +119,12 @@ class TestUploadDownloadArtifacts:
         subprocess.run(
             [
                 'idf-ci',
+                '--config',
+                'gitlab.artifacts.s3_file_mode = "zip"',
+                '--config',
+                'gitlab.artifacts.s3_download_from_public = True',
                 'gitlab',
-                'download-s3-artifacts',
+                'download-artifacts',
                 '--commit-sha',
                 commit_sha,
                 '--type',
@@ -142,7 +137,7 @@ class TestUploadDownloadArtifacts:
     @pytest.mark.parametrize(
         'set_env_var_foo',
         [
-            # True,
+            True,
             False,
         ],
     )
@@ -162,7 +157,7 @@ class TestUploadDownloadArtifacts:
             [
                 'idf-ci',
                 'gitlab',
-                'upload-s3-artifacts',
+                'upload-artifacts',
                 '--commit-sha',
                 commit_sha,
                 '--type',
@@ -172,33 +167,28 @@ class TestUploadDownloadArtifacts:
         )
         objs = list(s3_client.list_objects('test-bucket', recursive=True))
         assert len(objs) == 1
-        assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip'
+        assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/test.bin'
 
         # upload optional
         subprocess.run(
             [
                 'idf-ci',
-                '--debug',
                 'gitlab',
-                'upload-s3-artifacts',
+                'upload-artifacts',
                 '--commit-sha',
                 commit_sha,
                 '--type',
                 'optional',
             ],
             check=True,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
         )
         objs = list(s3_client.list_objects('test-bucket', recursive=True))
-        obj_names = sorted(obj.object_name for obj in objs)
         if set_env_var_foo:
-            assert obj_names == [
-                f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip',
-                f'espressif/esp-idf/{commit_sha}/optional.zip',
-            ]
+            assert len(objs) == 2
+            assert objs[1].object_name == f'espressif/esp-idf/{commit_sha}/optional.txt'
         else:
-            assert obj_names == [f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip']
+            assert len(objs) == 1
+            assert objs[0].object_name == f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/test.bin'
 
         shutil.rmtree(sample_artifacts_dir)
 
@@ -207,7 +197,7 @@ class TestUploadDownloadArtifacts:
             [
                 'idf-ci',
                 'gitlab',
-                'download-s3-artifacts',
+                'download-artifacts',
                 '--commit-sha',
                 commit_sha,
                 '--type',
@@ -221,7 +211,7 @@ class TestUploadDownloadArtifacts:
         assert open(sample_artifacts_dir / 'test.bin').read() == 'Binary content'
 
         # generate presigned URL
-        presigned_urls = S3ArtifactManager().generate_presigned_json(
+        presigned_urls = ArtifactManager().generate_presigned_json(
             commit_sha=commit_sha,
             artifact_type='flash',
         )
@@ -239,7 +229,7 @@ class TestUploadDownloadArtifacts:
             [
                 'idf-ci',
                 'gitlab',
-                'download-s3-artifacts',
+                'download-artifacts',
                 '--commit-sha',
                 commit_sha,
                 '--presigned-json',
@@ -260,7 +250,7 @@ class TestUploadDownloadArtifacts:
             click_cli,
             [
                 'gitlab',
-                'upload-s3-artifacts',
+                'upload-artifacts',
                 '--commit-sha',
                 commit_sha,
                 '--type',
@@ -284,16 +274,14 @@ class TestUploadDownloadArtifacts:
         assert result.exit_code == 0
 
         # Parse the output JSON
-        presigned_urls = json.loads(result.stdout)
+        presigned_urls = json.loads(result.output)
         assert len(presigned_urls) == 1
-        zip_key = 'app/build_esp32_build/flash.zip'
-        assert zip_key in presigned_urls
+        assert 'app/build_esp32_build/test.bin' in presigned_urls
 
-        # Verify the presigned URL is valid by downloading the zip
-        response = requests.get(presigned_urls[zip_key])
+        # Verify the presigned URL is valid by downloading the file
+        response = requests.get(presigned_urls['app/build_esp32_build/test.bin'])
         assert response.status_code == 200
-        with zipfile.ZipFile(io.BytesIO(response.content), 'r') as zipf:
-            assert zipf.read('test.bin').decode('utf-8') == 'Binary content'
+        assert response.text == 'Binary content'
 
     def test_download_without_s3_credentials(self, runner, tmp_path, monkeypatch):
         # Remove S3 credentials
@@ -304,7 +292,7 @@ class TestUploadDownloadArtifacts:
             click_cli,
             [
                 'gitlab',
-                'download-s3-artifacts',
+                'download-artifacts',
                 '--commit-sha',
                 'test_sha',
                 '--type',
@@ -312,6 +300,7 @@ class TestUploadDownloadArtifacts:
                 str(tmp_path),
             ],
         )
+
         assert result.exit_code != 0
         assert isinstance(result.exception, ArtifactError)
         assert (
@@ -319,13 +308,7 @@ class TestUploadDownloadArtifacts:
             in result.exception.args
         )
 
-    def test_upload_without_s3_credentials(
-        self,
-        runner,
-        tmp_path,
-        sample_artifacts_dir,  # noqa
-        monkeypatch,
-    ):
+    def test_upload_without_s3_credentials(self, runner, tmp_path, monkeypatch):
         # Remove S3 credentials
         monkeypatch.delenv('IDF_S3_ACCESS_KEY')
 
@@ -334,7 +317,7 @@ class TestUploadDownloadArtifacts:
             click_cli,
             [
                 'gitlab',
-                'upload-s3-artifacts',
+                'upload-artifacts',
                 '--commit-sha',
                 'test_sha',
                 '--type',
@@ -344,5 +327,5 @@ class TestUploadDownloadArtifacts:
         )
 
         assert result.exit_code != 0
-        assert isinstance(result.exception, ArtifactError)
-        assert 'S3 operation failed; code: AccessDenied' in result.exception.args[0]
+        assert isinstance(result.exception, S3Error)
+        assert 'Configure S3 storage to upload artifacts' in result.exception.args
