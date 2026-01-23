@@ -44,7 +44,7 @@ def execute_concurrent_tasks(
     :param max_workers: Maximum number of worker threads
     :param task_name: Error message prefix for logging
 
-    :returns: List of successful task results, sequence is not guaranteed
+    :returns: List of successful task results; order is not guaranteed
     """
     results = []
     errors = []
@@ -129,19 +129,6 @@ class PresignedUrlError(ArtifactError):
 
 
 class ArtifactManager:
-    """Tool interface for managing artifacts in GitLab pipelines.
-
-    This class provides a unified interface for downloading and uploading artifacts,
-    supporting both GitLab's built-in storage and S3 storage. It handles:
-
-    1. GitLab API operations (pipeline, merge request queries)
-    2. S3 storage operations (artifact upload/download)
-    3. Fallback to GitLab storage when S3 is not configured
-
-    :var envs: GitLab environment variables
-    :var settings: CI settings
-    """
-
     def __init__(self):
         self.envs = GitlabEnvVars()
         self.settings = get_ci_settings()
@@ -160,7 +147,6 @@ class ArtifactManager:
     @property
     @lru_cache()
     def project(self):
-        """Lazily initialize and cache the GitLab project."""
         project = self.gl.projects.get(self.settings.gitlab.project)
         if not project:
             raise ValueError(f'Project {self.settings.gitlab.project} not found')
@@ -168,33 +154,22 @@ class ArtifactManager:
 
     @property
     def s3_client(self) -> t.Optional[minio.Minio]:
-        """Get or create the S3 client."""
         if is_undefined(self._s3_client):
             self._s3_client = self._create_s3_client()
         return self._s3_client
 
     @property
     def s3_public_client(self) -> t.Optional[minio.Minio]:
-        """Get or create an anonymous S3 client for public buckets."""
         if is_undefined(self._s3_public_client):
             self._s3_public_client = self._create_s3_client(public=True)
         return self._s3_public_client
 
-    def _create_s3_client(self, public: bool = False) -> t.Optional[minio.Minio]:
-        """Create a Minio client with the given credentials.
-
-        :param public: Whether to create an anonymous client for public access
-
-        :returns: Minio client instance
-        """
+    def _create_s3_client(self, *, public=False) -> t.Optional[minio.Minio]:
         if not self.envs.IDF_S3_SERVER:
             logger.info('S3 credentials not available. Skipping S3 features...')
             return None
 
-        if public:
-            access_key = ''
-            secret_key = ''
-        else:
+        if not public:
             if not all(
                 [
                     self.envs.IDF_S3_ACCESS_KEY,
@@ -203,9 +178,6 @@ class ArtifactManager:
             ):
                 logger.info('S3 credentials not available. Skipping S3 features...')
                 return None
-
-            access_key = self.envs.IDF_S3_ACCESS_KEY
-            secret_key = self.envs.IDF_S3_SECRET_KEY
 
         if self.envs.IDF_S3_SERVER.startswith('https://'):
             host = self.envs.IDF_S3_SERVER.replace('https://', '')
@@ -219,8 +191,8 @@ class ArtifactManager:
         logger.debug('S3 Host: %s', host)
         return minio.Minio(
             host,
-            access_key=access_key,
-            secret_key=secret_key,
+            access_key=self.envs.IDF_S3_ACCESS_KEY if not public else '',
+            secret_key=self.envs.IDF_S3_SECRET_KEY if not public else '',
             secure=secure,
             http_client=urllib3.PoolManager(
                 num_pools=10,
@@ -235,97 +207,48 @@ class ArtifactManager:
             ),
         )
 
-    def _validate_artifact_types(self, artifact_type: t.Optional[str]) -> t.List[str]:
-        """Validate artifact type and return list of types to process.
+    def _get_file_patterns_for_type(self, artifact_type: str) -> t.List[str]:
+        config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
 
-        :param artifact_type: Type of artifacts (debug, flash, metrics) or None for all
+        if not config.base_dir_pattern:
+            return config.file_patterns
 
-        :returns: List of artifact types to process
+        return [os.path.join(config.base_dir_pattern, pattern) for pattern in config.file_patterns]
 
-        :raises ValueError: If the artifact type is invalid
-        """
+    def _get_artifact_types(self, artifact_type: t.Optional[str]) -> t.List[str]:
+        if artifact_type and artifact_type not in self.settings.gitlab.artifacts.s3.configs:
+            raise ValueError(
+                f'Invalid artifact type: {artifact_type}. '
+                f'Available types: {list(self.settings.gitlab.artifacts.s3.configs.keys())}'
+            )
+
+        available_types = []
+        for art_type, config in self.settings.gitlab.artifacts.s3.configs.items():
+            # Check if_clause condition
+            if config.if_clause:
+                try:
+                    stmt = esp_bool_parser.parse_bool_expr(config.if_clause)
+                    res = stmt.get_value('', '')
+                except Exception as e:
+                    logger.debug(
+                        f'Skipping {art_type} artifacts due to error '
+                        f'while evaluating if_clause: {config.if_clause}: {e}'
+                    )
+                else:
+                    if res:
+                        available_types.append(art_type)
+                    else:
+                        logger.debug(f'Skipping {art_type} artifacts due to if_clause: {config.if_clause}')
+            else:
+                available_types.append(art_type)
+
         if artifact_type:
-            if artifact_type not in self.settings.gitlab.artifacts.available_s3_types:
-                raise ValueError(
-                    f'Invalid artifact type: {artifact_type}. '
-                    f'Available types: {self.settings.gitlab.artifacts.available_s3_types}'
-                )
-            return [artifact_type]
-        return self.settings.gitlab.artifacts.available_s3_types
+            if artifact_type in available_types:
+                return [artifact_type]
+            else:
+                return []
 
-    def _get_upload_details_by_type(self, artifact_type: t.Optional[str]) -> t.Dict[str, t.List[str]]:
-        """Get file patterns grouped by bucket name based on the artifact type.
-
-        :param artifact_type: Type of artifacts to download (debug, flash, metrics)
-
-        :returns: Dictionary mapping bucket names to lists of patterns
-
-        :raises ValueError: If the artifact type is invalid
-        """
-        bucket_patterns: t.Dict[str, t.List[str]] = {}
-        for artifact_type in self._validate_artifact_types(artifact_type):
-            config = self.settings.gitlab.artifacts.s3[artifact_type]
-
-            if config.get('if_clause'):
-                try:
-                    stmt = esp_bool_parser.parse_bool_expr(config['if_clause'])
-                    res = stmt.get_value('', '')
-                except Exception as e:
-                    logger.info(
-                        f'Skipping {artifact_type} artifacts due to error '
-                        f'while evaluating if_clause: {config["if_clause"]}: {e}'
-                    )
-                    continue
-                else:
-                    if not res:
-                        logger.debug(f'Skipping {artifact_type} artifacts due to if_clause: {config["if_clause"]}')
-                        continue
-
-            bucket = config['bucket']
-            if bucket not in bucket_patterns:
-                bucket_patterns[bucket] = []
-            bucket_patterns[bucket].extend(config['patterns'])
-
-        if not bucket_patterns:
-            logger.info('No S3 configured patterns found, skipping...')
-
-        return bucket_patterns
-
-    def _get_upload_zip_details_by_type(self, artifact_type: t.Optional[str]) -> t.Dict[str, t.Set[str]]:
-        """Get zip artifact types and their buckets.
-
-        :param artifact_type: Type of artifacts to upload (debug, flash, metrics). If
-            None, returns all available types.
-
-        :returns: Dictionary mapping bucket names to a set of artifact_types
-
-        :raises ValueError: If the artifact type is invalid
-        """
-        bucket_artifact_types: t.Dict[str, t.Set[str]] = defaultdict(set)
-        for artifact_type in self._validate_artifact_types(artifact_type):
-            config = self.settings.gitlab.artifacts.s3_zip[artifact_type]
-
-            if config.get('if_clause'):
-                try:
-                    stmt = esp_bool_parser.parse_bool_expr(config['if_clause'])
-                    res = stmt.get_value('', '')
-                except Exception as e:
-                    logger.info(
-                        f'Skipping {artifact_type} artifacts due to error '
-                        f'while evaluating if_clause: {config["if_clause"]}: {e}'
-                    )
-                    continue
-                else:
-                    if not res:
-                        logger.debug(f'Skipping {artifact_type} artifacts due to if_clause: {config["if_clause"]}')
-                        continue
-
-            bucket_artifact_types[config['bucket']].add(artifact_type)
-
-        if not bucket_artifact_types:
-            logger.info('No S3 zip configured patterns found, skipping...')
-
-        return bucket_artifact_types
+        return available_types
 
     def _get_s3_path(self, prefix: str, from_path: Path) -> str:
         if from_path.is_absolute():
@@ -337,25 +260,27 @@ class ArtifactManager:
 
         return f'{prefix}{rel_path}' if rel_path != '.' else prefix
 
-    def _download_from_s3(
+    def _download_files_from_s3(
         self,
-        s3_client: minio.Minio,
         *,
-        bucket: str,
         prefix: str,
         from_path: Path,
-        patterns: t.List[str],
+        artifact_type: str,
     ) -> int:
-        s3_path = self._get_s3_path(prefix, from_path)
-        patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
+        config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
+        s3_client = self._validate_s3_client(artifact_type)
 
         def _download_task(_obj_name: str, _output_path: Path) -> None:
             logger.debug(f'Downloading {_obj_name} to {_output_path}')
             _output_path.parent.mkdir(parents=True, exist_ok=True)
-            s3_client.fget_object(bucket, _obj_name, str(_output_path))
+            s3_client.fget_object(config.bucket, _obj_name, str(_output_path))
 
         tasks = []
-        for obj in s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
+        patterns_regexes = [
+            re.compile(translate(pattern, recursive=True, include_hidden=True))
+            for pattern in self._get_file_patterns_for_type(artifact_type)
+        ]
+        for obj in s3_client.list_objects(config.bucket, prefix=self._get_s3_path(prefix, from_path), recursive=True):
             output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
             if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
                 continue
@@ -366,80 +291,77 @@ class ArtifactManager:
         execute_concurrent_tasks(tasks, task_name='downloading object')
         return len(tasks)
 
+    def _extract_zip_file(self, zip_path: Path) -> None:
+        logger.debug(f'Extracting {zip_path}')
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zipf:
+                zipf.extractall(zip_path.parent)
+        except zipfile.BadZipFile as e:
+            logger.error(f'Failed to extract {zip_path}: {e}')
+            raise
+        finally:
+            zip_path.unlink()
+            logger.debug(f'Removed zip file {zip_path}')
+
     def _download_zip_from_s3(
         self,
-        s3_client: minio.Minio,
         *,
-        bucket: str,
         prefix: str,
         from_path: Path,
-        artifact_types: t.Set[str],
+        artifact_type: str,
     ) -> int:
-        """Download zip files from S3 and extract them.
+        """Download and extract zip files from S3."""
+        config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
+        s3_client = self._validate_s3_client(artifact_type)
 
-        :param s3_client: S3 client instance
-        :param bucket: S3 bucket name
-        :param prefix: S3 prefix path
-        :param from_path: Base path to download to
-        :param artifact_types: Set of artifact types to download (e.g., {'flash',
-            'debug'})
+        def _download_and_extract(obj_name: str, zip_path: Path) -> None:
+            logger.debug(f'Downloading {obj_name} to {zip_path}')
+            zip_path.parent.mkdir(parents=True, exist_ok=True)
+            s3_client.fget_object(config.bucket, obj_name, str(zip_path))
+            self._extract_zip_file(zip_path)
 
-        :returns: Number of zip files downloaded and extracted
-        """
-        s3_path = self._get_s3_path(prefix, from_path)
-
-        def _download_and_extract_task(_obj_name: str, _zip_path: Path) -> None:
-            logger.debug(f'Downloading zip {_obj_name} to {_zip_path}')
-            _zip_path.parent.mkdir(parents=True, exist_ok=True)
-            s3_client.fget_object(bucket, _obj_name, str(_zip_path))
-
-            # Extract zip file to the same directory
-            logger.debug(f'Extracting {_zip_path} to {_zip_path.parent}')
-            try:
-                with zipfile.ZipFile(_zip_path, 'r') as zipf:
-                    zipf.extractall(_zip_path.parent)
-            except zipfile.BadZipFile as e:
-                logger.error(f'Failed to extract {_zip_path}: {e}')
-                raise
-            finally:
-                # Remove the zip file after extraction (or on error)
-                if _zip_path.exists():
-                    _zip_path.unlink()
-                    logger.debug(f'Removed zip file {_zip_path} after extraction')
-
+        # Find matching zip files
         tasks = []
         # Look for zip files matching artifact types (e.g., flash.zip, debug.zip)
         # Since we're listing recursively, just check if filename matches {art_type}.zip
-        zip_filenames = {f'{art_type}.zip' for art_type in artifact_types}
-
-        for obj in s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
+        for obj in s3_client.list_objects(config.bucket, prefix=self._get_s3_path(prefix, from_path), recursive=True):
             output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
-            # Check if the filename matches any artifact type zip
-            if output_path.name in zip_filenames:
-                tasks.append(
-                    lambda _obj_name=obj.object_name, _output_path=output_path: _download_and_extract_task(
-                        _obj_name, _output_path
-                    )
-                )
+            if output_path.name == f'{artifact_type}.zip':
+                tasks.append(lambda o=obj.object_name, op=output_path: _download_and_extract(o, op))
 
         execute_concurrent_tasks(tasks, task_name='downloading and extracting zip')
         return len(tasks)
 
-    def _upload_to_s3(
+    def _validate_s3_client(self, artifact_type: str) -> minio.Minio:
+        config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
+        if config.is_public:
+            if not self.s3_public_client:
+                raise S3Error('S3 public client is not configured properly')
+            return self.s3_public_client
+        else:
+            if not self.s3_client:
+                raise S3Error('S3 client is not configured properly')
+            return self.s3_client
+
+    def _upload_files_to_s3(
         self,
-        s3_client: minio.Minio,
         *,
-        bucket: str,
         prefix: str,
         from_path: Path,
-        patterns: t.List[str],
+        artifact_type: str,
     ) -> int:
+        config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
+        s3_client = self._validate_s3_client(artifact_type)
+
         def _upload_task(_filepath: Path, _s3_path: str) -> None:
             logger.debug(f'Uploading {_filepath} to {_s3_path}')
-            s3_client.fput_object(bucket, _s3_path, str(_filepath))
+            s3_client.fput_object(config.bucket, _s3_path, str(_filepath))
 
         tasks = []
-        for pattern in patterns:
+        for pattern in config.file_patterns:
+            if config.base_dir_pattern:
+                pattern = os.path.join(config.base_dir_pattern, pattern)
+
             abs_pattern = os.path.join(str(from_path), pattern)
             for file_str in glob.glob(abs_pattern, recursive=True):
                 filepath = Path(file_str)
@@ -454,9 +376,7 @@ class ArtifactManager:
 
     def _upload_zip_to_s3(
         self,
-        s3_client: minio.Minio,
         *,
-        bucket: str,
         prefix: str,
         from_path: Path,
         artifact_type: str,
@@ -465,65 +385,54 @@ class ArtifactManager:
 
         This method:
 
-        1. Finds directories matching ``zip_basedir_pattern`` (only folders).
-        2. For each directory, finds files matching ``zip_file_patterns`` (relative to
-           that directory).
+        1. Finds directories matching ``base_dir_pattern`` (only folders).
+        2. For each directory, finds files matching ``file_patterns`` (relative to that
+           directory).
         3. Creates a zip file named ``<artifact_type>.zip`` in that directory.
         4. Uploads the zip file to S3.
 
-        :param s3_client: S3 client instance
-        :param bucket: S3 bucket name
         :param prefix: S3 prefix path
         :param from_path: Base path to search from
         :param artifact_type: Type of artifact (used as zip filename)
 
         :returns: Number of zip files uploaded
         """
-        zip_config = self.settings.gitlab.artifacts.s3_zip[artifact_type]
-        zip_basedir_pattern = zip_config.get('zip_basedir_pattern')
-        zip_file_patterns = zip_config.get('zip_file_patterns') or ['**/*']
+        config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
+        s3_client = self._validate_s3_client(artifact_type)
 
         def _upload_zip_task(_zip_path: Path, _s3_path: str) -> None:
             logger.debug(f'Uploading zip {_zip_path} to {_s3_path}')
-            s3_client.fput_object(bucket, _s3_path, str(_zip_path))
+            s3_client.fput_object(config.bucket, _s3_path, str(_zip_path))
 
         tasks = []
-        # Find all directories matching zip_basedir_pattern
+        # Find all directories matching base_dir_pattern
         # The pattern should match directories only (e.g., '**/build*/')
-        if not zip_basedir_pattern:
+        if not config.base_dir_pattern:
             matching_dirs = [from_path.resolve()]
         else:
-            abs_pattern = os.path.realpath(os.path.join(str(from_path), zip_basedir_pattern))
+            abs_pattern = os.path.realpath(str(Path(from_path) / config.base_dir_pattern))
             # Remove trailing slash if present for glob matching
             # Pattern like '**/build*/' should match directories starting with 'build'
             pattern_for_glob = abs_pattern.rstrip('/')
 
             # Use glob to find all matches, then filter for directories only
-            all_matches = glob.glob(pattern_for_glob, recursive=True)
-            matching_dirs = []
-            for match in all_matches:
-                match_path = Path(match).resolve()
-                # Only include directories (as specified by the user - only search folders)
-                if match_path.is_dir():
-                    matching_dirs.append(match_path)
+            matching_dirs = [
+                Path(match).resolve() for match in glob.glob(pattern_for_glob, recursive=True) if Path(match).is_dir()
+            ]
 
-        logger.debug(f'Found {len(matching_dirs)} directories matching pattern {zip_basedir_pattern}')
+        logger.debug(f'Found {len(matching_dirs)} directories matching pattern {config.base_dir_pattern}')
 
         # For each matching directory, collect files and create zip
         for basedir in matching_dirs:
             files_to_zip = []
-            # Search for files matching zip_file_patterns relative to basedir
-            for file_pattern in zip_file_patterns:
-                # Pattern is relative to basedir, use os.path.join for proper pattern construction
-                abs_pattern = os.path.join(str(basedir), file_pattern)
-                # Use glob to find matching files
-                for file_str in glob.glob(abs_pattern, recursive=True):
-                    filepath = Path(file_str)
-                    if filepath.is_file():
-                        files_to_zip.append(filepath)
+            # Search for files matching file_patterns relative to basedir
+            for file_pattern in config.file_patterns:
+                for fps in glob.glob(os.path.join(str(basedir), file_pattern), recursive=True):
+                    if os.path.isfile(fps):
+                        files_to_zip.append(Path(fps))
 
             if not files_to_zip:
-                logger.debug(f'No files found in {basedir} matching patterns {zip_file_patterns}')
+                logger.debug(f'No files found in {basedir} matching patterns {config.file_patterns}')
                 continue
 
             # Create zip file in the basedir with name <artifact_type>.zip
@@ -533,13 +442,12 @@ class ArtifactManager:
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 # Resolve basedir to absolute path to ensure relative_to() works correctly
                 basedir_resolved = basedir.resolve()
-                for filepath in files_to_zip:
+                for fp in files_to_zip:
                     # Resolve filepath to absolute path before computing relative path
-                    filepath_resolved = filepath.resolve()
+                    filepath_resolved = fp.resolve()
                     # Add file to zip with path relative to basedir
                     arcname = filepath_resolved.relative_to(basedir_resolved)
                     zipf.write(filepath_resolved, arcname)
-                    logger.debug(f'Added {filepath_resolved} to zip as {arcname}')
 
             # Upload the zip file
             s3_path = self._get_s3_path(prefix, zip_path)
@@ -548,33 +456,83 @@ class ArtifactManager:
         execute_concurrent_tasks(tasks, task_name='uploading zip file')
         return len(tasks)
 
-    def _download_from_presigned_json(self, presigned_json: str, from_path: Path, patterns: t.List[str]) -> int:
+    def _download_files_from_presigned_json(
+        self,
+        presigned_json: str,
+        from_path: Path,
+        artifact_type: str,
+    ) -> int:
         with open(presigned_json) as f:
             presigned_urls = json.load(f)
 
+        from_path_rel = from_path.relative_to(self.envs.IDF_PATH)
+        patterns = self._get_file_patterns_for_type(artifact_type)
+        if from_path_rel != Path('.'):
+            patterns = [os.path.join(str(from_path_rel), pattern) for pattern in patterns]
         patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
 
-        downloaded_count = 0
+        def _download_task(_url: str, _output_path: Path) -> None:
+            logger.debug(f'Downloading {_url} to {_output_path}')
+            _output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            response = requests.get(_url, stream=True)
+            if response.status_code != 200:
+                raise PresignedUrlError(f'Failed to download {_output_path.name}: {response.status_code}')
+
+            with open(_output_path, 'wb') as f:
+                f.write(response.content)
+
+        tasks = []
         for rel_path, url in presigned_urls.items():
-            if from_path not in Path(rel_path).parents:
+            if not any(pattern.match(str(rel_path)) for pattern in patterns_regexes):
                 continue
 
             output_path = Path(self.envs.IDF_PATH) / rel_path
-            if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
-                continue
+            tasks.append(lambda _url=url, _output_path=output_path: _download_task(_url, _output_path))
 
+        execute_concurrent_tasks(tasks, task_name='downloading object')
+        return len(tasks)
+
+    def _download_zip_from_presigned_json(
+        self,
+        presigned_json: str,
+        from_path: Path,
+        artifact_type: str,
+    ) -> int:
+        """Download and extract zip files from presigned URLs."""
+        with open(presigned_json) as f:
+            presigned_urls = json.load(f)
+
+        zip_filename = f'{artifact_type}.zip'
+        from_path_rel = from_path.relative_to(self.envs.IDF_PATH)
+
+        def _download_and_extract(url: str, output_path: Path) -> None:
+            logger.debug(f'Downloading {url} to {output_path}')
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             response = requests.get(url, stream=True)
             if response.status_code != 200:
-                raise PresignedUrlError(f'Failed to download {rel_path}: {response.status_code}')
+                raise PresignedUrlError(f'Failed to download {output_path.name}: {response.status_code}')
 
             with open(output_path, 'wb') as f:
                 f.write(response.content)
-            logger.debug(f'Downloaded {rel_path} to {output_path}')
-            downloaded_count += 1
 
-        return downloaded_count
+            self._extract_zip_file(output_path)
+
+        tasks = []
+        for rel_path, url in presigned_urls.items():
+            rel_path_obj = Path(rel_path)
+            if rel_path_obj.name != zip_filename:
+                continue
+
+            if from_path_rel != Path('.') and from_path_rel not in rel_path_obj.parents:
+                continue
+
+            output_path = Path(self.envs.IDF_PATH) / rel_path
+            tasks.append(lambda u=url, op=output_path: _download_and_extract(u, op))
+
+        execute_concurrent_tasks(tasks, task_name='downloading and extracting zip from presigned URLs')
+        return len(tasks)
 
     def download_artifacts(
         self,
@@ -584,26 +542,25 @@ class ArtifactManager:
         artifact_type: t.Optional[str] = None,
         folder: t.Optional[str] = None,
         presigned_json: t.Optional[str] = None,
-        pipeline_id: t.Optional[str] = None,
     ) -> None:
-        """Download artifacts from a pipeline.
+        """Download artifacts from S3 or via presigned URLs.
 
-        This method downloads artifacts from either GitLab's built-in storage or S3
-        storage, depending on the configuration and artifact type.
+        When presigned_json is provided, downloads artifacts from presigned URLs.
 
-        :param commit_sha: Optional commit SHA. If no commit_sha provided, will use 1)
-            PIPELINE_COMMIT_SHA env var, 2) latest commit from branch
+        :param commit_sha: Optional commit SHA. If no commit_sha provided, will use
+
+            1. PIPELINE_COMMIT_SHA env var
+            2. latest commit from branch
         :param branch: Optional Git branch. If no branch provided, will use current
             branch
         :param artifact_type: Type of artifacts to download (debug, flash, metrics)
-        :param folder: download artifacts under this folder
-        :param presigned_json: Path to the presigned.json file. If provided, will use
-            this file to download artifacts. If not, will use s3 credentials to download
-        :param pipeline_id: GitLab pipeline ID to download presigned.json from. Cannot
-            be used together with presigned_json
+        :param folder: Download artifacts under this folder
+        :param presigned_json: Path to the presigned.json file for download
+
+        :raises ValueError: If S3 artifacts are not enabled
         """
-        if presigned_json and pipeline_id:
-            raise ValueError('Cannot use both --presigned-json and --pipeline-id options together')
+        if not self.settings.gitlab.artifacts.s3.enable:
+            raise ValueError('S3 artifacts are not enabled in the CI settings')
 
         params = ArtifactParams(
             commit_sha=commit_sha,
@@ -611,60 +568,48 @@ class ArtifactManager:
             folder=folder,
         )
 
-        s3_client_to_use = (
-            self.s3_public_client if self.settings.gitlab.artifacts.s3_download_from_public else self.s3_client
-        )
-        if s3_client_to_use:
+        start_time = time.time()
+        downloaded_count = 0
+
+        if not presigned_json:
+            # download from s3 directly
             logger.info(f'Downloading artifacts under {params.from_path} from s3 (commit sha: {params.commit_sha})')
 
-            start_time = time.time()
-            downloaded_count = 0
-
-            # Check download mode
-            if self.settings.gitlab.artifacts.s3_file_mode == 'zip':
-                # Use zip mode - download zip files and extract them
-                for bucket, artifact_types in self._get_upload_zip_details_by_type(artifact_type).items():
+            for art_type in self._get_artifact_types(artifact_type):
+                config = self.settings.gitlab.artifacts.s3.configs[art_type]
+                if config.zip_first:
                     downloaded_count += self._download_zip_from_s3(
-                        s3_client=s3_client_to_use,
-                        bucket=bucket,
                         prefix=f'{self.settings.gitlab.project}/{params.commit_sha}/',
                         from_path=params.from_path,
-                        artifact_types=artifact_types,
+                        artifact_type=art_type,
                     )
-                logger.info(
-                    f'Downloaded and extracted {downloaded_count} zip files in {time.time() - start_time:.2f} seconds'
-                )
-            else:
-                # Use file mode (default)
-                for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
-                    downloaded_count += self._download_from_s3(
-                        s3_client=s3_client_to_use,
-                        bucket=bucket,
+                else:
+                    downloaded_count += self._download_files_from_s3(
                         prefix=f'{self.settings.gitlab.project}/{params.commit_sha}/',
                         from_path=params.from_path,
-                        patterns=patterns,
+                        artifact_type=art_type,
                     )
-                logger.info(f'Downloaded {downloaded_count} files in {time.time() - start_time:.2f} seconds')
+            logger.info(f'Downloaded {downloaded_count} artifacts in {time.time() - start_time:.2f} seconds')
             return
 
-        if pipeline_id:
-            presigned_json_path = self._download_presigned_json_from_pipeline(pipeline_id)
-        elif presigned_json and os.path.isfile(presigned_json):
-            presigned_json_path = presigned_json
-        else:
-            raise ArtifactError(
-                'Either presigned_json or pipeline_id must be provided to download artifacts, if S3 is not configured'
-            )
+        # download from presigned urls
+        logger.info(f'Downloading artifacts under {params.from_path} from presigned JSON')
 
-        logger.info(f'Downloading artifacts under {params.from_path} from pipeline {pipeline_id}')
-
-        start_time = time.time()
-        downloaded_files = self._download_from_presigned_json(
-            presigned_json_path,
-            params.from_path,
-            [p for patterns in self._get_upload_details_by_type(artifact_type).values() for p in patterns],
-        )
-        logger.info(f'Downloaded {downloaded_files} files in {time.time() - start_time:.2f} seconds')
+        for art_type in self._get_artifact_types(artifact_type):
+            config = self.settings.gitlab.artifacts.s3.configs[art_type]
+            if config.zip_first:
+                downloaded_count += self._download_zip_from_presigned_json(
+                    presigned_json,
+                    params.from_path,
+                    art_type,
+                )
+            else:
+                downloaded_count += self._download_files_from_presigned_json(
+                    presigned_json,
+                    params.from_path,
+                    art_type,
+                )
+        logger.info(f'Downloaded {downloaded_count} artifacts in {time.time() - start_time:.2f} seconds')
 
     def upload_artifacts(
         self,
@@ -674,21 +619,21 @@ class ArtifactManager:
         artifact_type: t.Optional[str] = None,
         folder: t.Optional[str] = None,
     ) -> None:
-        """Upload artifacts to S3 storage.
-
-        This method uploads artifacts to S3 storage only. GitLab's built-in storage is
-        not supported. The commit SHA is required to identify where to store the
-        artifacts.
+        """Upload artifacts to S3.
 
         :param commit_sha: Optional commit SHA. If no commit_sha provided, will use 1)
             PIPELINE_COMMIT_SHA env var, 2) latest commit from branch
         :param branch: Optional Git branch. If no branch provided, will use current
             branch
         :param artifact_type: Type of artifacts to upload (debug, flash, metrics)
-        :param folder: upload artifacts under this folder
+        :param folder: Upload artifacts under this folder
 
+        :raises ValueError: If S3 artifacts are not enabled
         :raises S3Error: If S3 is not configured
         """
+        if not self.settings.gitlab.artifacts.s3.enable:
+            raise ValueError('S3 artifacts are not enabled in the CI settings')
+
         params = ArtifactParams(
             commit_sha=commit_sha,
             branch=branch,
@@ -704,28 +649,22 @@ class ArtifactManager:
         start_time = time.time()
         uploaded_count = 0
 
-        # Check upload mode
-        if self.settings.gitlab.artifacts.s3_file_mode == 'zip':
-            for bucket, artifact_types in self._get_upload_zip_details_by_type(artifact_type).items():
-                for art_type in artifact_types:
-                    uploaded_count += self._upload_zip_to_s3(
-                        s3_client=self.s3_client,
-                        bucket=bucket,
-                        prefix=prefix,
-                        from_path=params.from_path,
-                        artifact_type=art_type,
-                    )
-            logger.info(f'Uploaded {uploaded_count} zip files in {time.time() - start_time:.2f} seconds')
-        else:
-            for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
-                uploaded_count += self._upload_to_s3(
-                    s3_client=self.s3_client,
-                    bucket=bucket,
+        for art_type in self._get_artifact_types(artifact_type):
+            config = self.settings.gitlab.artifacts.s3.configs[art_type]
+            if config.zip_first:
+                uploaded_count += self._upload_zip_to_s3(
                     prefix=prefix,
                     from_path=params.from_path,
-                    patterns=patterns,
+                    artifact_type=art_type,
                 )
-            logger.info(f'Uploaded {uploaded_count} files in {time.time() - start_time:.2f} seconds')
+            else:
+                uploaded_count += self._upload_files_to_s3(
+                    prefix=prefix,
+                    from_path=params.from_path,
+                    artifact_type=art_type,
+                )
+
+        logger.info(f'Uploaded {uploaded_count} artifacts in {time.time() - start_time:.2f} seconds')
 
     def generate_presigned_json(
         self,
@@ -738,8 +677,8 @@ class ArtifactManager:
     ) -> t.Dict[str, str]:
         """Generate presigned URLs for artifacts in S3 storage.
 
-        This method generates presigned URLs for artifacts that would be uploaded to S3
-        storage. The URLs can be used to download the artifacts directly from S3.
+        Generates presigned URLs for artifacts that would be uploaded to S3 storage. The
+        URLs can be used to download the artifacts directly from S3.
 
         :param commit_sha: Optional commit SHA. If no commit_sha provided, will use 1)
             PIPELINE_COMMIT_SHA env var, 2) latest commit from branch
@@ -781,7 +720,27 @@ class ArtifactManager:
 
         tasks = []
         presigned_urls: t.Dict[str, str] = {}
-        for bucket, patterns in self._get_upload_details_by_type(artifact_type).items():
+        bucket_zip_artifacts: t.Dict[str, t.Set[str]] = defaultdict(set)
+        bucket_file_patterns: t.Dict[str, t.List[str]] = defaultdict(list)
+        for art_type in self._get_artifact_types(artifact_type):
+            config = self.settings.gitlab.artifacts.s3.configs[art_type]
+            if config.zip_first:
+                bucket_zip_artifacts[config.bucket].add(art_type)
+            else:
+                bucket_file_patterns[config.bucket].extend(self._get_file_patterns_for_type(art_type))
+
+        for bucket, artifact_types in bucket_zip_artifacts.items():
+            zip_filenames = {f'{art_type}.zip' for art_type in artifact_types}
+            for obj in self.s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
+                output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
+                if output_path.name not in zip_filenames:
+                    continue
+
+                tasks.append(
+                    lambda _bucket=bucket, _obj_name=obj.object_name: _get_presigned_url_task(_bucket, _obj_name)
+                )
+
+        for bucket, patterns in bucket_file_patterns.items():
             patterns_regexes = [
                 re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns
             ]
@@ -816,6 +775,9 @@ class ArtifactManager:
 
         :raises ArtifactError: If presigned.json cannot be found or downloaded
         """
+        if not self.settings.gitlab.build_pipeline.presigned_json_job_name:
+            raise ArtifactError('Presigned JSON job name is not configured')
+
         # Check cache first
         cache_dir = Path(tempfile.gettempdir()) / '.cache' / 'idf-ci' / 'presigned_json' / pipeline_id
         cached_file = cache_dir / presigned_json_filename

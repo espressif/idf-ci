@@ -66,12 +66,28 @@ def test_child_pipeline(yaml_output):
     test_child_pipeline_cmd(yaml_output)
 
 
+def validate_artifact_type(
+    ctx,  # noqa: ARG001
+    param,
+    value,
+):
+    if value is None:
+        return value
+    configs = get_ci_settings().gitlab.artifacts.s3.configs
+    if value not in configs:
+        raise click.BadParameter(
+            f"'{value}' is not one of {sorted(configs.keys())}.",
+            param=param,
+        )
+    return value
+
+
 def option_artifact_type(func):
     return click.option(
         '--type',
         'artifact_type',
-        type=click.Choice(get_ci_settings().gitlab.artifacts.available_s3_types),
-        help='Type of artifacts to download. If not specified, downloads all types.',
+        callback=validate_artifact_type,
+        help='Type of S3 artifacts to upload/download. If not specified, processes all types.',
     )(func)
 
 
@@ -90,11 +106,11 @@ def option_artifact_type(func):
 )
 @click.argument('folder', required=False)
 def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json, pipeline_id):
-    """Download artifacts from a GitLab pipeline.
+    """Download artifacts from S3 storage or via presigned URLs.
 
-    This command downloads artifacts from either GitLab's built-in storage or S3
-    storage, depending on the configuration. The artifacts are downloaded to the
-    specified folder (or current directory if not specified).
+    This command downloads artifacts from S3 storage when credentials are available, or
+    from presigned URLs when S3 credentials are not available. The artifacts are
+    downloaded to the specified folder (or current directory if not specified).
 
     When using --pipeline-id, the command will download the presigned.json file from the
     specified pipeline and use it to download artifacts. This option cannot be used
@@ -104,13 +120,16 @@ def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json
         raise click.ClickException('Cannot use both --presigned-json and --pipeline-id options together')
 
     manager = ArtifactManager()
+
+    if pipeline_id:
+        presigned_json = manager._download_presigned_json_from_pipeline(pipeline_id)
+
     manager.download_artifacts(
         commit_sha=commit_sha,
         branch=branch,
         artifact_type=artifact_type,
         folder=folder,
         presigned_json=presigned_json,
-        pipeline_id=pipeline_id,
     )
 
 
