@@ -279,16 +279,37 @@ Example:
     # Generate presigned URLs for debug artifacts
     idf-ci gitlab generate-presigned-json --type debug --commit-sha abc123
 
-Download Known Failure Cases
-----------------------------
+Known Failure Cases
+-------------------
 
-Download a known failure cases file from S3 with ``download-known-failure-cases-file``:
+The known failure cases file should be treated as immutable within a single pipeline run. S3 storage must be configured.
+
+Recommended workflow:
+
+1. Copy the shared file into the per-pipeline location (scoped by commit SHA).
+2. Download and use the per-pipeline snapshot for the rest of the pipeline.
+
+To copy a known failure cases file in S3 into the per-pipeline location for a specific commit SHA, use the ``cp-known-failure-cases-file-for-pipeline`` command:
 
 .. code-block:: bash
 
-    idf-ci gitlab download-known-failure-cases-file FILENAME
+    idf-ci gitlab cp-known-failure-cases-file-for-pipeline [OPTIONS] FILENAME
 
-S3 storage must be configured for this command to work.
+Options:
+
+- ``--commit-sha COMMIT_SHA`` - Commit SHA used to locate the file in S3 (if not provided, the tool will try to resolve it from the environment or branch).
+
+To download known failure cases file from S3 storage, use the ``download-known-failure-cases-file`` command:
+
+.. code-block:: bash
+
+    idf-ci gitlab download-known-failure-cases-file [OPTIONS] FILENAME
+
+Options:
+
+- ``--commit-sha COMMIT_SHA`` - Commit SHA used to locate the file in S3 (if not provided, the tool will try to resolve it from the environment or branch).
+
+This command downloads the shared file and, if a saved per-commit snapshot exists, downloads it as well and merges them locally.
 
 Implementation Details
 ----------------------
