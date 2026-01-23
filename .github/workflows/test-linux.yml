@@ -9,6 +9,18 @@ on:
     branches: [main]
     paths:
       - "**.py"
+  pull_request_target:
+    branches: [main]
+    paths:
+      - "**.py"
+
+# https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs
+# `contents` is for permission to the contents of the repository.
+# `pull-requests` is for permission to pull request
+permissions:
+  contents: write
+  checks: write
+  pull-requests: write
 
 jobs:
   test:
@@ -23,7 +35,7 @@ jobs:
         env:
           MINIO_ROOT_USER: minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
-          MINIO_DEFAULT_BUCKETS: test-bucket,idf-artifacts:public
+          MINIO_DEFAULT_BUCKETS: private,public:public
         options: >-
           --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
           --health-interval 10s
@@ -48,16 +60,9 @@ jobs:
           echo "PREVIEW_TARGETS = ['linux', 'esp32c5', 'esp32c61', 'esp32h21']" >> constants.py
           popd
           pytest --junitxml pytest.xml tests/ | tee pytest-coverage.txt
-      - name: Save PR number
-        if: github.event_name == 'pull_request'
-        run: echo ${{ github.event.number }} > pr_number.txt
-      - name: Upload test artifacts
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
+      - name: Upload coverage report to PR
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: MishaKav/pytest-coverage-comment@v1
         with:
-          name: test-results
-          path: |
-            pytest.xml
-            pytest-coverage.txt
-            pr_number.txt
-          retention-days: 1
+          pytest-coverage-path: ./pytest-coverage.txt
+          junitxml-path: ./pytest.xml
