@@ -4,6 +4,7 @@
 import json
 import logging
 import typing as t
+from collections import defaultdict
 from pathlib import Path
 
 from idf_build_apps import find_apps
@@ -16,6 +17,29 @@ from idf_ci import get_pytest_cases
 from idf_ci.idf_pytest import PytestCase
 
 logger = logging.getLogger(__name__)
+
+
+def add_test_case(test_cases: t.List[PytestCase], new_test_case: PytestCase) -> None:
+    """Add a test case to the list if it does not exist."""
+    if new_test_case not in test_cases:
+        test_cases.append(new_test_case)
+
+
+def group_test_cases_by_path(
+    test_cases: t.List[PytestCase],
+) -> t.Dict[str, t.Dict[str, t.Dict[str, t.List[PytestCase]]]]:
+    """Group test cases by their path, target and sdkconfig."""
+    # Structure: path -> target -> sdkconfig -> list[PytestCase]
+    result: t.Dict[str, t.Dict[str, t.Dict[str, t.List[PytestCase]]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(list))
+    )
+
+    for case in test_cases:
+        path = Path(case.path).parent.as_posix()
+        for target, config in zip(case.targets, case.configs):
+            add_test_case(result[path][target][config], case)
+
+    return result
 
 
 def collect_apps(paths: t.List[str], include_only_enabled_apps: bool) -> t.Dict[str, t.Any]:
@@ -35,27 +59,15 @@ def collect_apps(paths: t.List[str], include_only_enabled_apps: bool) -> t.Dict[
         additional_args=['--ignore-no-tests-collected-error'],
     )
 
-    # Gather apps by path
-    apps_by_path: t.Dict[str, t.List[App]] = {}
-    apps_by_abs_path: t.Dict[str, t.List[App]] = {}
+    # Group apps by path
+    apps_by_path: t.Dict[str, t.List[App]] = defaultdict(list)
+    apps_by_abs_path: t.Dict[str, t.List[App]] = defaultdict(list)
     for app in apps:
-        apps_by_path.setdefault(app.app_dir, []).append(app)
-        apps_by_abs_path.setdefault(Path(app.app_dir).absolute().as_posix(), []).append(app)
+        apps_by_path[app.app_dir].append(app)
+        apps_by_abs_path[Path(app.app_dir).absolute().as_posix()].append(app)
 
     # Create a dict with test cases for quick lookup
-    # Structure: path -> target -> sdkconfig -> list[PytestCase]
-    test_cases_index: t.Dict[str, t.Dict[str, t.Dict[str, t.List[PytestCase]]]] = {}
-    for case in test_cases:
-        case_path = Path(case.path).parent.as_posix()
-
-        # Handle multiple targets
-        targets = case.targets
-        for target in targets:
-            test_cases_index.setdefault(case_path, {}).setdefault(target, {})
-
-            for pytest_app in case.apps:
-                test_cases_index[case_path][target].setdefault(pytest_app.config, [])
-                test_cases_index[case_path][target][pytest_app.config].append(case)
+    test_cases_index = group_test_cases_by_path(test_cases)
 
     result: t.Dict[str, t.Any] = {
         'summary': {
@@ -177,7 +189,7 @@ def format_as_html(data: t.Dict[str, t.Any]) -> str:
         total_enabled_tests = 0
         target_list = set()
         config_list = set()
-        config_target_app: t.Dict[str, t.Dict[str, t.Any]] = {}
+        config_target_app: t.Dict[str, t.Dict[str, t.Any]] = defaultdict(dict)
         details = []
 
         for app in apps:
@@ -188,7 +200,7 @@ def format_as_html(data: t.Dict[str, t.Any]) -> str:
             target_list.add(app.get('target'))
 
             # config -> target -> app
-            config_target_app.setdefault(app.get('sdkconfig'), {})[app.get('target')] = app
+            config_target_app[app.get('sdkconfig')][app.get('target')] = app
 
         all_target_list.update(target_list)
         config_list_sorted = sorted(config_list)
