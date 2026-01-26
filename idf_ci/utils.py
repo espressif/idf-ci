@@ -3,6 +3,7 @@
 import logging
 import subprocess
 import typing as t
+from ast import literal_eval
 from pathlib import Path
 
 from idf_build_apps.log import get_rich_log_handler
@@ -99,3 +100,13 @@ def get_current_branch() -> str:
         raise RuntimeError('Failed to get current Git ref. Are you in a Git repository?')
 
     return branch
+
+
+def parse_tuple_from_string(s) -> tuple:
+    try:
+        val = literal_eval(s)
+        if not isinstance(val, tuple):
+            raise ValueError(f'Expected a tuple, got {type(val)}')
+        return val
+    except Exception as e:
+        raise RuntimeError(f'Failed to parse tuple from string {s}: {e}')

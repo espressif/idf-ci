@@ -18,7 +18,7 @@ from idf_ci.idf_pytest import PytestCase
 logger = logging.getLogger(__name__)
 
 
-def collect_apps(paths: t.List[str], include_only_enabled_apps: bool) -> t.Dict[str, t.Any]:
+def collect_apps(paths: t.List[str], include_only_enabled_apps: bool = False) -> t.Dict[str, t.Any]:
     """Collect all applications and corresponding test cases."""
     apps = find_apps(
         find_arguments=FindArguments(
