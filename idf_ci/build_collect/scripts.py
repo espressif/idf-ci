@@ -4,6 +4,7 @@
 import json
 import logging
 import typing as t
+from collections import defaultdict
 from pathlib import Path
 
 from idf_build_apps import find_apps
@@ -16,6 +17,43 @@ from idf_ci import get_pytest_cases
 from idf_ci.idf_pytest import PytestCase
 
 logger = logging.getLogger(__name__)
+
+
+def add_test_case(test_cases: t.List[PytestCase], new_test_case: PytestCase) -> None:
+    """Add a test case to the list if it does not exist."""
+    if new_test_case not in test_cases:
+        test_cases.append(new_test_case)
+
+
+def group_test_cases_by_path(
+    test_cases: t.List[PytestCase],
+) -> t.Dict[str, t.Dict[str, t.Dict[str, t.List[PytestCase]]]]:
+    """Group test cases by their path, target and sdkconfig."""
+    # Structure: path -> target -> sdkconfig -> list[PytestCase]
+    result: t.Dict[str, t.Dict[str, t.Dict[str, t.List[PytestCase]]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(list))
+    )
+
+    for case in test_cases:
+        path = Path(case.path).parent.as_posix()
+        for target, config in zip(case.targets, case.configs):
+            add_test_case(result[path][target][config], case)
+
+    return result
+
+
+def group_test_cases_by_target_and_config(
+    test_cases: t.List[PytestCase],
+) -> t.Dict[str, t.Dict[str, t.List[PytestCase]]]:
+    """Group test cases by their target and sdkconfig."""
+    # Structure: target -> sdkconfig -> list[PytestCase]
+    result: t.Dict[str, t.Dict[str, t.List[PytestCase]]] = defaultdict(lambda: defaultdict(list))
+
+    for case in test_cases:
+        for target, config in zip(case.targets, case.configs):
+            add_test_case(result[target][config], case)
+
+    return result
 
 
 def collect_apps(paths: t.List[str], include_only_enabled_apps: bool) -> t.Dict[str, t.Any]:
@@ -35,27 +73,15 @@ def collect_apps(paths: t.List[str], include_only_enabled_apps: bool) -> t.Dict[
         additional_args=['--ignore-no-tests-collected-error'],
     )
 
-    # Gather apps by path
-    apps_by_path: t.Dict[str, t.List[App]] = {}
-    apps_by_abs_path: t.Dict[str, t.List[App]] = {}
+    # Group apps by path
+    apps_by_path: t.Dict[str, t.List[App]] = defaultdict(list)
+    apps_by_abs_path: t.Dict[str, t.List[App]] = defaultdict(list)
     for app in apps:
-        apps_by_path.setdefault(app.app_dir, []).append(app)
-        apps_by_abs_path.setdefault(Path(app.app_dir).absolute().as_posix(), []).append(app)
+        apps_by_path[app.app_dir].append(app)
+        apps_by_abs_path[Path(app.app_dir).absolute().as_posix()].append(app)
 
     # Create a dict with test cases for quick lookup
-    # Structure: path -> target -> sdkconfig -> list[PytestCase]
-    test_cases_index: t.Dict[str, t.Dict[str, t.Dict[str, t.List[PytestCase]]]] = {}
-    for case in test_cases:
-        case_path = Path(case.path).parent.as_posix()
-
-        # Handle multiple targets
-        targets = case.targets
-        for target in targets:
-            test_cases_index.setdefault(case_path, {}).setdefault(target, {})
-
-            for pytest_app in case.apps:
-                test_cases_index[case_path][target].setdefault(pytest_app.config, [])
-                test_cases_index[case_path][target][pytest_app.config].append(case)
+    test_cases_index = group_test_cases_by_path(test_cases)
 
     result: t.Dict[str, t.Any] = {
         'summary': {
@@ -76,7 +102,7 @@ def collect_apps(paths: t.List[str], include_only_enabled_apps: bool) -> t.Dict[
 
         result['projects'][app_path] = {'apps': [], 'test_cases_requiring_nonexistent_app': []}
         project: t.Dict[str, t.Any] = result['projects'][app_path]
-        project_test_cases: t.Set[str] = set()
+        project_test_cases: t.Dict[str, PytestCase] = {}
         used_test_cases: t.Set[str] = set()
         disabled_test_cases: t.Set[str] = set()
         app_abs_path = Path(app_path).absolute().as_posix()
@@ -90,7 +116,9 @@ def collect_apps(paths: t.List[str], include_only_enabled_apps: bool) -> t.Dict[
                 for target_key in test_cases_index[app_abs_path]:
                     for sdkconfig_key in test_cases_index[app_abs_path][target_key]:
                         test_cases = test_cases_index[app_abs_path][target_key][sdkconfig_key]
-                        project_test_cases.update([case.caseid for case in test_cases])
+
+                        for case in test_cases:
+                            project_test_cases[case.caseid] = case
 
                 # Find matching test cases
                 if app.target in test_cases_index[app_abs_path]:
@@ -145,12 +173,31 @@ def collect_apps(paths: t.List[str], include_only_enabled_apps: bool) -> t.Dict[
                 }
             )
 
-        unused_test_cases: t.Set[str] = project_test_cases.copy()
+        unused_test_cases: t.Set[str] = set(project_test_cases.keys())
         unused_test_cases.difference_update(used_test_cases)
         unused_test_cases.difference_update(disabled_test_cases)
 
-        for unused_test_case in unused_test_cases:
-            project['test_cases_requiring_nonexistent_app'].append(unused_test_case)
+        # Group unused test cases by target and sdkconfig
+        unused_test_cases_grouped = group_test_cases_by_target_and_config(
+            [project_test_cases[caseid] for caseid in unused_test_cases]
+        )
+
+        # Add unused test cases info to the project
+        for target in unused_test_cases_grouped:
+            for sdkconfig in unused_test_cases_grouped[target]:
+                project['test_cases_requiring_nonexistent_app'].append(
+                    {
+                        'target': target,
+                        'sdkconfig': sdkconfig,
+                        'test_cases': [
+                            {
+                                'name': case.name,
+                                'caseid': case.caseid,
+                            }
+                            for case in unused_test_cases_grouped[target][sdkconfig]
+                        ],
+                    }
+                )
 
         result['summary']['total_test_cases_used'] += len(used_test_cases)
         result['summary']['total_test_cases_disabled'] += len(disabled_test_cases)
@@ -177,7 +224,7 @@ def format_as_html(data: t.Dict[str, t.Any]) -> str:
         total_enabled_tests = 0
         target_list = set()
         config_list = set()
-        config_target_app: t.Dict[str, t.Dict[str, t.Any]] = {}
+        config_target_app: t.Dict[str, t.Dict[str, t.Any]] = defaultdict(dict)
         details = []
 
         for app in apps:
@@ -188,7 +235,7 @@ def format_as_html(data: t.Dict[str, t.Any]) -> str:
             target_list.add(app.get('target'))
 
             # config -> target -> app
-            config_target_app.setdefault(app.get('sdkconfig'), {})[app.get('target')] = app
+            config_target_app[app.get('sdkconfig')][app.get('target')] = app
 
         all_target_list.update(target_list)
         config_list_sorted = sorted(config_list)
@@ -272,13 +319,20 @@ def format_as_html(data: t.Dict[str, t.Any]) -> str:
 
             details.append(detail_item)
 
+        tests_unknown_sdkconfig = []
+        for item in project_info.get('test_cases_requiring_nonexistent_app', []):
+            for test_case in item.get('test_cases', []):
+                caseid = test_case.get('caseid')
+                if caseid is not None:
+                    tests_unknown_sdkconfig.append(caseid)
+
         rows.append(
             {
                 'project_path': project_path,
                 'apps': len(apps),
                 'tests': total_tests,
                 'enabled_tests': total_enabled_tests,
-                'tests_unknown_sdkconfig': project_info.get('test_cases_requiring_nonexistent_app', []),
+                'tests_unknown_sdkconfig': tests_unknown_sdkconfig,
                 'target_list': target_list_sorted,
                 'details': details,
             }
