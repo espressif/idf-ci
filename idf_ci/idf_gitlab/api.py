@@ -196,6 +196,7 @@ class ArtifactManager:
             secure=secure,
             http_client=urllib3.PoolManager(
                 num_pools=10,
+                maxsize=10,
                 timeout=urllib3.Timeout(
                     total=self.envs.IDF_S3_TIMEOUT_TOTAL,
                 ),
