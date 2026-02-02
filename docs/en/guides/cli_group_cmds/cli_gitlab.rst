@@ -42,14 +42,14 @@ For S3 artifacts, you can specify whether to upload as zip files or individual f
     [gitlab.artifacts.s3.configs.flash]
     bucket = "idf-artifacts"
     base_dir_pattern = "**/build*/"
-    zip_first = true  # Upload as zip files (default)
-    file_patterns = []  # this overrides the default patterns to empty list
+    zip_first = true  # Upload as zip files
+    patterns = []  # this overrides the default patterns to empty list
 
     [gitlab.artifacts.s3.configs.custom_group]
     bucket = "custom-bucket"
     base_dir_pattern = "**/build*/"
-    zip_first = false  # Upload individual files instead of zip
-    file_patterns = [
+    zip_first = false  # Upload individual files instead of zip (default)
+    patterns = [
         "custom/*.log",
         "custom/*.txt"
     ]
@@ -209,8 +209,8 @@ GitLab native artifacts use file patterns defined in ``gitlab.artifacts.native.b
 
 S3 artifact types are defined under ``gitlab.artifacts.s3.configs``. By default, these are configured with ``base_dir_pattern = "**/build*/"``. Depending on the ``zip_first`` setting:
 
-- If ``zip_first = true`` (default): Each matching base directory generates a ``<artifact_type>.zip`` containing the matching files
-- If ``zip_first = false``: Individual files are uploaded directly to S3 without zipping
+- If ``zip_first = true``: Each matching base directory generates a ``<artifact_type>.zip`` containing the matching files
+- If ``zip_first = false`` (default): Individual files are uploaded directly to S3 without zipping
 
 1. **Flash artifacts** (``--type flash``):
 

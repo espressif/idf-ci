@@ -45,25 +45,25 @@ class TestUploadDownloadArtifacts:
 
                 [gitlab.artifacts.s3.configs.debug]
                 bucket = "private"
+                zip_first = true
                 base_dir_pattern = "**/build*/"
-                file_patterns = ["build.log"]
+                patterns = ["build.log"]
 
                 [gitlab.artifacts.s3.configs.flash]
                 bucket = "private"
+                zip_first = true
                 base_dir_pattern = "**/build*/"
-                file_patterns = ["*.bin"]
+                patterns = ["*.bin"]
 
                 [gitlab.artifacts.s3.configs.metrics]
                 bucket = "private"
-                zip_first = false
                 base_dir_pattern = "**/build*/"
-                file_patterns = ["size.json"]
+                patterns = ["size.json"]
 
                 [gitlab.artifacts.s3.configs.optional]
                 bucket = "public"
                 is_public = true
-                zip_first = false
-                file_patterns = ["**/optional.txt"]
+                patterns = ["**/optional.txt"]
                 if_clause = 'ENV_VAR_FOO == "foo"'
             """)
         )

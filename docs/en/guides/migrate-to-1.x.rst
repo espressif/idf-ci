@@ -32,11 +32,11 @@ The artifact configuration structure has been reorganized for better clarity and
     [gitlab.artifacts.s3]
     enable = true
 
-    # by default zip_first is true, so the files will be zipped before upload
+    # by default zip_first is false, so the files will be uploaded individually
     [gitlab.artifacts.s3.configs.flash]
     bucket = "idf-artifacts"
     base_dir_pattern = "**/build*/"
-    file_patterns = [
+    patterns = [
         "bootloader/*.bin",
         "*.bin",
     ]
@@ -44,7 +44,7 @@ The artifact configuration structure has been reorganized for better clarity and
     [gitlab.artifacts.s3.configs.metrics]
     bucket = "idf-artifacts"
     zip_first = false
-    file_patterns = [
+    patterns = [
         "**/size*.json"
     ]
 
@@ -56,7 +56,7 @@ Key Changes:
   - Moved ``gitlab.artifacts.s3_zip.[key]`` to ``gitlab.artifacts.s3.configs.[key]``
 
 - Renamed ``gitlab.artifacts.build_job_filepatterns`` to ``gitlab.artifacts.native.build_job_filepatterns``
-- Renmaed ``gitlab.artifacts.test_job_filepatterns`` to ``gitlab.artifacts.native.test_job_filepatterns``
+- Renamed ``gitlab.artifacts.test_job_filepatterns`` to ``gitlab.artifacts.native.test_job_filepatterns``
 - New options: ``is_public``, ``zip_first`` for conditional artifact types
 - Mixed artifact type upload/download is now supported
 
