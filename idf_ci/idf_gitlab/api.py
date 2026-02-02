@@ -269,7 +269,7 @@ class ArtifactManager:
         artifact_type: str,
     ) -> int:
         config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
-        s3_client = self._validate_s3_client(artifact_type)
+        s3_client = self._validate_s3_client(artifact_type, False)
 
         def _download_task(_obj_name: str, _output_path: Path) -> None:
             logger.debug(f'Downloading {_obj_name} to {_output_path}')
@@ -313,7 +313,7 @@ class ArtifactManager:
     ) -> int:
         """Download and extract zip files from S3."""
         config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
-        s3_client = self._validate_s3_client(artifact_type)
+        s3_client = self._validate_s3_client(artifact_type, False)
 
         def _download_and_extract(obj_name: str, zip_path: Path) -> None:
             logger.debug(f'Downloading {obj_name} to {zip_path}')
@@ -333,16 +333,23 @@ class ArtifactManager:
         execute_concurrent_tasks(tasks, task_name='downloading and extracting zip')
         return len(tasks)
 
-    def _validate_s3_client(self, artifact_type: str) -> minio.Minio:
+    def _validate_s3_client(self, artifact_type: str, uploading_or_not: bool = True) -> minio.Minio:
         config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
-        if config.is_public:
-            if not self.s3_public_client:
-                raise S3Error('S3 public client is not configured properly')
-            return self.s3_public_client
+        if uploading_or_not:
+            require_non_public = True
+        elif config.is_public:
+            require_non_public = False
         else:
+            require_non_public = True
+
+        if require_non_public:
             if not self.s3_client:
                 raise S3Error('S3 client is not configured properly')
             return self.s3_client
+
+        if not self.s3_public_client:
+            raise S3Error('Public S3 client is not configured properly')
+        return self.s3_public_client
 
     def _upload_files_to_s3(
         self,
