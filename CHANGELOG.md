@@ -20,6 +20,17 @@
 </div>
 <hr>
 
+## v1.0.0b1 (2026-02-02)
+
+### 🐛 Bug Fixes
+
+- set poolmanager maxsize=10 *(Fu Hanxi - 36116d6)*
+
+### 🏗️ Changes
+
+- revert unnecessary breaking changes *(Fu Hanxi - 0b2aae3)*
+
+
 ## v1.0.0b0 (2026-02-02)
 
 ### 🚨 Breaking changes
