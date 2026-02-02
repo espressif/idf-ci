@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v1.0.0b2 (2026-02-02)
+
+### 🐛 Bug Fixes
+
+- **s3**: should always use token while uploading *(Fu Hanxi - 8c2f522)*
+
+
 ## v1.0.0b1 (2026-02-02)
 
 ### 🐛 Bug Fixes
