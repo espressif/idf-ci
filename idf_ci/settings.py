@@ -98,7 +98,7 @@ class S3ArtifactConfig(BaseModel):
     is_public: bool = False
     """Whether the S3 bucket is public. Requires ListBucket and GetObject permissions."""
 
-    zip_first: bool = True
+    zip_first: bool = False
     """Whether to create zip files before uploading to S3.
 
     If False, files are uploaded individually without zipping.
@@ -111,7 +111,7 @@ class S3ArtifactConfig(BaseModel):
     the current folder is used as the base directory.
     """
 
-    file_patterns: t.List[str] = ['**/*']
+    patterns: t.List[str] = ['**/*']
     """Glob patterns (relative to each base directory) for files to include.
 
     If empty or omitted, all files under the base directory are included.
@@ -129,7 +129,7 @@ class ArtifactSettingsS3(BaseModel):
         'debug': {
             'bucket': 'idf-artifacts',
             'base_dir_pattern': '**/build*/',
-            'file_patterns': [
+            'patterns': [
                 'bootloader/*.map',
                 'bootloader/*.elf',
                 '*.map',
@@ -140,7 +140,7 @@ class ArtifactSettingsS3(BaseModel):
         'flash': {
             'bucket': 'idf-artifacts',
             'base_dir_pattern': '**/build*/',
-            'file_patterns': [
+            'patterns': [
                 'bootloader/*.bin',
                 '*.bin',
                 'partition_table/*.bin',

@@ -207,13 +207,13 @@ class ArtifactManager:
             ),
         )
 
-    def _get_file_patterns_for_type(self, artifact_type: str) -> t.List[str]:
+    def _get_patterns_for_type(self, artifact_type: str) -> t.List[str]:
         config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
 
         if not config.base_dir_pattern:
-            return config.file_patterns
+            return config.patterns
 
-        return [os.path.join(config.base_dir_pattern, pattern) for pattern in config.file_patterns]
+        return [os.path.join(config.base_dir_pattern, pattern) for pattern in config.patterns]
 
     def _get_artifact_types(self, artifact_type: t.Optional[str]) -> t.List[str]:
         if artifact_type and artifact_type not in self.settings.gitlab.artifacts.s3.configs:
@@ -278,7 +278,7 @@ class ArtifactManager:
         tasks = []
         patterns_regexes = [
             re.compile(translate(pattern, recursive=True, include_hidden=True))
-            for pattern in self._get_file_patterns_for_type(artifact_type)
+            for pattern in self._get_patterns_for_type(artifact_type)
         ]
         for obj in s3_client.list_objects(config.bucket, prefix=self._get_s3_path(prefix, from_path), recursive=True):
             output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
@@ -358,7 +358,7 @@ class ArtifactManager:
             s3_client.fput_object(config.bucket, _s3_path, str(_filepath))
 
         tasks = []
-        for pattern in config.file_patterns:
+        for pattern in config.patterns:
             if config.base_dir_pattern:
                 pattern = os.path.join(config.base_dir_pattern, pattern)
 
@@ -386,7 +386,7 @@ class ArtifactManager:
         This method:
 
         1. Finds directories matching ``base_dir_pattern`` (only folders).
-        2. For each directory, finds files matching ``file_patterns`` (relative to that
+        2. For each directory, finds files matching ``patterns`` (relative to that
            directory).
         3. Creates a zip file named ``<artifact_type>.zip`` in that directory.
         4. Uploads the zip file to S3.
@@ -425,14 +425,14 @@ class ArtifactManager:
         # For each matching directory, collect files and create zip
         for basedir in matching_dirs:
             files_to_zip = []
-            # Search for files matching file_patterns relative to basedir
-            for file_pattern in config.file_patterns:
+            # Search for files matching patterns relative to basedir
+            for file_pattern in config.patterns:
                 for fps in glob.glob(os.path.join(str(basedir), file_pattern), recursive=True):
                     if os.path.isfile(fps):
                         files_to_zip.append(Path(fps))
 
             if not files_to_zip:
-                logger.debug(f'No files found in {basedir} matching patterns {config.file_patterns}')
+                logger.debug(f'No files found in {basedir} matching patterns {config.patterns}')
                 continue
 
             # Create zip file in the basedir with name <artifact_type>.zip
@@ -466,7 +466,7 @@ class ArtifactManager:
             presigned_urls = json.load(f)
 
         from_path_rel = from_path.relative_to(self.envs.IDF_PATH)
-        patterns = self._get_file_patterns_for_type(artifact_type)
+        patterns = self._get_patterns_for_type(artifact_type)
         if from_path_rel != Path('.'):
             patterns = [os.path.join(str(from_path_rel), pattern) for pattern in patterns]
         patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
@@ -721,13 +721,13 @@ class ArtifactManager:
         tasks = []
         presigned_urls: t.Dict[str, str] = {}
         bucket_zip_artifacts: t.Dict[str, t.Set[str]] = defaultdict(set)
-        bucket_file_patterns: t.Dict[str, t.List[str]] = defaultdict(list)
+        bucket_patterns: t.Dict[str, t.List[str]] = defaultdict(list)
         for art_type in self._get_artifact_types(artifact_type):
             config = self.settings.gitlab.artifacts.s3.configs[art_type]
             if config.zip_first:
                 bucket_zip_artifacts[config.bucket].add(art_type)
             else:
-                bucket_file_patterns[config.bucket].extend(self._get_file_patterns_for_type(art_type))
+                bucket_patterns[config.bucket].extend(self._get_patterns_for_type(art_type))
 
         for bucket, artifact_types in bucket_zip_artifacts.items():
             zip_filenames = {f'{art_type}.zip' for art_type in artifact_types}
@@ -740,7 +740,7 @@ class ArtifactManager:
                     lambda _bucket=bucket, _obj_name=obj.object_name: _get_presigned_url_task(_bucket, _obj_name)
                 )
 
-        for bucket, patterns in bucket_file_patterns.items():
+        for bucket, patterns in bucket_patterns.items():
             patterns_regexes = [
                 re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns
             ]
