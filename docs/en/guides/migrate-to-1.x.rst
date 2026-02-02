@@ -51,9 +51,12 @@ The artifact configuration structure has been reorganized for better clarity and
 Key Changes:
 
 - ``s3`` and ``s3_zip`` configurations merged into ``s3.configs``
-- Pattern structure simplified - no longer need ``**/build*/`` prefix in file patterns
-- Added ``gitlab.artifacts.s3.enable`` flag to control S3 functionality
-- Introduced ``gitlab.artifacts.native`` section for GitLab native artifacts
+
+  - Moved ``gitlab.artifacts.s3.[key]`` to ``gitlab.artifacts.s3.configs.[key]``
+  - Moved ``gitlab.artifacts.s3_zip.[key]`` to ``gitlab.artifacts.s3.configs.[key]``
+
+- Renamed ``gitlab.artifacts.build_job_filepatterns`` to ``gitlab.artifacts.native.build_job_filepatterns``
+- Renmaed ``gitlab.artifacts.test_job_filepatterns`` to ``gitlab.artifacts.native.test_job_filepatterns``
 - New options: ``is_public``, ``zip_first`` for conditional artifact types
 - Mixed artifact type upload/download is now supported
 
