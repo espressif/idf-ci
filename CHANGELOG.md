@@ -20,6 +20,26 @@
 </div>
 <hr>
 
+## v1.0.0b0 (2026-02-02)
+
+### 🚨 Breaking changes
+
+- reorganize s3 artifacts. now could upload/download with mixed type *(Fu Hanxi - e0e4368)*
+- handling gitlab artifacts *(Fu Hanxi - e1735d4)*
+
+### ✨ New Features
+
+- expand info about tests cases requiring nonexistent app *(Evgeny Torbin - 38b5b58)*
+
+### 🐛 Bug Fixes
+
+- group tests by target and sdkconfig correctly *(Evgeny Torbin - 7fc83f9)*
+
+### 📖 Documentation
+
+- improve migration guide *(Fu Hanxi - 1ac0b23)*
+
+
 ## v0.7.0 (2026-01-15)
 
 ### ✨ New Features
