@@ -1,0 +1,29 @@
+name: report
+on:
+  workflow_run:
+    workflows:
+      - Test Linux (py3.13)
+    types:
+      - completed
+
+permissions:
+  actions: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Test Report
+        uses: dawidd6/action-download-artifact@v14
+        with:
+          name: test-results
+          workflow: ${{ github.event.workflow_run.workflow_id }}
+          run_id: ${{ github.event.workflow_run.id }}
+      - name: Upload coverage report to PR
+        if: ${{ github.event.workflow_run.event == 'pull_request' }}
+        uses: MishaKav/pytest-coverage-comment@v1
+        with:
+          pytest-coverage-path: ./pytest-coverage.txt
+          junitxml-path: ./pytest.xml
