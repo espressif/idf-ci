@@ -531,13 +531,13 @@
                         {{ "%.2f"|format(detail.coverage) }}%
                       </td>
                       {% for target in detail.targets %}
-                        <td class="app-{{ target.status|lower if not target.has_err else 'err' }}"
+                        <td class="app-{{ target.status.value|lower if not target.has_err else 'err' }}"
                             data-target="{{ target.name }}"
-                            data-status="{{ target.status|lower }}"
+                            data-status="{{ target.status.value|lower }}"
                             {% if target.has_err %} data-has-error{% endif %}
                             {% if target.has_err or target.is_disabled %}data-show-popup tabindex="0"{% endif %}
                         >
-                          <span class="target-cell-label">{{ target.status_label }}</span>
+                          <span class="target-cell-label">{{ target.status_label.value }}</span>
                           {% if target.tests > 0 %}
                             <span class="target-cell-test-count">({{ target.enabled_tests }}/{{ target.tests }})</span>
                           {% endif %}

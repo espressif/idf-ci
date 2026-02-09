@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 
-import json
 import logging
 import typing as t
 from collections import defaultdict
@@ -14,322 +13,394 @@ from idf_build_apps.constants import ALL_TARGETS, BuildStatus
 from jinja2 import Environment, FileSystemLoader
 
 from idf_ci import get_pytest_cases
+from idf_ci.build_collect.models import (
+    AppInfo,
+    AppKey,
+    AppStatus,
+    CaseInfo,
+    CollectResult,
+    MissingAppInfo,
+    ProjectInfo,
+)
 from idf_ci.idf_pytest import PytestCase
 
 logger = logging.getLogger(__name__)
 
 
-def add_test_case(test_cases: t.List[PytestCase], new_test_case: PytestCase) -> None:
-    """Add a test case to the list if it does not exist."""
-    if new_test_case not in test_cases:
-        test_cases.append(new_test_case)
+def normalize_path(path: str) -> str:
+    return Path(path).absolute().as_posix()
 
 
-def group_test_cases_by_path(
-    test_cases: t.List[PytestCase],
-) -> t.Dict[str, t.Dict[str, t.Dict[str, t.List[PytestCase]]]]:
-    """Group test cases by their path, target and sdkconfig."""
-    # Structure: path -> target -> sdkconfig -> list[PytestCase]
-    result: t.Dict[str, t.Dict[str, t.Dict[str, t.List[PytestCase]]]] = defaultdict(
-        lambda: defaultdict(lambda: defaultdict(list))
+def collect_build_apps(
+    *,
+    paths: t.Optional[t.List[str]] = None,
+    include_only_enabled: bool = False,
+) -> t.Tuple[t.Dict[AppKey, App], t.Dict[str, str]]:
+    """Collect all buildable apps from given paths.
+
+    :param paths: Paths to search for apps.
+    :param include_only_enabled: If True, include only enabled apps.
+
+    :returns: Tuple of dictionary with apps and mapping of normalized paths to original
+        paths.
+    """
+    find_arguments = FindArguments(
+        include_all_apps=not include_only_enabled,
+        recursive=True,
+        enable_preview_targets=True,
     )
 
-    for case in test_cases:
-        path = Path(case.path).parent.as_posix()
-        for target, config in zip(case.targets, case.configs):
-            add_test_case(result[path][target][config], case)
+    if paths is not None:
+        find_arguments.paths = paths
 
-    return result
+    apps = find_apps(find_arguments=find_arguments)
+
+    result: t.Dict[AppKey, App] = {}
+    paths_mapping: t.Dict[str, str] = {}
+
+    for app in apps:
+        # Skip apps without config
+        if app.config_name is None:
+            continue
+
+        path = app.app_dir
+        normalized_path = normalize_path(path)
+        paths_mapping[normalized_path] = path
+
+        app_key = AppKey(
+            path=normalized_path,
+            target=app.target,
+            config=app.config_name,
+        )
+        result[app_key] = app
+
+    return result, paths_mapping
 
 
-def group_test_cases_by_target_and_config(
-    test_cases: t.List[PytestCase],
-) -> t.Dict[str, t.Dict[str, t.List[PytestCase]]]:
-    """Group test cases by their target and sdkconfig."""
-    # Structure: target -> sdkconfig -> list[PytestCase]
-    result: t.Dict[str, t.Dict[str, t.List[PytestCase]]] = defaultdict(lambda: defaultdict(list))
+def collect_test_apps(*, paths: t.Optional[t.List[str]] = None) -> t.Dict[AppKey, t.List[PytestCase]]:
+    """Collect all apps referenced by pytest test cases from given paths.
 
-    for case in test_cases:
-        for target, config in zip(case.targets, case.configs):
-            add_test_case(result[target][config], case)
+    :param paths: Paths to search for test cases.
 
-    return result
-
-
-def collect_apps(paths: t.List[str], include_only_enabled_apps: bool) -> t.Dict[str, t.Any]:
-    """Collect all applications and corresponding test cases."""
-    apps = find_apps(
-        find_arguments=FindArguments(
-            paths=paths,
-            include_all_apps=not include_only_enabled_apps,
-            recursive=True,
-            enable_preview_targets=True,
-        ),
-    )
-
-    test_cases = get_pytest_cases(
+    :returns: Dictionary with apps containing list of test cases.
+    """
+    cases = get_pytest_cases(
         paths=paths,
-        marker_expr='',  # pass empty marker to collect all test cases
+        marker_expr='',
         additional_args=['--ignore-no-tests-collected-error'],
     )
 
-    # Group apps by path
-    apps_by_path: t.Dict[str, t.List[App]] = defaultdict(list)
-    apps_by_abs_path: t.Dict[str, t.List[App]] = defaultdict(list)
-    for app in apps:
-        apps_by_path[app.app_dir].append(app)
-        apps_by_abs_path[Path(app.app_dir).absolute().as_posix()].append(app)
-
-    # Create a dict with test cases for quick lookup
-    test_cases_index = group_test_cases_by_path(test_cases)
-
-    result: t.Dict[str, t.Any] = {
-        'summary': {
-            'total_projects': len(apps_by_path),
-            'total_apps': len(apps),
-            'total_test_cases': len(test_cases),
-            'total_test_cases_used': 0,
-            'total_test_cases_disabled': 0,
-            'total_test_cases_requiring_nonexistent_app': 0,
-        },
-        'projects': {},
-    }
-
-    for index, app_path in enumerate(sorted(apps_by_path)):
-        logger.debug(
-            f'Processing path {index + 1}/{len(apps_by_path)} with {len(apps_by_path[app_path])} apps: {app_path}'
-        )
-
-        result['projects'][app_path] = {'apps': [], 'test_cases_requiring_nonexistent_app': []}
-        project: t.Dict[str, t.Any] = result['projects'][app_path]
-        project_test_cases: t.Dict[str, PytestCase] = {}
-        used_test_cases: t.Set[str] = set()
-        disabled_test_cases: t.Set[str] = set()
-        app_abs_path = Path(app_path).absolute().as_posix()
-
-        for app in apps_by_path[app_path]:
-            # Find test cases for current app by path, target and sdkconfig
-            app_test_cases: t.Dict[str, PytestCase] = {}
-
-            if app_abs_path in test_cases_index:
-                # Gather all test cases
-                for target_key in test_cases_index[app_abs_path]:
-                    for sdkconfig_key in test_cases_index[app_abs_path][target_key]:
-                        test_cases = test_cases_index[app_abs_path][target_key][sdkconfig_key]
-
-                        for case in test_cases:
-                            project_test_cases[case.caseid] = case
-
-                # Find matching test cases
-                if app.target in test_cases_index[app_abs_path]:
-                    if app.config_name in test_cases_index[app_abs_path][app.target]:
-                        test_cases = test_cases_index[app_abs_path][app.target][app.config_name]
-
-                        for case in test_cases:
-                            app_test_cases[case.caseid] = case
-
-            # Get enabled test targets from manifest if exists
-            enabled_test_targets = ALL_TARGETS
-            if app.MANIFEST is not None:
-                enabled_test_targets = app.MANIFEST.enable_test_targets(app_path, config_name=app.config_name)
-
-            # Test cases info
-            test_cases_info: t.List[t.Dict[str, t.Any]] = []
-            for case in app_test_cases.values():
-                test_case: t.Dict[str, t.Any] = {
-                    'name': case.name,
-                    'caseid': case.caseid,
-                }
-
-                skipped_targets = case.skipped_targets()
-                is_disabled_by_manifest = app.target not in enabled_test_targets
-                is_disabled_by_marker = app.target in skipped_targets
-
-                if is_disabled_by_manifest or is_disabled_by_marker:
-                    test_case['disabled'] = True
-                    test_case['disabled_by_manifest'] = is_disabled_by_manifest
-                    test_case['disabled_by_marker'] = is_disabled_by_marker
-
-                    if is_disabled_by_marker:
-                        test_case['skip_reason'] = skipped_targets[app.target]
-
-                    if is_disabled_by_manifest:
-                        test_case['test_comment'] = app.test_comment or ''
-
-                    disabled_test_cases.add(case.caseid)
-                else:
-                    used_test_cases.add(case.caseid)
-
-                test_cases_info.append(test_case)
-
-            project['apps'].append(
-                {
-                    'target': app.target,
-                    'sdkconfig': app.config_name,
-                    'build_status': app.build_status.value,
-                    'build_comment': app.build_comment or '',
-                    'test_comment': app.test_comment or '',
-                    'test_cases': test_cases_info,
-                }
+    result: t.Dict[AppKey, t.List[PytestCase]] = defaultdict(list)
+    for case in cases:
+        for app in case.apps:
+            app_key = AppKey(
+                path=normalize_path(app.path),
+                target=app.target,
+                config=app.config,
             )
+            if case not in result[app_key]:
+                result[app_key].append(case)
 
-        unused_test_cases: t.Set[str] = set(project_test_cases.keys())
-        unused_test_cases.difference_update(used_test_cases)
-        unused_test_cases.difference_update(disabled_test_cases)
+    return dict(result)
 
-        # Group unused test cases by target and sdkconfig
-        unused_test_cases_grouped = group_test_cases_by_target_and_config(
-            [project_test_cases[caseid] for caseid in unused_test_cases]
+
+AppValue = t.TypeVar('AppValue')
+
+
+def group_by_path(apps: t.Dict[AppKey, AppValue]) -> t.Dict[str, t.Dict[AppKey, AppValue]]:
+    """Group apps by path.
+
+    :param apps: Dictionary with apps.
+
+    :returns: Dictionary grouped by path.
+    """
+    result: t.Dict[str, t.Dict[AppKey, AppValue]] = defaultdict(dict)
+    for app_key, value in apps.items():
+        result[app_key.path][app_key] = value
+    return dict(result)
+
+
+def enabled_test_targets(app: App) -> t.List[str]:
+    """List of enabled test targets for the app.
+
+    :param app: App instance.
+
+    :returns: List of enabled test targets.
+    """
+    if app.MANIFEST is None:
+        return list(ALL_TARGETS)
+
+    return app.MANIFEST.enable_test_targets(app.app_dir, config_name=app.config_name)
+
+
+def create_test_case_info(test_case: PytestCase, app: App):
+    """Create information about test case for given app.
+
+    :param test_case: PytestCase instance.
+    :param app: App instance.
+
+    :returns: CaseInfo instance.
+    """
+    enabled_targets = enabled_test_targets(app)
+    skipped_targets = test_case.skipped_targets()
+
+    disabled_by_manifest = app.target not in enabled_targets
+    disabled_by_marker = app.target in skipped_targets
+    disabled = disabled_by_manifest or disabled_by_marker
+
+    skip_reason = skipped_targets.get(app.target, '')
+    test_comment = app.test_comment or ''
+
+    return CaseInfo(
+        name=test_case.name,
+        caseid=test_case.caseid,
+        disabled=disabled,
+        disabled_by_manifest=disabled_by_manifest,
+        disabled_by_marker=disabled_by_marker,
+        skip_reason=skip_reason,
+        test_comment=test_comment,
+    )
+
+
+def create_test_case_missing_app_info(
+    test_case: PytestCase,
+    target: str,
+):
+    """Create information about test case with missing app.
+
+    :param test_case: PytestCase instance.
+    :param target: Target name.
+
+    :returns: CaseInfo instance.
+    """
+    skipped_targets = test_case.skipped_targets()
+
+    disabled_by_marker = target in skipped_targets
+    disabled = disabled_by_marker
+
+    skip_reason = skipped_targets.get(target, '')
+
+    return CaseInfo(
+        name=test_case.name,
+        caseid=test_case.caseid,
+        disabled=disabled,
+        disabled_by_marker=disabled_by_marker,
+        skip_reason=skip_reason,
+    )
+
+
+def process_apps(
+    build_apps: t.Dict[AppKey, App],
+    test_apps: t.Dict[AppKey, t.List[PytestCase]],
+) -> t.Tuple[
+    t.List[AppInfo],
+    t.Set[str],
+    t.Set[str],
+]:
+    """Process buildable apps and attach test cases.
+
+    :param build_apps: Dictionary with buildable apps.
+    :param test_apps: Dictionary with apps referenced by test cases.
+
+    :returns: Tuple of info about apps, used test cases, and disabled test cases.
+    """
+    result: t.List[AppInfo] = []
+    used_test_cases: t.Set[str] = set()
+    disabled_test_cases: t.Set[str] = set()
+
+    for app_key, app in build_apps.items():
+        test_cases = test_apps.get(app_key, [])
+        test_case_info_list: t.List[CaseInfo] = []
+
+        # Process test cases
+        for case in test_cases:
+            info = create_test_case_info(case, app)
+            test_case_info_list.append(info)
+
+            if info.disabled:
+                disabled_test_cases.add(case.caseid)
+            else:
+                used_test_cases.add(case.caseid)
+
+        result.append(
+            AppInfo(
+                target=app_key.target,
+                config=app_key.config,
+                build_status=app.build_status,
+                build_comment=app.build_comment or '',
+                test_comment=app.test_comment or '',
+                test_cases=test_case_info_list,
+            )
         )
 
-        # Add unused test cases info to the project
-        for target in unused_test_cases_grouped:
-            for sdkconfig in unused_test_cases_grouped[target]:
-                project['test_cases_requiring_nonexistent_app'].append(
-                    {
-                        'target': target,
-                        'sdkconfig': sdkconfig,
-                        'test_cases': [
-                            {
-                                'name': case.name,
-                                'caseid': case.caseid,
-                            }
-                            for case in unused_test_cases_grouped[target][sdkconfig]
-                        ],
-                    }
-                )
+    return result, used_test_cases, disabled_test_cases
 
-        result['summary']['total_test_cases_used'] += len(used_test_cases)
-        result['summary']['total_test_cases_disabled'] += len(disabled_test_cases)
-        result['summary']['total_test_cases_requiring_nonexistent_app'] += len(unused_test_cases)
+
+def process_missing_apps(
+    build_apps: t.Dict[AppKey, App],
+    test_apps: t.Dict[AppKey, t.List[PytestCase]],
+) -> t.Tuple[
+    t.List[MissingAppInfo],
+    t.Set[str],
+]:
+    """Find and process missing apps referenced by test cases.
+
+    :param build_apps: Dictionary with buildable apps.
+    :param test_apps: Dictionary with apps referenced by test cases.
+
+    :returns: Tuple of info about missing apps and their test cases.
+    """
+    result: t.List[MissingAppInfo] = []
+    missing_app_test_cases: t.Set[str] = set()
+    missing_keys = set(test_apps.keys()) - set(build_apps.keys())
+
+    for app_key in sorted(missing_keys):
+        test_cases = test_apps[app_key]
+        test_case_info_list: t.List[CaseInfo] = []
+
+        # Process test cases
+        for case in test_cases:
+            info = create_test_case_missing_app_info(case, app_key.target)
+            test_case_info_list.append(info)
+            missing_app_test_cases.add(case.caseid)
+
+        result.append(
+            MissingAppInfo(
+                target=app_key.target,
+                config=app_key.config,
+                test_cases=test_case_info_list,
+            )
+        )
+
+    return result, missing_app_test_cases
+
+
+def collect_apps(
+    *,
+    paths: t.Optional[t.List[str]] = None,
+    include_only_enabled: bool = False,
+) -> CollectResult:
+    """Collect all apps and their corresponding test cases.
+
+    :param paths: Paths to search.
+    :param include_only_enabled: If True, only include enabled apps.
+
+    :returns: CollectResult instance.
+    """
+    logger.debug('Collecting apps from paths')
+    build_apps, paths_mapping = collect_build_apps(paths=paths, include_only_enabled=include_only_enabled)
+
+    logger.debug('Collecting apps referenced by test cases')
+    test_apps = collect_test_apps(paths=paths)
+
+    build_apps_by_path = group_by_path(build_apps)
+    test_apps_by_path = group_by_path(test_apps)
+
+    result = CollectResult()
+    project_paths = list(build_apps_by_path.keys())
+
+    logger.debug('Processing apps')
+    for index, path in enumerate(sorted(project_paths)):
+        original_path = paths_mapping[path]
+
+        logger.debug(
+            f'Processing path {index + 1}/{len(project_paths)} '
+            f'with {len(build_apps_by_path[path])} apps: {original_path}'
+        )
+
+        project_build_apps = build_apps_by_path.get(path, {})
+        project_test_apps = test_apps_by_path.get(path, {})
+
+        app_info, used_test_cases, disabled_test_cases = process_apps(
+            project_build_apps,
+            project_test_apps,
+        )
+
+        missing_app_info, missing_app_test_cases = process_missing_apps(
+            project_build_apps,
+            project_test_apps,
+        )
+
+        result.projects[original_path] = ProjectInfo(
+            apps=app_info,
+            missing_apps=missing_app_info,
+        )
+
+        result.summary.total_test_cases_used += len(used_test_cases)
+        result.summary.total_test_cases_disabled += len(disabled_test_cases)
+        result.summary.total_test_cases_missing_app += len(missing_app_test_cases)
+        result.summary.total_test_cases += len(used_test_cases | disabled_test_cases | missing_app_test_cases)
+
+    result.summary.total_projects = len(project_paths)
+    result.summary.total_apps = len(build_apps)
 
     return result
 
 
-def format_as_json(data: t.Dict[str, t.Any]) -> str:
-    """Format collected data as JSON."""
-    return json.dumps(data)
+def format_as_json(result: CollectResult) -> str:
+    """Format result as JSON.
+
+    :param result: CollectResult instance.
+    """
+    return result.model_dump_json()
 
 
-def format_as_html(data: t.Dict[str, t.Any]) -> str:
-    """Format collected data as HTML."""
+def format_as_html(result: CollectResult) -> str:
+    """Format result as HTML.
+
+    :param result: CollectResult instance.
+    """
     rows = []
-    projects = data.get('projects', {})
-    all_target_list = set()
+    all_targets: t.Set[str] = set()
 
-    for project_path, project_info in projects.items():
-        apps = project_info.get('apps', [])
+    for project_path, project in result.projects.items():
+        # Build mapping (target, config) -> app
+        config_target_app: t.Dict[t.Tuple[str, str], AppInfo] = {}
+        target_list: t.Set[str] = set()
+        config_list: t.Set[str] = set()
 
-        total_tests = 0
-        total_enabled_tests = 0
-        target_list = set()
-        config_list = set()
-        config_target_app: t.Dict[str, t.Dict[str, t.Any]] = defaultdict(dict)
-        details = []
+        for app in project.apps:
+            config_target_app[(app.target, app.config)] = app
+            target_list.add(app.target)
+            config_list.add(app.config)
 
-        for app in apps:
-            # Collect sdkconfigs
-            config_list.add(app.get('sdkconfig'))
-
-            # Collect targets
-            target_list.add(app.get('target'))
-
-            # config -> target -> app
-            config_target_app[app.get('sdkconfig')][app.get('target')] = app
-
-        all_target_list.update(target_list)
+        all_targets.update(target_list)
         config_list_sorted = sorted(config_list)
         target_list_sorted = sorted(target_list)
 
-        for config in config_list_sorted:
-            detail_item = {'sdkconfig': config, 'coverage': 0, 'targets': []}
+        total_tests = 0
+        total_enabled_tests = 0
+        details = []
 
+        for config in config_list_sorted:
+            detail_item: t.Dict[str, t.Any] = {'sdkconfig': config, 'coverage': 0, 'targets': []}
             targets_tested = 0
             targets_total = 0
 
             for target in target_list_sorted:
-                # Status:
-                # U - Unknown
-                # B - Should be built
-                # D - Disabled
-                # T - Tests enabled
-                # S - Tests skipped
-                target_info = {
-                    'name': target,
-                    'status': 'U',
-                    'status_label': '',  # B - Should be built, D - Disabled
-                    'has_err': False,
-                    'is_disabled': False,
-                    'disable_reason': '',
-                    'tests': 0,
-                    'enabled_tests': 0,
-                }
+                target_info = create_target_info(target, config_target_app.get((target, config)))
+                detail_item['targets'].append(target_info)
 
-                app = config_target_app.get(config, {}).get(target)
-
-                if app:
+                if target_info['status'] != AppStatus.UNKNOWN:
                     targets_total += 1
-
-                    status = app.get('build_status')
-                    test_cases = app.get('test_cases', [])
-                    disabled_test_cases = [case for case in test_cases if case.get('disabled')]
-
-                    target_info['tests'] = len(test_cases)
-                    target_info['enabled_tests'] = target_info['tests'] - len(disabled_test_cases)
-
-                    total_tests += target_info['tests']
-                    total_enabled_tests += target_info['enabled_tests']
-
-                    if status == BuildStatus.DISABLED:
-                        target_info['status'] = target_info['status_label'] = 'D'
-                        target_info['is_disabled'] = True
-                        target_info['disable_reason'] = app.get('build_comment', '')
-                    elif status == BuildStatus.SHOULD_BE_BUILT:
-                        target_info['status'] = target_info['status_label'] = 'B'
-
                     if target_info['enabled_tests'] > 0:
-                        target_info['status'] += 'T'
                         targets_tested += 1
 
-                    if len(disabled_test_cases) > 0:
-                        target_info['status'] += 'S'
-
-                    # Mismatched test cases
-                    disabled_by_manifest_only = [
-                        case
-                        for case in test_cases
-                        if case.get('disabled_by_manifest') and not case.get('disabled_by_marker')
-                    ]
-                    disabled_by_marker_only = [
-                        case
-                        for case in test_cases
-                        if case.get('disabled_by_marker') and not case.get('disabled_by_manifest')
-                    ]
-
-                    # Set error if there are any mismatches
-                    if disabled_by_manifest_only or disabled_by_marker_only:
-                        target_info['has_err'] = True
-                        target_info['disabled_by_manifest_only'] = disabled_by_manifest_only
-                        target_info['disabled_by_marker_only'] = disabled_by_marker_only
-
-                detail_item['targets'].append(target_info)
+                total_tests += target_info['tests']
+                total_enabled_tests += target_info['enabled_tests']
 
             if targets_total > 0:
                 detail_item['coverage'] = (targets_tested / targets_total) * 100
 
             details.append(detail_item)
 
-        tests_unknown_sdkconfig = []
-        for item in project_info.get('test_cases_requiring_nonexistent_app', []):
-            for test_case in item.get('test_cases', []):
-                caseid = test_case.get('caseid')
-                if caseid is not None:
-                    tests_unknown_sdkconfig.append(caseid)
+        # Collect test cases with missing apps (unknown sdkconfig)
+        tests_unknown_sdkconfig = [tc.caseid for app in project.missing_apps for tc in app.test_cases]
 
         rows.append(
             {
                 'project_path': project_path,
-                'apps': len(apps),
+                'apps': len(project.apps),
                 'tests': total_tests,
                 'enabled_tests': total_enabled_tests,
                 'tests_unknown_sdkconfig': tests_unknown_sdkconfig,
@@ -338,15 +409,81 @@ def format_as_html(data: t.Dict[str, t.Any]) -> str:
             }
         )
 
-    rows = sorted(rows, key=lambda x: x['project_path'])
+    rows = sorted(rows, key=lambda x: str(x['project_path']))
+
     loader = FileSystemLoader(Path(__file__).parent)
     env = Environment(loader=loader)
     template = env.get_template('template.html')
-    output = template.render(
+
+    return template.render(
         {
-            'targets': sorted(all_target_list),
+            'targets': sorted(all_targets),
             'rows': rows,
         }
     )
 
-    return output
+
+def create_target_info(target: str, app: t.Optional[AppInfo]) -> t.Dict[str, t.Any]:
+    """Create information about target for HTML format.
+
+    :param target: Target name.
+    :param app: AppInfo instance or None if app is missing.
+
+    :returns: Dictionary with target information.
+    """
+    info: t.Dict[str, t.Any] = {
+        'name': target,
+        'status': AppStatus.UNKNOWN,
+        'status_label': '',
+        'has_err': False,
+        'is_disabled': False,
+        'disable_reason': '',
+        'tests': 0,
+        'enabled_tests': 0,
+    }
+
+    if app is None:
+        return info
+
+    test_cases = app.test_cases
+    disabled_cases = [tc for tc in test_cases if tc.disabled]
+    enabled_count = len(test_cases) - len(disabled_cases)
+    disabled_count = len(disabled_cases)
+
+    info['tests'] = len(test_cases)
+    info['enabled_tests'] = enabled_count
+
+    # Determine status
+    has_enabled_tests = enabled_count > 0
+    has_skipped_tests = disabled_count > 0
+    is_disabled = app.build_status == BuildStatus.DISABLED
+
+    if is_disabled:
+        info['is_disabled'] = True
+        info['disable_reason'] = app.build_comment
+
+    # Map (is_disabled, has_enabled_tests, has_skipped_tests) to AppStatus
+    status_map = {
+        (False, False, False): AppStatus.SHOULD_BE_BUILT,
+        (False, True, False): AppStatus.SHOULD_BE_BUILT_AND_TESTS_ENABLED,
+        (False, False, True): AppStatus.SHOULD_BE_BUILT_AND_TESTS_SKIPPED,
+        (False, True, True): AppStatus.SHOULD_BE_BUILT_AND_TESTS_MIXED,
+        (True, False, False): AppStatus.DISABLED,
+        (True, True, False): AppStatus.DISABLED_AND_TESTS_ENABLED,
+        (True, False, True): AppStatus.DISABLED_AND_TESTS_SKIPPED,
+        (True, True, True): AppStatus.DISABLED_AND_TESTS_MIXED,
+    }
+
+    info['status'] = status_map[(is_disabled, has_enabled_tests, has_skipped_tests)]
+    info['status_label'] = AppStatus.DISABLED if is_disabled else AppStatus.SHOULD_BE_BUILT
+
+    # Check for mismatches
+    disabled_by_manifest_only = [tc for tc in test_cases if tc.disabled_by_manifest and not tc.disabled_by_marker]
+    disabled_by_marker_only = [tc for tc in test_cases if tc.disabled_by_marker and not tc.disabled_by_manifest]
+
+    if disabled_by_manifest_only or disabled_by_marker_only:
+        info['has_err'] = True
+        info['disabled_by_manifest_only'] = [tc.model_dump() for tc in disabled_by_manifest_only]
+        info['disabled_by_marker_only'] = [tc.model_dump() for tc in disabled_by_marker_only]
+
+    return info
