@@ -104,14 +104,14 @@ Output format:
             "total_test_cases": 4,
             "total_test_cases_used": 1,
             "total_test_cases_disabled": 2,
-            "total_test_cases_requiring_nonexistent_app": 1
+            "total_test_cases_missing_app": 1
         },
         "projects": {
             "path/to/project": {
                 "apps": [
                     {
                         "target": "esp32",
-                        "sdkconfig": "release",
+                        "config": "release",
                         "build_status": "should be built",
                         "build_comment": "",
                         "test_comment": "Disabled by manifest rule: IDF_TARGET == \"esp32\" (reason: Disabled test for esp32)",
@@ -139,8 +139,17 @@ Output format:
                         ]
                     }
                 ],
-                "test_cases_requiring_nonexistent_app": [
-                    "esp32.default.test_case_4"
+                "missing_apps": [
+                    {
+                        "target": "esp32",
+                        "config": "release",
+                        "test_cases": [
+                            {
+                                "name": "test_case_4",
+                                "caseid": "esp32.release.test_case_4"
+                            }
+                        ]
+                    }
                 ]
             }
         }

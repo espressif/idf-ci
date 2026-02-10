@@ -104,7 +104,7 @@ def collect(
     output_format,
 ):
     """Collect all applications, corresponding test cases and output the result in JSON format."""
-    result = collect_apps(paths, include_only_enabled_apps)
+    result = collect_apps(paths=paths, include_only_enabled=include_only_enabled_apps)
 
     if output_format == 'json':
         result_str = format_as_json(result)
