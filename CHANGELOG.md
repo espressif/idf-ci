@@ -20,6 +20,17 @@
 </div>
 <hr>
 
+## v1.0.0b3 (2026-02-10)
+
+### ✨ New Features
+
+- create check-tests-missing-config pre-commit hook *(Evgeny Torbin - 71e67e7)*
+
+### 🔧 Code Refactoring
+
+- improve build collect command, add more tests *(Evgeny Torbin - e70615a)*
+
+
 ## v1.0.0b2 (2026-02-02)
 
 ### 🐛 Bug Fixes
