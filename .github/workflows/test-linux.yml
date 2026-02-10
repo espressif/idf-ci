@@ -1,26 +1,10 @@
-name: Test Linux (py3.13)
+name: Test Linux (py3.14)
 
 on:
   push:
-    branches: [main]
-    paths:
-      - "**.py"
   pull_request:
-    branches: [main]
     paths:
       - "**.py"
-  pull_request_target:
-    branches: [main]
-    paths:
-      - "**.py"
-
-# https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs
-# `contents` is for permission to the contents of the repository.
-# `pull-requests` is for permission to pull request
-permissions:
-  contents: write
-  checks: write
-  pull-requests: write
 
 jobs:
   test:
@@ -46,7 +30,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -60,9 +44,12 @@ jobs:
           echo "PREVIEW_TARGETS = ['linux', 'esp32c5', 'esp32c61', 'esp32h21']" >> constants.py
           popd
           pytest --junitxml pytest.xml tests/ | tee pytest-coverage.txt
-      - name: Upload coverage report to PR
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: MishaKav/pytest-coverage-comment@v1
+      - name: Upload test results
+        uses: actions/upload-artifact@v6
+        if: always() # always run even if the previous step fails
         with:
-          pytest-coverage-path: ./pytest-coverage.txt
-          junitxml-path: ./pytest.xml
+          name: test-results
+          path: |
+            pytest-coverage.txt
+            pytest.xml
+          retention-days: 1
