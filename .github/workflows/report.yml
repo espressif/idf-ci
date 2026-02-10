@@ -21,10 +21,18 @@ jobs:
           name: test-results
           workflow: ${{ github.event.workflow_run.workflow_id }}
           run_id: ${{ github.event.workflow_run.id }}
+      - name: Parse PR number
+        run: |
+          if [ -f pr_number.txt ]; then
+            echo "PR_NUMBER=$(cat pr_number.txt)" >> $GITHUB_ENV
+          else
+            echo "pr_number.txt file not found, skipping PR comment."
+            exit 0
+          fi
       - name: Upload coverage report to PR
         if: ${{ github.event.workflow_run.event == 'pull_request' }}
         uses: MishaKav/pytest-coverage-comment@v1
         with:
           pytest-coverage-path: ./pytest-coverage.txt
           junitxml-path: ./pytest.xml
-          issue-number: ${{ github.event.workflow_run.pull_requests[0].number }}
+          issue-number: ${{ env.PR_NUMBER }}
