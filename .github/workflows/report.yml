@@ -2,7 +2,7 @@ name: report
 on:
   workflow_run:
     workflows:
-      - Test Linux (py3.13)
+      - Test Linux (py3.14)
     types:
       - completed
 
