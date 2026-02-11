@@ -2,6 +2,5 @@
   name: Check tests for missing sdkconfig files
   entry: check-tests-missing-config
   language: python
-  types: [python]
   stages: [pre-commit, pre-merge-commit, manual]
   require_serial: true

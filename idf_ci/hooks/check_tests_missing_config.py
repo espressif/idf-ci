@@ -12,6 +12,7 @@ import click
 
 from idf_ci.build_collect.models import CollectResult
 from idf_ci.build_collect.scripts import collect_apps
+from idf_ci.utils import remove_subfolders
 
 # Disable logs for clean output
 logging.disable(logging.CRITICAL)
@@ -36,14 +37,11 @@ def main(paths: t.Tuple[str, ...]):
     for path in paths:
         p = Path(path)
         path_dir = p.parent if p.is_file() else p
-
-        # Ignore current directory
-        if path_dir == Path('.'):
-            continue
-
         dirs.add(str(path_dir))
 
-    data: CollectResult = collect_apps(paths=sorted(dirs) if dirs else None)
+    filtered_dirs = remove_subfolders(list(dirs))
+
+    data: CollectResult = collect_apps(paths=[str(d) for d in filtered_dirs] if filtered_dirs else None)
     err_output = (
         'Error: Test cases requiring missing sdkconfig files.\n\n'
         'Please make sure the following sdkconfig files exist or update config name in test case parameters.\n'
