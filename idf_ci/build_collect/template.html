@@ -386,6 +386,12 @@
       margin-bottom: 4px;
     }
 
+    .temp-flag {
+      color: #b71c1c;
+      font-weight: 600;
+    }
+
+
     .popup-list {
       margin: 0;
       padding-left: 25px;
@@ -429,6 +435,7 @@
         <div class="filter" id="errors-filter" data-mode="multi">
           <span class="filter-label">Errors:</span>
           <span class="chip" data-value="tests-has-mismatch">Tests have mismatch</span>
+          <span class="chip" data-value="temp-rules">Temporary rules</span>
           <span class="chip" data-value="no-sdkconfig">Projects with tests requiring unknown sdkconfig</span>
         </div>
         <div class="search-box">
@@ -535,18 +542,28 @@
                             data-target="{{ target.name }}"
                             data-status="{{ target.status.value|lower }}"
                             {% if target.has_err %} data-has-error{% endif %}
-                            {% if target.has_err or target.is_disabled %}data-show-popup tabindex="0"{% endif %}
+                            {% if target.has_err or target.is_disabled or target.matched_rules|length > 0 %}data-show-popup tabindex="0"{% endif %}
+                            {% if target.has_temp_rule %} data-has-temp-rule{% endif %}
                         >
                           <span class="target-cell-label">{{ target.status_label.value }}</span>
                           {% if target.tests > 0 %}
                             <span class="target-cell-test-count">({{ target.enabled_tests }}/{{ target.tests }})</span>
                           {% endif %}
-                          {% if target.has_err or target.is_disabled %}
+                          {% if target.has_err or target.is_disabled or target.matched_rules|length > 0 %}
                             <div class="popup">
-                              {% if target.is_disabled %}
+                              {% if target.matched_rules|length > 0 %}
                                 <div class="popup-section">
-                                  <div class="popup-section-title">Disable reason:</div>
-                                  <div>{{ target.disable_reason }}</div>
+                                  <div class="popup-section-title">Matched rules:</div>
+                                  {% for key, rules in target.matched_rules.items() %}
+                                    {% if rules|length > 0 %}
+                                      <p><strong>{{ key }}</strong></p>
+                                      <ul class="popup-list">
+                                        {% for rule in rules %}
+                                          <li>{{ rule }}</li>
+                                        {% endfor %}
+                                      </ul>
+                                    {% endif %}
+                                  {% endfor %}
                                 </div>
                               {% endif %}
                               {% if target.disabled_by_manifest_only %}
@@ -764,6 +781,7 @@
       const testFilter = document.getElementById("tests-filter");
       const errorsFilter = document.getElementById("errors-filter");
       const testsHasMismatchChip = errorsFilter.querySelector('.chip[data-value="tests-has-mismatch"]');
+      const tempRulesChip = errorsFilter.querySelector('.chip[data-value="temp-rules"]');
       const tbody = table.querySelector("tbody");
       const mainRows = tbody.querySelectorAll("tr.main-row");
 
@@ -771,14 +789,19 @@
       let appValue = null;                  // null, "B" or "D"
       let testValue = new Set();            // "T", "S"
       let testsHasMismatchValue = false;    // "tests-has-mismatch" filter from errors section
+      let tempRulesValue = false;           // "temp-rules" filter from errors section
 
       function normalizeValue(val) {
         return [...val.toLowerCase()].sort().join("");
       }
 
-      function matchFilterValue (val, cellHasMismatch) {
+      function matchFilterValue (val, cellHasMismatch, cellHasTempRules) {
         // Filter by mismatch
         if (testsHasMismatchValue && !cellHasMismatch) {
+          return false;
+        }
+
+        if (tempRulesValue && !cellHasTempRules) {
           return false;
         }
 
@@ -800,7 +823,7 @@
       }
 
       function applyStatusFilter() {
-        const filtersEnabled = appValue !== null || testValue.size > 0 || testsHasMismatchValue;
+        const filtersEnabled = appValue !== null || testValue.size > 0 || testsHasMismatchValue || tempRulesValue;
 
         mainRows.forEach((mainRow) => {
           const detailRow = mainRow.nextElementSibling;
@@ -822,8 +845,9 @@
               }
 
               const cellHasMismatch = cell.hasAttribute("data-has-error");
+              const cellHasTempRules = cell.hasAttribute("data-has-temp-rule");
               const status = cell.dataset.status || "";
-              const matches = matchFilterValue(status, cellHasMismatch);
+              const matches = matchFilterValue(status, cellHasMismatch, cellHasTempRules);
 
               if (matches) {
                 cellMatches++;
@@ -909,14 +933,23 @@
         applyStatusFilter();
       });
 
+      // Setup "temp-rules" filter from errors section
+      tempRulesChip.addEventListener("click", function () {
+        tempRulesValue = !tempRulesValue;
+        this.classList.toggle("active", tempRulesValue);
+        applyStatusFilter();
+      });
+
       // Return both apply and reset functions
       function resetStatusFilter() {
         appValue = null;
         testValue.clear();
         testsHasMismatchValue = false;
+        tempRulesValue = false;
         appFilter.querySelectorAll(".chip[data-value]").forEach(c => c.classList.remove("active"));
         testFilter.querySelectorAll(".chip[data-value]").forEach(c => c.classList.remove("active"));
         testsHasMismatchChip.classList.remove("active");
+        tempRulesChip.classList.remove("active");
         applyStatusFilter();
       }
 
@@ -925,8 +958,10 @@
 
     function addOtherFilter (table) {
       const filterContainer = document.getElementById("errors-filter");
-      // Exclude has-mismatch chip as it's handled by status filter
-      const chips = filterContainer.querySelectorAll('.chip[data-value]:not([data-value="tests-has-mismatch"])');
+      // Exclude tests-has-mismatch and temp-rules chips as it's handled by status filter
+      const chips = filterContainer.querySelectorAll(
+        '.chip[data-value]:not([data-value="tests-has-mismatch"]):not([data-value="temp-rules"])'
+      );
       const tbody = table.querySelector("tbody");
       const mainRows = tbody.querySelectorAll("tr.main-row");
 
@@ -1018,6 +1053,8 @@
       const searchInput = document.getElementById("search-input");
       const resetAllBtn = document.getElementById("reset-all");
 
+      highlightTemporaryMarkers();
+
       addSorting(table);
       const resetSearch = addSearch(table, searchInput);
       const { applyStatusFilter, resetStatusFilter } = addStatusFilter(table);
@@ -1032,6 +1069,32 @@
         resetOtherFilter();
       });
     });
+
+    function highlightTemporaryMarkers() {
+      const marker = "(temporary)";
+      document.querySelectorAll(".popup-list li").forEach((node) => {
+        const text = node.textContent || "";
+        const index = text.indexOf(marker);
+        if (index < 0) return;
+
+        node.textContent = "";
+        const before = text.slice(0, index);
+        const after = text.slice(index + marker.length);
+
+        if (before) {
+          node.appendChild(document.createTextNode(before));
+        }
+
+        const span = document.createElement("span");
+        span.className = "temp-flag";
+        span.textContent = marker;
+        node.appendChild(span);
+
+        if (after) {
+          node.appendChild(document.createTextNode(after));
+        }
+      });
+    }
   </script>
 </body>
 </html>

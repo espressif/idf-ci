@@ -189,6 +189,37 @@ def create_test_case_missing_app_info(
     )
 
 
+def matched_rules(app: App) -> t.Dict[str, t.List[str]]:
+    if app.MANIFEST is None:
+        return {}
+
+    rule = app.MANIFEST.most_suitable_rule(app.app_dir)
+    config_name = app.config_name or 'default'
+    matched = {
+        'enable': [str(clause) for clause in rule.enable if clause.get_value(app.target, config_name)],
+        'disable': [str(clause) for clause in rule.disable if clause.get_value(app.target, config_name)],
+        'disable_test': [str(clause) for clause in rule.disable_test if clause.get_value(app.target, config_name)],
+    }
+
+    if any(matched.values()):
+        return matched
+
+    return {}
+
+
+def has_temporary_rule(app: App) -> bool:
+    if app.MANIFEST is None:
+        return False
+
+    rule = app.MANIFEST.most_suitable_rule(app.app_dir)
+    config_name = app.config_name or 'default'
+
+    return any(
+        clause.temporary and clause.get_value(app.target, config_name)
+        for clause in [*rule.enable, *rule.disable, *rule.disable_test]
+    )
+
+
 def process_apps(
     build_apps: t.Dict[AppKey, App],
     test_apps: t.Dict[AppKey, t.List[PytestCase]],
@@ -230,6 +261,8 @@ def process_apps(
                 build_comment=app.build_comment or '',
                 test_comment=app.test_comment or '',
                 test_cases=test_case_info_list,
+                has_temp_rule=has_temporary_rule(app),
+                matched_rules=matched_rules(app),
             )
         )
 
@@ -440,6 +473,8 @@ def create_target_info(target: str, app: t.Optional[AppInfo]) -> t.Dict[str, t.A
         'disable_reason': '',
         'tests': 0,
         'enabled_tests': 0,
+        'has_temp_rule': False,
+        'matched_rules': {},
     }
 
     if app is None:
@@ -476,6 +511,8 @@ def create_target_info(target: str, app: t.Optional[AppInfo]) -> t.Dict[str, t.A
 
     info['status'] = status_map[(is_disabled, has_enabled_tests, has_skipped_tests)]
     info['status_label'] = AppStatus.DISABLED if is_disabled else AppStatus.SHOULD_BE_BUILT
+    info['has_temp_rule'] = app.has_temp_rule
+    info['matched_rules'] = app.matched_rules
 
     # Check for mismatches
     disabled_by_manifest_only = [tc for tc in test_cases if tc.disabled_by_manifest and not tc.disabled_by_marker]

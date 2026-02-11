@@ -2,6 +2,7 @@ name: Test Windows (py3.7)
 
 on:
   push:
+    branches: [ main ]
   pull_request:
     paths:
       - "**.py"
