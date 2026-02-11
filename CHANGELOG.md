@@ -20,6 +20,14 @@
 </div>
 <hr>
 
+## v1.0.0b4 (2026-02-11)
+
+### 🐛 Bug Fixes
+
+- match all files in check-tests-missing-config pre-commit hook *(Evgeny Torbin - 7c7b5cd)*
+- remove subfolders in check-tests-missing-config pre-commit hook *(Evgeny Torbin - e6d78be)*
+
+
 ## v1.0.0b3 (2026-02-10)
 
 ### ✨ New Features
