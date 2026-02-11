@@ -72,6 +72,8 @@ class AppInfo(BaseModel):
     build_comment: str = ''
     test_comment: str = ''
     test_cases: t.List[CaseInfo] = []
+    has_temp_rule: bool = False
+    matched_rules: t.Dict[str, t.List[str]] = {}
 
     @field_serializer('build_status')
     def serialize_build_status(self, status: BuildStatus) -> str:
