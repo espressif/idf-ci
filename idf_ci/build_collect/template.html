@@ -542,14 +542,14 @@
                             data-target="{{ target.name }}"
                             data-status="{{ target.status.value|lower }}"
                             {% if target.has_err %} data-has-error{% endif %}
-                            {% if target.has_err or target.is_disabled or target.matched_rules|length > 0 %}data-show-popup tabindex="0"{% endif %}
+                            {% if target.has_err or target.matched_rules|length > 0 %}data-show-popup tabindex="0"{% endif %}
                             {% if target.has_temp_rule %} data-has-temp-rule{% endif %}
                         >
                           <span class="target-cell-label">{{ target.status_label.value }}</span>
                           {% if target.tests > 0 %}
                             <span class="target-cell-test-count">({{ target.enabled_tests }}/{{ target.tests }})</span>
                           {% endif %}
-                          {% if target.has_err or target.is_disabled or target.matched_rules|length > 0 %}
+                          {% if target.has_err or target.matched_rules|length > 0 %}
                             <div class="popup">
                               {% if target.matched_rules|length > 0 %}
                                 <div class="popup-section">
@@ -1073,26 +1073,45 @@
     function highlightTemporaryMarkers() {
       const marker = "(temporary)";
       document.querySelectorAll(".popup-list li").forEach((node) => {
-        const text = node.textContent || "";
-        const index = text.indexOf(marker);
-        if (index < 0) return;
+        // Get all text nodes within the li
+        const walker = document.createTreeWalker(
+          node,
+          NodeFilter.SHOW_TEXT,
+          null,
+          false
+        );
 
-        node.textContent = "";
-        const before = text.slice(0, index);
-        const after = text.slice(index + marker.length);
-
-        if (before) {
-          node.appendChild(document.createTextNode(before));
+        const textNodes = [];
+        let currentNode;
+        while ((currentNode = walker.nextNode())) {
+          textNodes.push(currentNode);
         }
 
-        const span = document.createElement("span");
-        span.className = "temp-flag";
-        span.textContent = marker;
-        node.appendChild(span);
+        // Search and replace in text nodes only
+        textNodes.forEach((textNode) => {
+          const text = textNode.textContent || "";
+          const index = text.indexOf(marker);
+          if (index < 0) return;
 
-        if (after) {
-          node.appendChild(document.createTextNode(after));
-        }
+          const before = text.slice(0, index);
+          const after = text.slice(index + marker.length);
+
+          const fragment = document.createDocumentFragment();
+          if (before) {
+            fragment.appendChild(document.createTextNode(before));
+          }
+
+          const span = document.createElement("span");
+          span.className = "temp-flag";
+          span.textContent = marker;
+          fragment.appendChild(span);
+
+          if (after) {
+            fragment.appendChild(document.createTextNode(after));
+          }
+
+          textNode.parentNode.replaceChild(fragment, textNode);
+        });
       });
     }
   </script>
