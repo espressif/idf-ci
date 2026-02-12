@@ -542,14 +542,14 @@
                             data-target="{{ target.name }}"
                             data-status="{{ target.status.value|lower }}"
                             {% if target.has_err %} data-has-error{% endif %}
-                            {% if target.has_err or target.is_disabled or target.matched_rules|length > 0 %}data-show-popup tabindex="0"{% endif %}
+                            {% if target.has_err or target.matched_rules|length > 0 %}data-show-popup tabindex="0"{% endif %}
                             {% if target.has_temp_rule %} data-has-temp-rule{% endif %}
                         >
                           <span class="target-cell-label">{{ target.status_label.value }}</span>
                           {% if target.tests > 0 %}
                             <span class="target-cell-test-count">({{ target.enabled_tests }}/{{ target.tests }})</span>
                           {% endif %}
-                          {% if target.has_err or target.is_disabled or target.matched_rules|length > 0 %}
+                          {% if target.has_err or target.matched_rules|length > 0 %}
                             <div class="popup">
                               {% if target.matched_rules|length > 0 %}
                                 <div class="popup-section">
