@@ -44,9 +44,9 @@ class PytestApp:
 class PytestCase:
     """Represents a pytest test case."""
 
-    KNOWN_ENV_MARKERS: t.ClassVar[t.Set[str]] = set()
+    KNOWN_ENV_MARKERS: t.ClassVar[set[str]] = set()
 
-    def __init__(self, apps: t.List[PytestApp], item: Function) -> None:
+    def __init__(self, apps: list[PytestApp], item: Function) -> None:
         self.apps = apps
         self.item = item
 
@@ -107,7 +107,7 @@ class PytestCase:
         return self.item.originalname
 
     @property
-    def targets(self) -> t.List[str]:
+    def targets(self) -> list[str]:
         # sequence matters
         return [app.target for app in self.apps]
 
@@ -116,7 +116,7 @@ class PytestCase:
         return ','.join(self.targets)
 
     @property
-    def env_markers(self) -> t.Set[str]:
+    def env_markers(self) -> set[str]:
         return {marker for marker in self.all_markers if marker in self.KNOWN_ENV_MARKERS}
 
     @property
@@ -125,12 +125,12 @@ class PytestCase:
         return ','.join(sorted(self.env_markers))
 
     @property
-    def runner_tags(self) -> t.Tuple[str, ...]:
-        t_amount: t.Dict[str, int] = defaultdict(int)
+    def runner_tags(self) -> tuple[str, ...]:
+        t_amount: dict[str, int] = defaultdict(int)
         for target in sorted(self.targets):
             t_amount[target] += 1
 
-        tags: t.Set[str] = set()
+        tags: set[str] = set()
         for target in t_amount:
             if t_amount[target] > 1:
                 tags.add(f'{target}_{t_amount[target]}')
@@ -142,7 +142,7 @@ class PytestCase:
         return tuple(sorted(tags))
 
     @property
-    def configs(self) -> t.List[str]:
+    def configs(self) -> list[str]:
         return [app.config for app in self.apps]
 
     @property
@@ -162,16 +162,16 @@ class PytestCase:
         return 'host_test' in self.all_markers or 'linux' in self.targets
 
     @property
-    def all_markers(self) -> t.Set[str]:
+    def all_markers(self) -> set[str]:
         return {marker.name for marker in self.item.iter_markers()}
 
-    def skipped_targets(self) -> t.Dict[str, str]:
+    def skipped_targets(self) -> dict[str, str]:
         """Get targets that are marked with skip markers for current test case.
 
         :returns: Dictionary of targets with skip reason
         """
         skip_markers = ['temp_skip_ci', 'temp_skip']
-        targets: t.Dict[str, str] = {}
+        targets: dict[str, str] = {}
 
         for _m in self.item.own_markers:
             if _m.name in skip_markers:
@@ -184,7 +184,7 @@ class PytestCase:
 
         return targets
 
-    def get_skip_reason_if_not_built(self, app_dirs: t.Optional[t.List[str]] = None) -> t.Optional[str]:
+    def get_skip_reason_if_not_built(self, app_dirs: list[str] | None = None) -> str | None:
         """Check if all binaries of the test case are built in the app lists.
 
         :param app_dirs: App folder paths to check
@@ -223,7 +223,7 @@ class PytestCase:
 class GroupKey(NamedTuple):
     target_selector: str
     env_selector: str
-    runner_tags: t.Tuple[str, ...]
+    runner_tags: tuple[str, ...]
 
     @classmethod
     def from_case(cls, case: PytestCase):
@@ -234,20 +234,20 @@ class GroupedPytestCases:
     """Groups pytest cases by target and environment markers."""
 
     def __init__(
-        self, cases: t.List[PytestCase], *, additional_dict: t.Optional[t.Dict[GroupKey, t.Dict[str, t.Any]]] = None
+        self, cases: list[PytestCase], *, additional_dict: dict[GroupKey, dict[str, t.Any]] | None = None
     ) -> None:
         self.cases = cases
 
-        self.additional_dict: t.Dict[GroupKey, t.Dict[str, t.Any]] = additional_dict or dict()
+        self.additional_dict: dict[GroupKey, dict[str, t.Any]] = additional_dict or dict()
 
     @property
-    @lru_cache()
-    def grouped_cases(self) -> t.Dict[GroupKey, t.List[PytestCase]]:
+    @lru_cache
+    def grouped_cases(self) -> dict[GroupKey, list[PytestCase]]:
         """Groups test cases by target and environment markers.
 
         :returns: Dictionary of GroupKey to list of PytestCases
         """
-        grouped: t.Dict[GroupKey, t.List[PytestCase]] = defaultdict(list)
+        grouped: dict[GroupKey, list[PytestCase]] = defaultdict(list)
         for case in self.cases:
             grouped[GroupKey.from_case(case)].append(case)
         return grouped
@@ -257,7 +257,7 @@ class GroupedPytestCases:
 
         :returns: String representation of grouped test cases
         """
-        lines: t.List[str] = []
+        lines: list[str] = []
         for key, cases in self.grouped_cases.items():
             if not key.env_selector:
                 lines.append(f'{key.target_selector}: {len(cases)} cases')

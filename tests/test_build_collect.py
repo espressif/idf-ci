@@ -3,7 +3,6 @@
 
 import os
 import textwrap
-import typing as t
 from pathlib import Path
 
 import pytest
@@ -16,14 +15,14 @@ from idf_ci.build_collect.models import AppInfo, CaseInfo, CollectResult, Missin
 from idf_ci.build_collect.scripts import collect_apps, format_as_html
 
 
-def find_project(result: CollectResult, path: Path) -> t.Optional[ProjectInfo]:
+def find_project(result: CollectResult, path: Path) -> ProjectInfo | None:
     for project_path in result.projects.keys():
         if Path(project_path) == path:
             return result.projects[project_path]
     return None
 
 
-def find_app(result: CollectResult, path: Path, target: str, config: str) -> t.Optional[AppInfo]:
+def find_app(result: CollectResult, path: Path, target: str, config: str) -> AppInfo | None:
     project = find_project(result, path)
     if project is None:
         return None
@@ -34,7 +33,7 @@ def find_app(result: CollectResult, path: Path, target: str, config: str) -> t.O
     return None
 
 
-def find_missing_app(result: CollectResult, path: Path, target: str, config: str) -> t.Optional[MissingAppInfo]:
+def find_missing_app(result: CollectResult, path: Path, target: str, config: str) -> MissingAppInfo | None:
     project = find_project(result, path)
     if project is None:
         return None
@@ -45,7 +44,7 @@ def find_missing_app(result: CollectResult, path: Path, target: str, config: str
     return None
 
 
-def find_test_case(result: CollectResult, path: Path, target: str, config: str, caseid: str) -> t.Optional[CaseInfo]:
+def find_test_case(result: CollectResult, path: Path, target: str, config: str, caseid: str) -> CaseInfo | None:
     app = find_app(result, path, target, config)
     if app is None:
         return None
@@ -57,9 +56,7 @@ def find_test_case(result: CollectResult, path: Path, target: str, config: str, 
     return None
 
 
-def find_missing_test_case(
-    result: CollectResult, path: Path, target: str, config: str, caseid: str
-) -> t.Optional[CaseInfo]:
+def find_missing_test_case(result: CollectResult, path: Path, target: str, config: str, caseid: str) -> CaseInfo | None:
     missing_app = find_missing_app(result, path, target, config)
     if missing_app is None:
         return None

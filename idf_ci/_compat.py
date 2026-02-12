@@ -10,7 +10,7 @@ if sys.version_info < (3, 12):
 else:
     from typing import TypedDict  # noqa
 
-PathLike = t.Union[str, os.PathLike]
+PathLike = str | os.PathLike
 
 
 class UndefinedType:
@@ -20,7 +20,7 @@ class UndefinedType:
 
 UNDEF = UndefinedType()
 T = t.TypeVar('T')
-UndefinedOr = t.Union[UndefinedType, T]
+UndefinedOr: t.TypeAlias = UndefinedType | T
 
 
 def is_undefined(value: t.Any) -> bool:

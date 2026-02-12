@@ -33,9 +33,9 @@ def normalize_path(path: str) -> str:
 
 def collect_build_apps(
     *,
-    paths: t.Optional[t.List[str]] = None,
+    paths: list[str] | None = None,
     include_only_enabled: bool = False,
-) -> t.Tuple[t.Dict[AppKey, App], t.Dict[str, str]]:
+) -> tuple[dict[AppKey, App], dict[str, str]]:
     """Collect all buildable apps from given paths.
 
     :param paths: Paths to search for apps.
@@ -55,8 +55,8 @@ def collect_build_apps(
 
     apps = find_apps(find_arguments=find_arguments)
 
-    result: t.Dict[AppKey, App] = {}
-    paths_mapping: t.Dict[str, str] = {}
+    result: dict[AppKey, App] = {}
+    paths_mapping: dict[str, str] = {}
 
     for app in apps:
         # Skip apps without config
@@ -77,7 +77,7 @@ def collect_build_apps(
     return result, paths_mapping
 
 
-def collect_test_apps(*, paths: t.Optional[t.List[str]] = None) -> t.Dict[AppKey, t.List[PytestCase]]:
+def collect_test_apps(*, paths: list[str] | None = None) -> dict[AppKey, list[PytestCase]]:
     """Collect all apps referenced by pytest test cases from given paths.
 
     :param paths: Paths to search for test cases.
@@ -90,7 +90,7 @@ def collect_test_apps(*, paths: t.Optional[t.List[str]] = None) -> t.Dict[AppKey
         additional_args=['--ignore-no-tests-collected-error'],
     )
 
-    result: t.Dict[AppKey, t.List[PytestCase]] = defaultdict(list)
+    result: dict[AppKey, list[PytestCase]] = defaultdict(list)
     for case in cases:
         for app in case.apps:
             app_key = AppKey(
@@ -107,20 +107,20 @@ def collect_test_apps(*, paths: t.Optional[t.List[str]] = None) -> t.Dict[AppKey
 AppValue = t.TypeVar('AppValue')
 
 
-def group_by_path(apps: t.Dict[AppKey, AppValue]) -> t.Dict[str, t.Dict[AppKey, AppValue]]:
+def group_by_path(apps: dict[AppKey, AppValue]) -> dict[str, dict[AppKey, AppValue]]:
     """Group apps by path.
 
     :param apps: Dictionary with apps.
 
     :returns: Dictionary grouped by path.
     """
-    result: t.Dict[str, t.Dict[AppKey, AppValue]] = defaultdict(dict)
+    result: dict[str, dict[AppKey, AppValue]] = defaultdict(dict)
     for app_key, value in apps.items():
         result[app_key.path][app_key] = value
     return dict(result)
 
 
-def enabled_test_targets(app: App) -> t.List[str]:
+def enabled_test_targets(app: App) -> list[str]:
     """List of enabled test targets for the app.
 
     :param app: App instance.
@@ -189,7 +189,7 @@ def create_test_case_missing_app_info(
     )
 
 
-def matched_rules(app: App) -> t.Dict[str, t.List[str]]:
+def matched_rules(app: App) -> dict[str, list[str]]:
     if app.MANIFEST is None:
         return {}
 
@@ -221,12 +221,12 @@ def has_temporary_rule(app: App) -> bool:
 
 
 def process_apps(
-    build_apps: t.Dict[AppKey, App],
-    test_apps: t.Dict[AppKey, t.List[PytestCase]],
-) -> t.Tuple[
-    t.List[AppInfo],
-    t.Set[str],
-    t.Set[str],
+    build_apps: dict[AppKey, App],
+    test_apps: dict[AppKey, list[PytestCase]],
+) -> tuple[
+    list[AppInfo],
+    set[str],
+    set[str],
 ]:
     """Process buildable apps and attach test cases.
 
@@ -235,13 +235,13 @@ def process_apps(
 
     :returns: Tuple of info about apps, used test cases, and disabled test cases.
     """
-    result: t.List[AppInfo] = []
-    used_test_cases: t.Set[str] = set()
-    disabled_test_cases: t.Set[str] = set()
+    result: list[AppInfo] = []
+    used_test_cases: set[str] = set()
+    disabled_test_cases: set[str] = set()
 
     for app_key, app in build_apps.items():
         test_cases = test_apps.get(app_key, [])
-        test_case_info_list: t.List[CaseInfo] = []
+        test_case_info_list: list[CaseInfo] = []
 
         # Process test cases
         for case in test_cases:
@@ -270,11 +270,11 @@ def process_apps(
 
 
 def process_missing_apps(
-    build_apps: t.Dict[AppKey, App],
-    test_apps: t.Dict[AppKey, t.List[PytestCase]],
-) -> t.Tuple[
-    t.List[MissingAppInfo],
-    t.Set[str],
+    build_apps: dict[AppKey, App],
+    test_apps: dict[AppKey, list[PytestCase]],
+) -> tuple[
+    list[MissingAppInfo],
+    set[str],
 ]:
     """Find and process missing apps referenced by test cases.
 
@@ -283,13 +283,13 @@ def process_missing_apps(
 
     :returns: Tuple of info about missing apps and their test cases.
     """
-    result: t.List[MissingAppInfo] = []
-    missing_app_test_cases: t.Set[str] = set()
+    result: list[MissingAppInfo] = []
+    missing_app_test_cases: set[str] = set()
     missing_keys = set(test_apps.keys()) - set(build_apps.keys())
 
     for app_key in sorted(missing_keys):
         test_cases = test_apps[app_key]
-        test_case_info_list: t.List[CaseInfo] = []
+        test_case_info_list: list[CaseInfo] = []
 
         # Process test cases
         for case in test_cases:
@@ -310,7 +310,7 @@ def process_missing_apps(
 
 def collect_apps(
     *,
-    paths: t.Optional[t.List[str]] = None,
+    paths: list[str] | None = None,
     include_only_enabled: bool = False,
 ) -> CollectResult:
     """Collect all apps and their corresponding test cases.
@@ -384,13 +384,13 @@ def format_as_html(result: CollectResult) -> str:
     :param result: CollectResult instance.
     """
     rows = []
-    all_targets: t.Set[str] = set()
+    all_targets: set[str] = set()
 
     for project_path, project in result.projects.items():
         # Build mapping (target, config) -> app
-        config_target_app: t.Dict[t.Tuple[str, str], AppInfo] = {}
-        target_list: t.Set[str] = set()
-        config_list: t.Set[str] = set()
+        config_target_app: dict[tuple[str, str], AppInfo] = {}
+        target_list: set[str] = set()
+        config_list: set[str] = set()
 
         for app in project.apps:
             config_target_app[(app.target, app.config)] = app
@@ -406,7 +406,7 @@ def format_as_html(result: CollectResult) -> str:
         details = []
 
         for config in config_list_sorted:
-            detail_item: t.Dict[str, t.Any] = {'sdkconfig': config, 'coverage': 0, 'targets': []}
+            detail_item: dict[str, t.Any] = {'sdkconfig': config, 'coverage': 0, 'targets': []}
             targets_tested = 0
             targets_total = 0
 
@@ -456,7 +456,7 @@ def format_as_html(result: CollectResult) -> str:
     )
 
 
-def create_target_info(target: str, app: t.Optional[AppInfo]) -> t.Dict[str, t.Any]:
+def create_target_info(target: str, app: AppInfo | None) -> dict[str, t.Any]:
     """Create information about target for HTML format.
 
     :param target: Target name.
@@ -464,7 +464,7 @@ def create_target_info(target: str, app: t.Optional[AppInfo]) -> t.Dict[str, t.A
 
     :returns: Dictionary with target information.
     """
-    info: t.Dict[str, t.Any] = {
+    info: dict[str, t.Any] = {
         'name': target,
         'status': AppStatus.UNKNOWN,
         'status_label': '',

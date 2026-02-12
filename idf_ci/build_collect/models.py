@@ -54,7 +54,7 @@ class CaseInfo(BaseModel):
     test_comment: str = ''
 
     @model_serializer(mode='wrap')
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> t.Dict[str, t.Any]:
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, t.Any]:
         serialized = handler(self)
 
         if not self.disabled:
@@ -71,9 +71,9 @@ class AppInfo(BaseModel):
     build_status: BuildStatus
     build_comment: str = ''
     test_comment: str = ''
-    test_cases: t.List[CaseInfo] = []
+    test_cases: list[CaseInfo] = []
     has_temp_rule: bool = False
-    matched_rules: t.Dict[str, t.List[str]] = {}
+    matched_rules: dict[str, list[str]] = {}
 
     @field_serializer('build_status')
     def serialize_build_status(self, status: BuildStatus) -> str:
@@ -85,14 +85,14 @@ class MissingAppInfo(BaseModel):
 
     target: str
     config: str
-    test_cases: t.List[CaseInfo] = []
+    test_cases: list[CaseInfo] = []
 
 
 class ProjectInfo(BaseModel):
     """Collection of apps and missing apps for a one path (project)."""
 
-    apps: t.List[AppInfo] = []
-    missing_apps: t.List[MissingAppInfo] = []
+    apps: list[AppInfo] = []
+    missing_apps: list[MissingAppInfo] = []
 
 
 class Summary(BaseModel):
@@ -108,4 +108,4 @@ class Summary(BaseModel):
 
 class CollectResult(BaseModel):
     summary: Summary = Summary()
-    projects: t.Dict[str, ProjectInfo] = {}
+    projects: dict[str, ProjectInfo] = {}

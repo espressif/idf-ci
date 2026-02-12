@@ -3,7 +3,6 @@
 
 import os
 import textwrap
-import typing as t
 from pathlib import Path
 
 import pytest
@@ -17,7 +16,7 @@ from idf_ci.hooks.check_tests_missing_config import (
 
 @pytest.mark.skipif(not os.getenv('IDF_PATH'), reason='IDF_PATH is not set')
 class TestCheckTestsHookIntegration:
-    def run(self, paths: t.Optional[t.List[str]] = None):
+    def run(self, paths: list[str] | None = None):
         runner = CliRunner()
         result = runner.invoke(main, paths)
         return result

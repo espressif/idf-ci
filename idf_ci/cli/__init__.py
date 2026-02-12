@@ -51,7 +51,7 @@ def click_cli(config_file, config, debug):
     overrides_dict = {}
     if config:
 
-        def _set_nested(target: t.Dict, path: str, value: t.Any):
+        def _set_nested(target: dict, path: str, value: t.Any):
             parts = [p.strip() for p in path.split('.') if p.strip()]
             if not parts:
                 raise click.BadParameter('Empty key in --config assignment')

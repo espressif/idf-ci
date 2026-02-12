@@ -3,7 +3,6 @@
 import logging
 import os
 import re
-import typing as t
 
 import yaml
 
@@ -21,7 +20,7 @@ def _doublequote_string(value: str) -> str:
     return value
 
 
-def pipeline_variables() -> t.Dict[str, str]:
+def pipeline_variables() -> dict[str, str]:
     """Extract pipeline variables from Gitlab MR predefined variables.
 
     Possibly set the following variables:
@@ -51,7 +50,7 @@ def pipeline_variables() -> t.Dict[str, str]:
       Run only test cases with `nightly_run` marker, by default, test cases with
       `nightly_run` marker are skipped
     """
-    res: t.Dict[str, str] = {}
+    res: dict[str, str] = {}
 
     # non-MR pipelines
     if os.getenv('CI_MERGE_REQUEST_IID') is None:

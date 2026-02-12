@@ -25,19 +25,19 @@ logger = logging.getLogger(__name__)
 class ProcessedArgs:
     """Container for processed arguments with meaningful field names."""
 
-    modified_files: t.Optional[t.List[str]]
-    modified_components: t.Optional[t.List[str]]
-    filter_expr: t.Optional[str]
-    default_build_targets: t.List[str]
-    test_related_apps: t.Optional[t.List[App]]
-    non_test_related_apps: t.Optional[t.List[App]]
+    modified_files: list[str] | None
+    modified_components: list[str] | None
+    filter_expr: str | None
+    default_build_targets: list[str]
+    test_related_apps: list[App] | None
+    non_test_related_apps: list[App] | None
 
 
 def preprocess_args(
-    modified_files: t.Optional[t.List[str]] = None,
-    modified_components: t.Optional[t.List[str]] = None,
-    filter_expr: t.Optional[str] = None,
-    default_build_targets: t.Optional[t.List[str]] = None,
+    modified_files: list[str] | None = None,
+    modified_components: list[str] | None = None,
+    filter_expr: str | None = None,
+    default_build_targets: list[str] | None = None,
 ) -> ProcessedArgs:
     """Set values according to the environment variables, .toml settings, and defaults.
 
@@ -79,8 +79,8 @@ def preprocess_args(
             processed_components = None
 
     if not settings.is_in_ci:
-        test_related_apps: t.Optional[t.List[App]] = None
-        non_test_related_apps: t.Optional[t.List[App]] = None
+        test_related_apps: list[App] | None = None
+        non_test_related_apps: list[App] | None = None
     else:
         logger.debug('Running in CI, reading test-related and non-test-related apps from files if available')
         test_related_apps = settings.read_apps_from_files([settings.collected_test_related_apps_filepath])
@@ -104,19 +104,19 @@ def preprocess_args(
 
 def get_all_apps(
     *,
-    paths: t.Optional[t.List[str]] = None,
+    paths: list[str] | None = None,
     target: str = 'all',
     # args that may be set by env vars or .idf_ci.toml
-    modified_files: t.Optional[t.List[str]] = None,
-    modified_components: t.Optional[t.List[str]] = None,
-    filter_expr: t.Optional[str] = None,
-    default_build_targets: t.Optional[t.List[str]] = None,
+    modified_files: list[str] | None = None,
+    modified_components: list[str] | None = None,
+    filter_expr: str | None = None,
+    default_build_targets: list[str] | None = None,
     # args that may be set by target
-    marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
+    marker_expr: UndefinedOr[str | None] = UNDEF,
     # additional args
-    compare_manifest_sha_filepath: t.Optional[str] = None,
-    build_system: UndefinedOr[t.Optional[str]] = UNDEF,
-) -> t.Tuple[t.List[App], t.List[App]]:
+    compare_manifest_sha_filepath: str | None = None,
+    build_system: UndefinedOr[str | None] = UNDEF,
+) -> tuple[list[App], list[App]]:
     """Get test-related and non-test-related applications.
 
     :param paths: List of paths to search for applications
@@ -151,7 +151,7 @@ def get_all_apps(
 
         return processed_args.test_related_apps, processed_args.non_test_related_apps
 
-    additional_kwargs: t.Dict[str, t.Any] = {
+    additional_kwargs: dict[str, t.Any] = {
         'compare_manifest_sha_filepath': compare_manifest_sha_filepath,
         'build_system': build_system,
     }
@@ -218,7 +218,7 @@ def get_all_apps(
         ]
 
     # Create dictionaries mapping app info to test cases
-    def get_app_dict(_cases: t.List['PytestCase']) -> t.Dict[t.Tuple[str, str, str], t.List['PytestCase']]:
+    def get_app_dict(_cases: list['PytestCase']) -> dict[tuple[str, str, str], list['PytestCase']]:
         app_dict = defaultdict(list)
         for _case in _cases:
             for _case_app in _case.apps:
@@ -234,7 +234,7 @@ def get_all_apps(
 
     app_map = {(os.path.abspath(app.app_dir), app.target, app.config_name or 'default'): app for app in apps}
 
-    def _get_case_apps(_case: 'PytestCase') -> t.Set[App]:
+    def _get_case_apps(_case: 'PytestCase') -> set[App]:
         _apps = set()
         for _app in _case.apps:
             _app_key = (os.path.abspath(_app.path), _app.target, _app.config)
@@ -281,19 +281,19 @@ def get_all_apps(
 
 def build(
     *,
-    paths: t.Optional[t.List[str]] = None,
+    paths: list[str] | None = None,
     target: str = 'all',
     parallel_count: int = 1,
     parallel_index: int = 1,
-    modified_files: t.Optional[t.List[str]] = None,
-    modified_components: t.Optional[t.List[str]] = None,
-    only_test_related: t.Optional[bool] = None,
-    only_non_test_related: t.Optional[bool] = None,
+    modified_files: list[str] | None = None,
+    modified_components: list[str] | None = None,
+    only_test_related: bool | None = None,
+    only_non_test_related: bool | None = None,
     dry_run: bool = False,
     build_system: UndefinedOr[str] = UNDEF,
     marker_expr: UndefinedOr[str] = UNDEF,
-    filter_expr: t.Optional[str] = None,
-) -> t.Tuple[t.List[App], int]:
+    filter_expr: str | None = None,
+) -> tuple[list[App], int]:
     """Build applications based on specified parameters.
 
     :param paths: List of paths to search for applications
