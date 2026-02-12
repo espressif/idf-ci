@@ -3,7 +3,6 @@
 
 import logging
 import sys
-import typing as t
 import warnings
 from collections import defaultdict
 from pathlib import Path
@@ -27,7 +26,7 @@ warnings.filterwarnings(
 
 @click.command()
 @click.argument('paths', nargs=-1, type=click.Path(exists=True))
-def main(paths: t.Tuple[str, ...]):
+def main(paths: tuple[str, ...]):
     """Checks if any test cases require sdkconfig files that are missing."""
 
     dirs = set()

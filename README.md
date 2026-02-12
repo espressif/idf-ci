@@ -1,7 +1,7 @@
 # idf-ci
 
 [![Documentation Status](https://readthedocs.com/projects/espressif-idf-ci/badge/?version=latest)](https://espressif-idf-ci.readthedocs-hosted.com/en/latest/)
-![Python 3.7+](https://img.shields.io/pypi/pyversions/idf-ci)
+![Python 3.10+](https://img.shields.io/pypi/pyversions/idf-ci)
 
 A tool designed to streamline the CI/CD of ESP-IDF projects, with support for both GitLab CI/CD and GitHub Actions.
 

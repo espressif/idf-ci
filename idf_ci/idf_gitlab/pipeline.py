@@ -18,7 +18,7 @@ from idf_ci.settings import CiSettings, get_ci_settings
 logger = logging.getLogger(__name__)
 
 
-def _get_fake_pass_job(settings: CiSettings, workflow_name: str) -> t.Dict[str, t.Any]:
+def _get_fake_pass_job(settings: CiSettings, workflow_name: str) -> dict[str, t.Any]:
     # no matter being used in build or test child pipeline,
     # always use the same fake_pass job that extends the build job template
     # since test child pipeline tags are generated programmatically
@@ -44,7 +44,7 @@ def _get_fake_pass_job(settings: CiSettings, workflow_name: str) -> t.Dict[str, 
     }
 
 
-def dump_apps_to_txt(apps: t.List[App], output_file: str) -> None:
+def dump_apps_to_txt(apps: list[App], output_file: str) -> None:
     """Dump a list of apps to a text file, one app per line."""
     with open(output_file, 'w') as fw:
         for app in apps:
@@ -53,10 +53,10 @@ def dump_apps_to_txt(apps: t.List[App], output_file: str) -> None:
 
 def build_child_pipeline(
     *,
-    paths: t.Optional[t.List[str]] = None,
-    modified_files: t.Optional[t.List[str]] = None,
-    compare_manifest_sha_filepath: t.Optional[str] = None,
-    yaml_output: t.Optional[str] = None,
+    paths: list[str] | None = None,
+    modified_files: list[str] | None = None,
+    compare_manifest_sha_filepath: str | None = None,
+    yaml_output: str | None = None,
 ) -> None:
     """Generate build child pipeline."""
     envs = GitlabEnvVars()
@@ -76,7 +76,7 @@ def build_child_pipeline(
             marker_expr='not host_test',
             filter_expr=envs.select_by_filter_expr,
         )
-        non_test_related_apps: t.List[App] = []
+        non_test_related_apps: list[App] = []
         dump_apps_to_txt(test_related_apps, settings.collected_test_related_apps_filepath)
     else:
         test_related_apps, non_test_related_apps = get_all_apps(
@@ -142,7 +142,7 @@ def build_child_pipeline(
 def test_child_pipeline(
     yaml_output: str,
     *,
-    cases: t.Optional[GroupedPytestCases] = None,
+    cases: GroupedPytestCases | None = None,
 ) -> None:
     """This function is used to generate the child pipeline for test jobs.
 

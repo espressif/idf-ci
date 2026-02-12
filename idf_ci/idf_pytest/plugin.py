@@ -22,8 +22,8 @@ from ..utils import setup_logging
 from .models import PytestCase
 
 _MODULE_NOT_FOUND_REGEX = re.compile(r"No module named '(.+?)'")
-IDF_CI_PYTEST_CASE_KEY = StashKey[t.Optional[PytestCase]]()
-IDF_CI_PYTEST_DEBUG_INFO_KEY = StashKey[t.Dict[str, t.Any]]()
+IDF_CI_PYTEST_CASE_KEY = StashKey[PytestCase | None]()
+IDF_CI_PYTEST_DEBUG_INFO_KEY = StashKey[dict[str, t.Any]]()
 IDF_CI_PLUGIN_KEY = StashKey['IdfPytestPlugin']()
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class IdfPytestPlugin:
         self,
         *,
         cli_target: str,
-        sdkconfig_name: t.Optional[str] = None,
+        sdkconfig_name: str | None = None,
     ) -> None:
         """Initialize the IDF pytest plugin.
 
@@ -55,10 +55,10 @@ class IdfPytestPlugin:
         else:
             self.apps = None
 
-        self.cases: t.List[PytestCase] = []
+        self.cases: list[PytestCase] = []
 
     @staticmethod
-    def get_case_by_item(item: pytest.Item) -> t.Optional[PytestCase]:
+    def get_case_by_item(item: pytest.Item) -> PytestCase | None:
         """Get the test case associated with a pytest item.
 
         :param item: The pytest test item
@@ -103,8 +103,8 @@ class IdfPytestPlugin:
         self,
         request: FixtureRequest,
         app_path: str,
-        target: t.Optional[str],
-        config: t.Optional[str],
+        target: str | None,
+        config: str | None,
     ) -> str:
         """Find a valid build directory based on priority rules.
 
@@ -179,7 +179,7 @@ class IdfPytestPlugin:
                     continue
 
     @pytest.hookimpl(wrapper=True)
-    def pytest_collection_modifyitems(self, config: Config, items: t.List[Function]):
+    def pytest_collection_modifyitems(self, config: Config, items: list[Function]):
         """Filter test cases based on target, sdkconfig, and available apps.
 
         :param config: Pytest configuration
@@ -202,7 +202,7 @@ class IdfPytestPlugin:
 
         yield
 
-        deselected_items: t.List[Function] = []
+        deselected_items: list[Function] = []
 
         # Filter by nightly_run marker
         if os.getenv('INCLUDE_NIGHTLY_RUN') == '1':
@@ -275,7 +275,7 @@ class IdfPytestPlugin:
         # Report deselected items
         config.hook.pytest_deselected(items=deselected_items)
 
-    def pytest_report_collectionfinish(self, items: t.List[Function]) -> None:
+    def pytest_report_collectionfinish(self, items: list[Function]) -> None:
         for item in items:
             case = self.get_case_by_item(item)
             if case is None:
@@ -318,7 +318,7 @@ def pytest_configure(config: Config):
     cli_target = config.getoption('target') or 'all'
     sdkconfig_name = config.getoption('sdkconfig')
 
-    env_markers: t.Set[str] = set()
+    env_markers: set[str] = set()
     for line in config.getini('env_markers'):
         name, _ = line.split(':', maxsplit=1)
         config.addinivalue_line('markers', line)

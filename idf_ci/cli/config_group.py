@@ -12,7 +12,7 @@ from tomlkit import dumps as toml_dumps
 from idf_ci.settings import CiSettings, get_ci_settings, pick_toml_file
 
 
-def _parse_config_key(config_key: str) -> t.List[str]:
+def _parse_config_key(config_key: str) -> list[str]:
     """Parse a dot-separated path into a list of parts."""
     parts = [p.strip() for p in config_key.split('.') if p.strip()]
     if not parts:
@@ -29,7 +29,7 @@ def _iter_config_key_paths(data: t.Mapping[str, t.Any], prefix: str = '') -> t.I
             yield from _iter_config_key_paths(value, path)
 
 
-def _complete_config_key(ctx, param, incomplete: str) -> t.List[str]:  # noqa: ARG001
+def _complete_config_key(ctx, param, incomplete: str) -> list[str]:  # noqa: ARG001
     settings = get_ci_settings()
     data = settings.model_dump(mode='python', exclude_none=True)
     keys = _iter_config_key_paths(data)
@@ -52,7 +52,7 @@ def _format_type(annotation: t.Any) -> str:
     return f'{origin.__name__}[{", ".join(_format_type(a) for a in t.get_args(annotation))}]'
 
 
-def _get_model_class(annotation: t.Any) -> t.Optional[t.Type[BaseModel]]:
+def _get_model_class(annotation: t.Any) -> type[BaseModel] | None:
     if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
         return annotation
 
@@ -65,12 +65,12 @@ def _get_model_class(annotation: t.Any) -> t.Optional[t.Type[BaseModel]]:
     return None
 
 
-def _resolve_field(config_key: str) -> t.Tuple[t.Optional[t.Type[BaseModel]], t.Any, str, t.Type[BaseModel]]:
+def _resolve_field(config_key: str) -> tuple[type[BaseModel] | None, t.Any, str, type[BaseModel]]:
     """Resolve a config key path to find the field and its containing class."""
     parts = _parse_config_key(config_key)
 
-    current_cls: t.Optional[t.Type[BaseModel]] = CiSettings
-    parent_cls: t.Type[BaseModel] = CiSettings
+    current_cls: type[BaseModel] | None = CiSettings
+    parent_cls: type[BaseModel] = CiSettings
     field = None
     for part in parts:
         if current_cls is None:
@@ -102,7 +102,7 @@ def show(config_key: str):
     data = settings.model_dump(mode='python', exclude_none=True)
     config_path = _get_config_file_path()
     config_label = str(config_path) if config_path else '<not found>'
-    config_data: t.Optional[TOMLDocument] = None
+    config_data: TOMLDocument | None = None
     if config_path:
         with open(config_path) as f:
             config_data = load(f)
@@ -166,7 +166,7 @@ def explain(config_key: str):
         click.echo(f'Choices: {values}')
 
 
-def _get_value_by_config_key(data: t.Dict[str, t.Any], config_key: str, *, safe: bool = False) -> t.Any:
+def _get_value_by_config_key(data: dict[str, t.Any], config_key: str, *, safe: bool = False) -> t.Any:
     """Navigate nested dict using dot-separated config key path.
 
     :param data: The dictionary to navigate
@@ -186,7 +186,7 @@ def _get_value_by_config_key(data: t.Dict[str, t.Any], config_key: str, *, safe:
     return cursor
 
 
-def _get_config_file_path() -> t.Optional[Path]:
+def _get_config_file_path() -> Path | None:
     """Get the path to the config file being used."""
     return pick_toml_file(CiSettings.CONFIG_FILE_PATH)
 
@@ -207,7 +207,7 @@ def _format_toml_value(path: str, value: t.Any) -> str:
         return f'{path} = "{escaped}"'
 
     # For complex values, build nested structure and let toml_dumps handle formatting
-    data: t.Dict[str, t.Any] = {}
+    data: dict[str, t.Any] = {}
     cursor = data
     for part in parts[:-1]:
         cursor[part] = {}

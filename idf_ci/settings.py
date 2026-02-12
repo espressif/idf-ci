@@ -36,14 +36,14 @@ class TomlConfigSettingsSource(InitSettingsSource):
 
     def __init__(
         self,
-        settings_cls: t.Type[BaseSettings],
-        toml_file: t.Optional[PathLike] = Path(''),
+        settings_cls: type[BaseSettings],
+        toml_file: PathLike | None = Path(''),
     ):
         self.toml_file_path = pick_toml_file(toml_file)
         self.toml_data = self._read_file(self.toml_file_path)
         super().__init__(settings_cls, self.toml_data)
 
-    def _read_file(self, path: t.Optional[Path]) -> t.Dict[str, t.Any]:
+    def _read_file(self, path: Path | None) -> dict[str, t.Any]:
         if not path or not path.is_file():
             return {}
 
@@ -51,7 +51,7 @@ class TomlConfigSettingsSource(InitSettingsSource):
             return load(f)
 
 
-def pick_toml_file(provided: t.Optional[PathLike], filename: str = '.idf_ci.toml') -> t.Optional[Path]:
+def pick_toml_file(provided: PathLike | None, filename: str = '.idf_ci.toml') -> Path | None:
     """Pick a file path to use.
 
     If a file path is provided, use it. Otherwise, search up the directory tree for a
@@ -84,8 +84,8 @@ class CliOverridesSettingsSource(InitSettingsSource):
 
     def __init__(
         self,
-        settings_cls: t.Type[BaseSettings],
-        overrides: t.Optional[t.Dict[str, t.Any]] = None,
+        settings_cls: type[BaseSettings],
+        overrides: dict[str, t.Any] | None = None,
     ):
         self.overrides = overrides or {}
         super().__init__(settings_cls, self.overrides)
@@ -104,20 +104,20 @@ class S3ArtifactConfig(BaseModel):
     If False, files are uploaded individually without zipping.
     """
 
-    base_dir_pattern: t.Optional[str] = None
+    base_dir_pattern: str | None = None
     """Glob pattern for base directories to create zip files from.
 
     The pattern should match directories only (for example, ``**/build*/``). If not set,
     the current folder is used as the base directory.
     """
 
-    patterns: t.List[str] = ['**/*']
+    patterns: list[str] = ['**/*']
     """Glob patterns (relative to each base directory) for files to include.
 
     If empty or omitted, all files under the base directory are included.
     """
 
-    if_clause: t.Optional[str] = None
+    if_clause: str | None = None
     """Optional boolean expression to decide whether this artifact type is enabled."""
 
 
@@ -125,7 +125,7 @@ class ArtifactSettingsS3(BaseModel):
     enable: bool = False
     """Whether to enable S3 artifact upload/download and presigned URL generation."""
 
-    configs: t.Union[t.Dict[str, S3ArtifactConfig], t.Dict[str, t.Dict[str, t.Any]]] = {
+    configs: dict[str, S3ArtifactConfig] | dict[str, dict[str, t.Any]] = {
         'debug': {
             'bucket': 'idf-artifacts',
             'base_dir_pattern': '**/build*/',
@@ -174,7 +174,7 @@ class ArtifactSettingsNative(BaseModel):
     enable: bool = True
     """Whether to use GitLab native artifacts."""
 
-    build_job_filepatterns: t.List[str] = [
+    build_job_filepatterns: list[str] = [
         # debug
         '**/build*/bootloader/*.map',
         '**/build*/bootloader/*.elf',
@@ -196,7 +196,7 @@ class ArtifactSettingsNative(BaseModel):
     ]
     """List of glob patterns for CI build jobs artifacts to collect."""
 
-    test_job_filepatterns: t.List[str] = [
+    test_job_filepatterns: list[str] = [
         'pytest-embedded/',
         'XUNIT_RESULT*.xml',
     ]
@@ -249,7 +249,7 @@ class BuildPipelineSettings(BaseModel):
 """.strip()
     """Default template for CI build jobs."""
 
-    job_tags: t.List[str] = ['build']
+    job_tags: list[str] = ['build']
     """List of tags for CI build jobs."""
 
     runs_per_job: int = 60
@@ -382,7 +382,7 @@ class TestPipelineSettings(BuildPipelineSettings):
 """.strip()
     """Default template for CI test jobs."""
 
-    job_tags: t.List[str] = []
+    job_tags: list[str] = []
     """Unused. tags are set by test cases."""
 
     runs_per_job: int = 30
@@ -441,29 +441,29 @@ class GitlabSettings(BaseModel):
 
 
 class CiSettings(BaseSettings):
-    CONFIG_FILE_PATH: t.ClassVar[t.Optional[Path]] = None
+    CONFIG_FILE_PATH: t.ClassVar[Path | None] = None
     """Path to the configuration file to be used (class variable)."""
 
-    CLI_OVERRIDES: t.ClassVar[t.Dict[str, t.Any]] = {}
+    CLI_OVERRIDES: t.ClassVar[dict[str, t.Any]] = {}
     """Inline CLI overrides (class variable)."""
 
     # --- instance variables below ---
 
-    component_mapping_regexes: t.List[str] = [
+    component_mapping_regexes: list[str] = [
         '/components/(.+?)/',
         '/common_components/(.+?)/',
     ]
     """List of regex patterns to extract component names from file paths."""
 
-    extend_component_mapping_regexes: t.List[str] = []
+    extend_component_mapping_regexes: list[str] = []
     """Additional component mapping regex patterns to extend the default list."""
 
-    component_mapping_exclude_regexes: t.List[str] = [
+    component_mapping_exclude_regexes: list[str] = [
         r'/test_apps/',
     ]
     """List of regex patterns to exclude certain paths from component mapping."""
 
-    component_ignored_file_extensions: t.List[str] = [
+    component_ignored_file_extensions: list[str] = [
         '.md',
         '.rst',
         '.yaml',
@@ -472,11 +472,11 @@ class CiSettings(BaseSettings):
     ]
     """File extensions to ignore when mapping files to components."""
 
-    extend_component_ignored_file_extensions: t.List[str] = []
+    extend_component_ignored_file_extensions: list[str] = []
     """Additional file extensions to ignore."""
 
     # build related settings
-    built_app_list_filepatterns: t.List[str] = ['app_info_*.txt']
+    built_app_list_filepatterns: list[str] = ['app_info_*.txt']
     """Glob patterns for files containing built app information."""
 
     collected_test_related_apps_filepath: str = 'test_related_apps.txt'
@@ -491,14 +491,14 @@ class CiSettings(BaseSettings):
     preserve_non_test_related_apps: bool = True
     """Whether to preserve non-test-related apps."""
 
-    extra_default_build_targets: t.List[str] = []
+    extra_default_build_targets: list[str] = []
     """Additional build targets to include by default."""
 
-    exclude_dirs: t.List[str] = []
+    exclude_dirs: list[str] = []
     """Directories to ignore when searching for apps."""
 
     # env vars
-    ci_detection_envs: t.List[str] = [
+    ci_detection_envs: list[str] = [
         'CI',
         'GITHUB_ACTIONS',
         'CIRCLECI',
@@ -512,10 +512,10 @@ class CiSettings(BaseSettings):
     ]
     """Environment variables used to detect if running in CI."""
 
-    local_runtime_envs: t.Dict[str, t.Any] = {}
+    local_runtime_envs: dict[str, t.Any] = {}
     """Environment variables to set in local development."""
 
-    ci_runtime_envs: t.Dict[str, t.Any] = {}
+    ci_runtime_envs: dict[str, t.Any] = {}
     """Environment variables to set in CI environment."""
 
     # gitlab subsection
@@ -525,12 +525,12 @@ class CiSettings(BaseSettings):
     @classmethod
     def settings_customise_sources(
         cls,
-        settings_cls: t.Type[BaseSettings],  # type: ignore[override]
+        settings_cls: type[BaseSettings],  # type: ignore[override]
         init_settings: PydanticBaseSettingsSource,
         env_settings: PydanticBaseSettingsSource,  # noqa: ARG003
         dotenv_settings: PydanticBaseSettingsSource,  # noqa: ARG003
         file_secret_settings: PydanticBaseSettingsSource,  # noqa: ARG003
-    ) -> t.Tuple[PydanticBaseSettingsSource, ...]:
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
         return (
             # Precedence: CLI overrides > init kwargs > TOML file > defaults
             CliOverridesSettingsSource(settings_cls, getattr(cls, 'CLI_OVERRIDES', None)),
@@ -556,7 +556,7 @@ class CiSettings(BaseSettings):
         return any(os.getenv(env) is not None for env in self.ci_detection_envs)
 
     @property
-    def all_component_mapping_regexes(self) -> t.Set[re.Pattern]:
+    def all_component_mapping_regexes(self) -> set[re.Pattern]:
         """Get all component mapping regexes as compiled pattern objects.
 
         :returns: Set of compiled regex patterns
@@ -564,14 +564,14 @@ class CiSettings(BaseSettings):
         return {re.compile(regex) for regex in self.component_mapping_regexes + self.extend_component_mapping_regexes}
 
     @property
-    def all_component_mapping_exclude_regexes(self) -> t.Set[re.Pattern]:
+    def all_component_mapping_exclude_regexes(self) -> set[re.Pattern]:
         """Get all component mapping exclude regexes as compiled pattern objects.
 
         :returns: Set of compiled regex patterns
         """
         return {re.compile(regex) for regex in self.component_mapping_exclude_regexes}
 
-    def get_modified_components(self, modified_files: t.Iterable[str]) -> t.Set[str]:
+    def get_modified_components(self, modified_files: t.Iterable[str]) -> set[str]:
         """Get the set of components that have been modified based on the provided files.
 
         :param modified_files: Iterable of file paths that have been modified
@@ -606,7 +606,7 @@ class CiSettings(BaseSettings):
         return modified_components
 
     @classmethod
-    def read_apps_from_files(cls, filepaths: t.Sequence[PathLike]) -> t.Optional[t.List[App]]:
+    def read_apps_from_files(cls, filepaths: t.Sequence[PathLike]) -> list[App] | None:
         """Helper method to read apps from files.
 
         :param filepaths: List of file paths to read
@@ -626,7 +626,7 @@ class CiSettings(BaseSettings):
         return json_list_files_to_apps(valid_filepaths)
 
     @classmethod
-    def read_apps_from_filepatterns(cls, patterns: t.List[str]) -> t.Optional[t.List[App]]:
+    def read_apps_from_filepatterns(cls, patterns: list[str]) -> list[App] | None:
         """Helper method to read apps from files matching given patterns.
 
         :param patterns: List of file patterns to search for
@@ -648,7 +648,7 @@ class CiSettings(BaseSettings):
 
         return apps
 
-    def get_built_apps_list(self) -> t.Optional[t.List[App]]:
+    def get_built_apps_list(self) -> list[App] | None:
         """Get the list of successfully built applications from the app info files.
 
         :returns: List of App objects representing successfully built applications, or
@@ -675,8 +675,8 @@ def get_ci_settings() -> 'CiSettings':
 
 
 def _refresh_ci_settings(
-    config_file: t.Optional[PathLike] = None,
-    config_overrides: t.Optional[t.Dict[str, t.Any]] = None,
+    config_file: PathLike | None = None,
+    config_overrides: dict[str, t.Any] | None = None,
 ) -> 'CiSettings':
     """Refresh the CiSettings instance in the context. shall be called only by CLI entry point."""
     if config_file:

@@ -4,7 +4,6 @@
 import io
 import logging
 import os.path
-import typing as t
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
@@ -24,13 +23,13 @@ logger = logging.getLogger(__name__)
 
 def get_pytest_cases(
     *,
-    paths: t.Optional[t.List[str]] = None,
+    paths: list[str] | None = None,
     target: str = 'all',
-    sdkconfig_name: t.Optional[str] = None,
-    marker_expr: UndefinedOr[t.Optional[str]] = UNDEF,
-    filter_expr: t.Optional[str] = None,
-    additional_args: t.Optional[t.List[str]] = None,
-) -> t.List[PytestCase]:
+    sdkconfig_name: str | None = None,
+    marker_expr: UndefinedOr[str | None] = UNDEF,
+    filter_expr: str | None = None,
+    additional_args: list[str] | None = None,
+) -> list[PytestCase]:
     """Collect pytest test cases from specified paths.
 
     :param paths: List of file system paths to collect test cases from

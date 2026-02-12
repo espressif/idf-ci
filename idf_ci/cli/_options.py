@@ -4,7 +4,6 @@ import difflib
 import logging
 import os
 import shutil
-import typing as t
 
 import click
 
@@ -105,7 +104,7 @@ def option_output(func):
 #########
 # Utils #
 #########
-def create_config_file(template_filepath: str, dest: t.Optional[str] = None) -> str:
+def create_config_file(template_filepath: str, dest: str | None = None) -> str:
     """Create a configuration file from a template.
 
     If the destination file already exists, shows a diff between the existing file and

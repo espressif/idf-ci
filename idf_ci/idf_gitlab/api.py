@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 
 
 def execute_concurrent_tasks(
-    tasks: t.List[t.Callable[..., t.Any]],
-    max_workers: t.Optional[int] = None,
+    tasks: list[t.Callable[..., t.Any]],
+    max_workers: int | None = None,
     task_name: str = 'executing task',
-) -> t.List[t.Any]:
+) -> list[t.Any]:
     """Execute tasks concurrently using ThreadPoolExecutor.
 
     :param tasks: List of callable tasks to execute
@@ -79,9 +79,9 @@ class ArtifactParams:
        current git branch)
     """
 
-    commit_sha: t.Optional[str] = None
-    branch: t.Optional[str] = None
-    folder: t.Optional[str] = None
+    commit_sha: str | None = None
+    branch: str | None = None
+    folder: str | None = None
 
     def __post_init__(self):
         if self.folder is None:
@@ -133,11 +133,11 @@ class ArtifactManager:
         self.envs = GitlabEnvVars()
         self.settings = get_ci_settings()
 
-        self._s3_client: t.Optional[Minio] = UNDEF  # type: ignore
-        self._s3_public_client: t.Optional[Minio] = UNDEF  # type: ignore
+        self._s3_client: Minio | None = UNDEF  # type: ignore
+        self._s3_public_client: Minio | None = UNDEF  # type: ignore
 
     @property
-    @lru_cache()
+    @lru_cache
     def gl(self):
         return Gitlab(
             self.envs.GITLAB_HTTPS_SERVER,
@@ -145,7 +145,7 @@ class ArtifactManager:
         )
 
     @property
-    @lru_cache()
+    @lru_cache
     def project(self):
         project = self.gl.projects.get(self.settings.gitlab.project)
         if not project:
@@ -153,18 +153,18 @@ class ArtifactManager:
         return project
 
     @property
-    def s3_client(self) -> t.Optional[minio.Minio]:
+    def s3_client(self) -> minio.Minio | None:
         if is_undefined(self._s3_client):
             self._s3_client = self._create_s3_client()
         return self._s3_client
 
     @property
-    def s3_public_client(self) -> t.Optional[minio.Minio]:
+    def s3_public_client(self) -> minio.Minio | None:
         if is_undefined(self._s3_public_client):
             self._s3_public_client = self._create_s3_client(public=True)
         return self._s3_public_client
 
-    def _create_s3_client(self, *, public=False) -> t.Optional[minio.Minio]:
+    def _create_s3_client(self, *, public=False) -> minio.Minio | None:
         if not self.envs.IDF_S3_SERVER:
             logger.info('S3 credentials not available. Skipping S3 features...')
             return None
@@ -208,7 +208,7 @@ class ArtifactManager:
             ),
         )
 
-    def _get_patterns_for_type(self, artifact_type: str) -> t.List[str]:
+    def _get_patterns_for_type(self, artifact_type: str) -> list[str]:
         config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
 
         if not config.base_dir_pattern:
@@ -216,7 +216,7 @@ class ArtifactManager:
 
         return [os.path.join(config.base_dir_pattern, pattern) for pattern in config.patterns]
 
-    def _get_artifact_types(self, artifact_type: t.Optional[str]) -> t.List[str]:
+    def _get_artifact_types(self, artifact_type: str | None) -> list[str]:
         if artifact_type and artifact_type not in self.settings.gitlab.artifacts.s3.configs:
             raise ValueError(
                 f'Invalid artifact type: {artifact_type}. '
@@ -545,11 +545,11 @@ class ArtifactManager:
     def download_artifacts(
         self,
         *,
-        commit_sha: t.Optional[str] = None,
-        branch: t.Optional[str] = None,
-        artifact_type: t.Optional[str] = None,
-        folder: t.Optional[str] = None,
-        presigned_json: t.Optional[str] = None,
+        commit_sha: str | None = None,
+        branch: str | None = None,
+        artifact_type: str | None = None,
+        folder: str | None = None,
+        presigned_json: str | None = None,
     ) -> None:
         """Download artifacts from S3 or via presigned URLs.
 
@@ -622,10 +622,10 @@ class ArtifactManager:
     def upload_artifacts(
         self,
         *,
-        commit_sha: t.Optional[str] = None,
-        branch: t.Optional[str] = None,
-        artifact_type: t.Optional[str] = None,
-        folder: t.Optional[str] = None,
+        commit_sha: str | None = None,
+        branch: str | None = None,
+        artifact_type: str | None = None,
+        folder: str | None = None,
     ) -> None:
         """Upload artifacts to S3.
 
@@ -677,12 +677,12 @@ class ArtifactManager:
     def generate_presigned_json(
         self,
         *,
-        commit_sha: t.Optional[str] = None,
-        branch: t.Optional[str] = None,
-        artifact_type: t.Optional[str] = None,
-        folder: t.Optional[str] = None,
+        commit_sha: str | None = None,
+        branch: str | None = None,
+        artifact_type: str | None = None,
+        folder: str | None = None,
         expire_in_days: int = 4,
-    ) -> t.Dict[str, str]:
+    ) -> dict[str, str]:
         """Generate presigned URLs for artifacts in S3 storage.
 
         Generates presigned URLs for artifacts that would be uploaded to S3 storage. The
@@ -714,7 +714,7 @@ class ArtifactManager:
         prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
         s3_path = self._get_s3_path(prefix, params.from_path)
 
-        def _get_presigned_url_task(_bucket: str, _obj_name: str) -> t.Tuple[str, str]:
+        def _get_presigned_url_task(_bucket: str, _obj_name: str) -> tuple[str, str]:
             res = self.s3_client.get_presigned_url(  # type: ignore
                 'GET',
                 bucket_name=_bucket,
@@ -727,9 +727,9 @@ class ArtifactManager:
             return _obj_name, res
 
         tasks = []
-        presigned_urls: t.Dict[str, str] = {}
-        bucket_zip_artifacts: t.Dict[str, t.Set[str]] = defaultdict(set)
-        bucket_patterns: t.Dict[str, t.List[str]] = defaultdict(list)
+        presigned_urls: dict[str, str] = {}
+        bucket_zip_artifacts: dict[str, set[str]] = defaultdict(set)
+        bucket_patterns: dict[str, list[str]] = defaultdict(list)
         for art_type in self._get_artifact_types(artifact_type):
             config = self.settings.gitlab.artifacts.s3.configs[art_type]
             if config.zip_first:
