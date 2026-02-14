@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import json
+import os
 
 import click
+from minio.commonconfig import CopySource
 
 from idf_ci.cli._options import (
     option_branch,
@@ -10,7 +12,7 @@ from idf_ci.cli._options import (
     option_modified_files,
     option_paths,
 )
-from idf_ci.idf_gitlab import ArtifactManager
+from idf_ci.idf_gitlab import ArtifactManager, ArtifactParams
 from idf_ci.idf_gitlab import build_child_pipeline as build_child_pipeline_cmd
 from idf_ci.idf_gitlab import pipeline_variables as pipeline_variables_cmd
 from idf_ci.idf_gitlab import test_child_pipeline as test_child_pipeline_cmd
@@ -193,16 +195,57 @@ def generate_presigned_json(commit_sha, branch, artifact_type, expire_in_days, o
 
 
 @gitlab.command()
+@option_commit_sha
 @click.argument('filename', required=True)
-def download_known_failure_cases_file(filename):
+def download_known_failure_cases_file(filename, commit_sha):
     """Download known failure cases file from S3 storage."""
     s3_client = ArtifactManager().s3_client
-
+    params = ArtifactParams(commit_sha=commit_sha)
     if s3_client:
         s3_client.fget_object(
             get_ci_settings().gitlab.known_failure_cases_bucket_name,
             filename,
             filename,
+        )
+    else:
+        raise ValueError('Configure S3 storage to download artifacts')
+    try:
+        old_filename = filename + '.old'
+        s3_client.fget_object(
+            get_ci_settings().gitlab.known_failure_cases_bucket_name,
+            os.path.join('pipelines123  ', params.commit_sha, filename),
+            old_filename,
+        )
+        result = []
+        with open(filename) as f:
+            result.extend(line if line.endswith('\n') else line + '\n' for line in f)
+
+        with open(old_filename) as f:
+            result.extend(line if line.endswith('\n') else line + '\n' for line in f)
+
+        with open(filename, 'w') as f:
+            f.write(''.join(set(result)))
+
+    except Exception:
+        pass
+
+
+@gitlab.command()
+@option_commit_sha
+@click.argument('filename', required=True)
+def cp_known_failure_cases_file_for_pipeline(filename, commit_sha):
+    """Download known failure cases file from S3 storage."""
+    s3_client = ArtifactManager().s3_client
+    params = ArtifactParams(commit_sha=commit_sha)
+    if s3_client:
+        source = CopySource(get_ci_settings().gitlab.known_failure_cases_bucket_name, filename)
+
+        destination = os.path.join('pipelines', params.commit_sha, filename)
+
+        s3_client.copy_object(
+            get_ci_settings().gitlab.known_failure_cases_bucket_name,
+            destination,
+            source,
         )
     else:
         raise ValueError('Configure S3 storage to download artifacts')
