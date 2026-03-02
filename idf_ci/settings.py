@@ -366,6 +366,8 @@ class TestPipelineSettings(BuildPipelineSettings):
     {%- endfor %}
     expire_in: "1 week"
     when: "always"
+    reports:
+      junit: "**/XUNIT_RESULT_*.xml"
   variables:
     PYTEST_EXTRA_FLAGS: ""
   needs:
