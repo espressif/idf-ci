@@ -192,3 +192,16 @@ class TestGetPytestCases:
         assert len(cases) == 1
         assert cases[0].name == 'test_foo_single'
         assert cases[0].caseid == 'esp32.default.test_foo_single'
+
+    def test_exclude_dirs(self, tmp_path: Path) -> None:
+        script = tmp_path / 'test_exclude_dirs.py'
+        script.write_text(self.TEMPLATE_SCRIPT)
+
+        from idf_ci.settings import CiSettings, _ci_settings_context
+
+        token = _ci_settings_context.set(CiSettings(exclude_dirs=[str(tmp_path)]))
+        try:
+            cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32')
+            assert len(cases) == 0
+        finally:
+            _ci_settings_context.reset(token)
