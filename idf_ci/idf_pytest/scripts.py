@@ -73,6 +73,10 @@ def get_pytest_cases(
         else:
             check_dirs.append(str(folder))
 
+    if check_dirs == []:
+        logger.info('No valid folders to check after applying exclusions. Skipping pytest collection.')
+        return []
+
     args = [
         # remove sub folders if parent folder is already in the list
         # https://github.com/pytest-dev/pytest/issues/13319
