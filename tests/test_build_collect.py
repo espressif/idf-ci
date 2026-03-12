@@ -13,7 +13,7 @@ from esp_bool_parser.constants import SUPPORTED_TARGETS
 from idf_build_apps.constants import BuildStatus
 
 from idf_ci.build_collect.models import AppInfo, CaseInfo, CollectResult, MissingAppInfo, ProjectInfo
-from idf_ci.build_collect.scripts import collect_apps, format_as_html
+from idf_ci.build_collect.scripts import collect_apps, format_as_html, get_html_context
 
 
 def find_project(result: CollectResult, path: Path) -> t.Optional[ProjectInfo]:
@@ -178,9 +178,13 @@ class TestBuildCollect:
             """)
             )
 
-        result = collect_apps()
-        app = find_app(result, Path('foo'), 'esp32', 'default')
+        result = collect_apps(paths=[tmp_path / 'foo'])
+        project = find_project(result, tmp_path / 'foo')
+        assert project is not None
+
+        app = find_app(result, tmp_path / 'foo', 'esp32', 'default')
         assert app and app.build_status == BuildStatus.DISABLED
+        assert result.summary.total_apps == len(project.apps) - 1
 
     def test_build_collect_supported_targets(self, tmp_path) -> None:
         with open(tmp_path / 'foo' / 'test_foo3.py', 'w') as fw:
@@ -539,3 +543,24 @@ class TestBuildCollect:
 
         soup = BeautifulSoup(html_output, 'html.parser')
         assert soup.find('html') is not None
+
+    def test_build_collect_html_apps_count_excludes_disabled(self, tmp_path) -> None:
+        with open(tmp_path / '.build-test-rules.yml', 'w') as fw:
+            fw.write(
+                textwrap.dedent("""
+            foo:
+                disable:
+                    - if: IDF_TARGET == "esp32"
+                      reason: Disabled for esp32
+            """)
+            )
+
+        result = collect_apps(paths=[tmp_path / 'foo'])
+        project = find_project(result, tmp_path / 'foo')
+        assert project is not None
+
+        expected_apps = sum(1 for app in project.apps if app.build_status != BuildStatus.DISABLED)
+        context = get_html_context(result)
+        row = next((r for r in context['rows'] if r['project_path'] == str(tmp_path / 'foo')), None)
+        assert row is not None
+        assert row['apps'] == expected_apps

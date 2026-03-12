@@ -365,7 +365,7 @@ def collect_apps(
         result.summary.total_test_cases += len(used_test_cases | disabled_test_cases | missing_app_test_cases)
 
     result.summary.total_projects = len(project_paths)
-    result.summary.total_apps = len(build_apps)
+    result.summary.total_apps = sum(1 for app in build_apps.values() if app.build_status != BuildStatus.DISABLED)
 
     return result
 
@@ -382,6 +382,20 @@ def format_as_html(result: CollectResult) -> str:
     """Format result as HTML.
 
     :param result: CollectResult instance.
+    """
+    context = get_html_context(result)
+
+    loader = FileSystemLoader(Path(__file__).parent)
+    env = Environment(loader=loader)
+    template = env.get_template('template.html')
+
+    return template.render(context)
+
+
+def get_html_context(result: CollectResult) -> t.Dict[str, t.Any]:
+    """Build template context for HTML output.
+
+    Split out mainly for testability (avoid parsing HTML in unit tests).
     """
     rows = []
     all_targets: t.Set[str] = set()
@@ -433,7 +447,7 @@ def format_as_html(result: CollectResult) -> str:
         rows.append(
             {
                 'project_path': project_path,
-                'apps': len(project.apps),
+                'apps': sum(1 for app in project.apps if app.build_status != BuildStatus.DISABLED),
                 'tests': total_tests,
                 'enabled_tests': total_enabled_tests,
                 'tests_unknown_sdkconfig': tests_unknown_sdkconfig,
@@ -443,17 +457,10 @@ def format_as_html(result: CollectResult) -> str:
         )
 
     rows = sorted(rows, key=lambda x: str(x['project_path']))
-
-    loader = FileSystemLoader(Path(__file__).parent)
-    env = Environment(loader=loader)
-    template = env.get_template('template.html')
-
-    return template.render(
-        {
-            'targets': sorted(all_targets),
-            'rows': rows,
-        }
-    )
+    return {
+        'targets': sorted(all_targets),
+        'rows': rows,
+    }
 
 
 def create_target_info(target: str, app: t.Optional[AppInfo]) -> t.Dict[str, t.Any]:
