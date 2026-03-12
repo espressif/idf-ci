@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v0.7.1 (2026-03-12)
+
+### 🐛 Bug Fixes
+
+- skip pytest collection if all dirs are excluded *(Fu Hanxi - a4b9b98)*
+
+
 ## v0.7.0 (2026-01-15)
 
 ### ✨ New Features
