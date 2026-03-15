@@ -137,8 +137,14 @@ def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json
 @option_artifact_type
 @option_commit_sha
 @option_branch
+@click.option(
+    '--base-dir',
+    help='Directory to search for artifact files from directly, without using base_dir_pattern discovery. '
+    'If absolute, it must be inside the project base directory used for artifact discovery; otherwise use a '
+    'path relative to <folder>.',
+)
 @click.argument('folder', required=False)
-def upload_artifacts(artifact_type, commit_sha, branch, folder):
+def upload_artifacts(artifact_type, commit_sha, branch, base_dir, folder):
     """Upload artifacts to S3 storage.
 
     This command uploads artifacts to S3 storage only. GitLab's built-in storage is not
@@ -150,6 +156,7 @@ def upload_artifacts(artifact_type, commit_sha, branch, folder):
         branch=branch,
         artifact_type=artifact_type,
         folder=folder,
+        base_dir=base_dir,
     )
 
 
