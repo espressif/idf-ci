@@ -20,6 +20,21 @@
 </div>
 <hr>
 
+## v1.0.0b5 (2026-03-15)
+
+### ✨ New Features
+
+- **build-collect**: support temporary filter *(Fu Hanxi - 89c9174)*
+- legacy artifact key backward compatible *(Fu Hanxi - ae26a5d)*
+- Target test reports *(Euripedes Rocha Filho - 7d84bf0)*
+
+### 🐛 Bug Fixes
+
+- skip pytest collection if all dirs are excluded *(Fu Hanxi - d13b41c)*
+- preserve formatting when highlighting temporary markers *(Evgeny Torbin - 7aeaa63)*
+- hide empty popup when app is disabled *(Evgeny Torbin - caf4fea)*
+
+
 ## v1.0.0b4 (2026-02-11)
 
 ### 🐛 Bug Fixes
