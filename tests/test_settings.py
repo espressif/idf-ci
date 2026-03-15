@@ -7,7 +7,7 @@ import re
 import pytest
 
 from idf_ci.cli import click_cli
-from idf_ci.settings import CiSettings
+from idf_ci.settings import CiSettings, DeprecatedConfigWarning
 
 
 def test_default_component_mapping_regexes():
@@ -145,6 +145,78 @@ def test_ci_profile_not_specified(runner):
         assert result.exit_code == 0
         assert CiSettings.CONFIG_FILE_PATH == original_config_path
         assert os.path.exists(tmp_d + os.sep + '.idf_build_apps.toml')
+
+
+def test_legacy_gitlab_artifact_native_keys_still_work(tmp_path, runner):
+    custom_config = tmp_path / 'custom_ci_config.toml'
+    with open(custom_config, 'w') as f:
+        f.write("""
+[gitlab.artifacts]
+build_job_filepatterns = ["legacy-build/**"]
+test_job_filepatterns = ["legacy-test/**"]
+""")
+
+    with pytest.warns(DeprecatedConfigWarning):
+        result = runner.invoke(click_cli, ['--config-file', custom_config, 'completions'])
+
+    assert result.exit_code == 0
+    assert CiSettings().gitlab.artifacts.native.build_job_filepatterns == ['legacy-build/**']
+    assert CiSettings().gitlab.artifacts.native.test_job_filepatterns == ['legacy-test/**']
+
+
+def test_legacy_gitlab_artifact_native_keys_warn():
+    with pytest.warns(DeprecatedConfigWarning) as record:
+        CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'artifacts': {
+                        'build_job_filepatterns': ['legacy-build/**'],
+                        'test_job_filepatterns': ['legacy-test/**'],
+                    }
+                }
+            }
+        )
+
+    assert (
+        'Config key `gitlab.artifacts.build_job_filepatterns` is deprecated; '
+        'use `gitlab.artifacts.native.build_job_filepatterns` instead.'
+    ) in str(record[0].message)
+    assert (
+        'Config key `gitlab.artifacts.test_job_filepatterns` is deprecated; '
+        'use `gitlab.artifacts.native.test_job_filepatterns` instead.'
+    ) in str(record[1].message)
+
+
+def test_new_gitlab_artifact_native_keys_take_precedence_over_legacy():
+    with pytest.warns(DeprecatedConfigWarning) as record:
+        settings = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'artifacts': {
+                        'build_job_filepatterns': ['legacy-build/**'],
+                        'test_job_filepatterns': ['legacy-test/**'],
+                        'native': {
+                            'build_job_filepatterns': ['native-build/**'],
+                            'test_job_filepatterns': ['native-test/**'],
+                        },
+                    }
+                }
+            }
+        )
+
+    assert (
+        'Config key `gitlab.artifacts.build_job_filepatterns` is deprecated and ignored because '
+        '`gitlab.artifacts.native.build_job_filepatterns` is also set. '
+        'Please use `gitlab.artifacts.native.build_job_filepatterns` only.'
+    ) in str(record[0].message)
+    assert (
+        'Config key `gitlab.artifacts.test_job_filepatterns` is deprecated and ignored because '
+        '`gitlab.artifacts.native.test_job_filepatterns` is also set. '
+        'Please use `gitlab.artifacts.native.test_job_filepatterns` only.'
+    ) in str(record[1].message)
+
+    assert settings.gitlab.artifacts.native.build_job_filepatterns == ['native-build/**']
+    assert settings.gitlab.artifacts.native.test_job_filepatterns == ['native-test/**']
 
 
 class TestEnvVars:

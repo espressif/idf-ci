@@ -4,6 +4,8 @@ import logging
 import os
 import re
 import typing as t
+import warnings
+from collections.abc import Mapping
 from contextvars import ContextVar
 from pathlib import Path
 
@@ -23,6 +25,15 @@ from tomlkit import load
 from idf_ci._compat import PathLike
 
 logger = logging.getLogger(__name__)
+
+LEGACY_ARTIFACT_NATIVE_FIELD_ALIASES = [
+    'build_job_filepatterns',
+    'test_job_filepatterns',
+]
+
+
+class DeprecatedConfigWarning(FutureWarning):
+    """Warning raised when deprecated config keys are used."""
 
 
 class BaseSettings(_BaseSettings):
@@ -209,6 +220,45 @@ class ArtifactSettings(BaseModel):
 
     native: ArtifactSettingsNative = ArtifactSettingsNative()
     """GitLab native artifact settings."""
+
+    @model_validator(mode='before')
+    @classmethod
+    def migrate_legacy_native_artifact_keys(cls, data: t.Any) -> t.Any:
+        if not isinstance(data, Mapping):
+            return data
+
+        normalized = dict(data)
+        native = normalized.get('native')
+        native_data = dict(native) if isinstance(native, Mapping) else {}
+
+        for legacy_key in LEGACY_ARTIFACT_NATIVE_FIELD_ALIASES:
+            if legacy_key not in normalized:
+                continue
+
+            legacy_path = f'gitlab.artifacts.{legacy_key}'
+            native_path = f'gitlab.artifacts.native.{legacy_key}'
+            if legacy_key in native_data:
+                warnings.warn(
+                    (
+                        f'Config key `{legacy_path}` is deprecated and ignored because '
+                        f'`{native_path}` is also set. Please use `{native_path}` only.'
+                    ),
+                    DeprecatedConfigWarning,
+                    stacklevel=3,
+                )
+                continue
+
+            warnings.warn(
+                f'Config key `{legacy_path}` is deprecated; use `{native_path}` instead.',
+                DeprecatedConfigWarning,
+                stacklevel=3,
+            )
+            native_data[legacy_key] = normalized.pop(legacy_key)
+
+        if native_data:
+            normalized['native'] = native_data
+
+        return normalized
 
 
 class BuildPipelineSettings(BaseModel):

@@ -60,6 +60,26 @@ Key Changes:
 - New options: ``is_public``, ``zip_first`` for conditional artifact types
 - Mixed artifact type upload/download is now supported
 
+Legacy compatibility for native artifact keys:
+
+- ``gitlab.artifacts.build_job_filepatterns`` and ``gitlab.artifacts.test_job_filepatterns`` still work in 1.x for backward compatibility.
+- When these legacy keys are used, idf-ci emits deprecation warnings and maps them to ``gitlab.artifacts.native.*`` internally.
+- If both the legacy key and the new ``gitlab.artifacts.native.*`` key are set, the new key takes precedence and the legacy one is ignored.
+
+Recommended migration:
+
+.. code-block:: toml
+
+    [gitlab.artifacts.native]
+    build_job_filepatterns = [
+        "**/build*/bootloader/*.bin",
+        "**/build*/*.bin",
+    ]
+    test_job_filepatterns = [
+        "pytest-embedded/",
+        "XUNIT_RESULT*.xml",
+    ]
+
 ***********************
  Environment Variables
 ***********************

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from idf_ci.cli import click_cli
-from idf_ci.settings import CiSettings
+from idf_ci.settings import CiSettings, DeprecatedConfigWarning
 
 
 @pytest.mark.parametrize(
@@ -97,6 +97,21 @@ class TestConfig:
         settings = CiSettings()
         assert settings.gitlab.build_pipeline.runs_per_job == 10
         assert settings.gitlab.build_pipeline.workflow_name == 'A'
+
+    def test_config_legacy_artifact_native_override_still_works(self, runner):
+        with pytest.warns(DeprecatedConfigWarning, match='gitlab\\.artifacts\\.build_job_filepatterns'):
+            result = runner.invoke(
+                click_cli,
+                [
+                    '--config',
+                    'gitlab.artifacts.build_job_filepatterns = ["legacy-build/**"]',
+                    'completions',
+                ],
+            )
+        assert result.exit_code == 0
+
+        settings = CiSettings()
+        assert settings.gitlab.artifacts.native.build_job_filepatterns == ['legacy-build/**']
 
     def test_config_invalid_value_errors(self, runner):
         result = runner.invoke(
