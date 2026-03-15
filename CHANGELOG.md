@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v1.0.0b6 (2026-03-15)
+
+### ✨ New Features
+
+- support upload-artifacts with --base-dir *(Fu Hanxi - 36725d4)*
+
+
 ## v1.0.0b5 (2026-03-15)
 
 ### ✨ New Features
