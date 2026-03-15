@@ -205,7 +205,42 @@ class TestUploadDownloadArtifacts:
         ]
         assert (tmp_path / 'optional.txt').exists()
 
-    def test_cli_generate_presigned_json(self, runner):
+    def test_upload_with_base_dir_only_checks_specified_dir(
+        self,
+        runner,
+        s3_client,
+        sample_artifacts_dir,
+    ):
+        shutil.copytree(sample_artifacts_dir, sample_artifacts_dir.parent / 'build_esp32s2_build')
+
+        commit_sha = 'cli_test_base_dir_sha_123'
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--base-dir',
+                'app/build_esp32_build',
+            ],
+        )
+        assert result.exit_code == 0
+
+        objs = list(s3_client.list_objects('private', recursive=True))
+        assert len(objs) == 3
+        assert sorted(obj.object_name for obj in objs) == [
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/debug.zip',
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip',
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size.json',
+        ]
+
+    def test_cli_generate_presigned_json(
+        self,
+        runner,
+        sample_artifacts_dir,  # noqa: ARG002
+    ):
         commit_sha = 'cli_test_sha_123'
 
         result = runner.invoke(

@@ -357,6 +357,7 @@ class ArtifactManager:
         prefix: str,
         from_path: Path,
         artifact_type: str,
+        base_dir: t.Optional[str] = None,
     ) -> int:
         config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
         s3_client = self._validate_s3_client(artifact_type)
@@ -366,21 +367,46 @@ class ArtifactManager:
             s3_client.fput_object(config.bucket, _s3_path, str(_filepath))
 
         tasks = []
-        for pattern in config.patterns:
-            if config.base_dir_pattern:
-                pattern = os.path.join(config.base_dir_pattern, pattern)
+        for basedir in self._resolve_upload_base_dirs(from_path, artifact_type, base_dir):
+            for pattern in config.patterns:
+                abs_pattern = os.path.join(str(basedir), pattern)
+                for file_str in glob.glob(abs_pattern, recursive=True):
+                    filepath = Path(file_str)
+                    if not filepath.is_file():
+                        continue
 
-            abs_pattern = os.path.join(str(from_path), pattern)
-            for file_str in glob.glob(abs_pattern, recursive=True):
-                filepath = Path(file_str)
-                if not filepath.is_file():
-                    continue
-
-                s3_path = self._get_s3_path(prefix, filepath)
-                tasks.append(lambda _filepath=filepath, _s3_path=s3_path: _upload_task(_filepath, _s3_path))
+                    s3_path = self._get_s3_path(prefix, filepath)
+                    tasks.append(lambda _filepath=filepath, _s3_path=s3_path: _upload_task(_filepath, _s3_path))
 
         execute_concurrent_tasks(tasks, task_name='uploading file')
         return len(tasks)
+
+    def _resolve_upload_base_dirs(
+        self,
+        from_path: Path,
+        artifact_type: str,
+        base_dir: t.Optional[str] = None,
+    ) -> t.List[Path]:
+        config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
+
+        if base_dir:
+            resolved_base_dir = Path(base_dir)
+            if not resolved_base_dir.is_absolute():
+                resolved_base_dir = from_path / resolved_base_dir
+            resolved_base_dir = resolved_base_dir.resolve()
+
+            if not resolved_base_dir.is_dir():
+                raise ArtifactError(f'Specified base_dir is not a directory: {resolved_base_dir}')
+
+            return [resolved_base_dir]
+
+        if not config.base_dir_pattern:
+            return [from_path.resolve()]
+
+        abs_pattern = os.path.realpath(str(Path(from_path) / config.base_dir_pattern))
+        pattern_for_glob = abs_pattern.rstrip('/\\')
+
+        return [Path(match).resolve() for match in glob.glob(pattern_for_glob, recursive=True) if Path(match).is_dir()]
 
     def _upload_zip_to_s3(
         self,
@@ -388,6 +414,7 @@ class ArtifactManager:
         prefix: str,
         from_path: Path,
         artifact_type: str,
+        base_dir: t.Optional[str] = None,
     ) -> int:
         """Upload artifacts as zip files to S3.
 
@@ -402,6 +429,7 @@ class ArtifactManager:
         :param prefix: S3 prefix path
         :param from_path: Base path to search from
         :param artifact_type: Type of artifact (used as zip filename)
+        :param base_dir: Base directory path; absolute or relative to ``from_path``
 
         :returns: Number of zip files uploaded
         """
@@ -413,21 +441,7 @@ class ArtifactManager:
             s3_client.fput_object(config.bucket, _s3_path, str(_zip_path))
 
         tasks = []
-        # Find all directories matching base_dir_pattern
-        # The pattern should match directories only (e.g., '**/build*/')
-        if not config.base_dir_pattern:
-            matching_dirs = [from_path.resolve()]
-        else:
-            abs_pattern = os.path.realpath(str(Path(from_path) / config.base_dir_pattern))
-            # Remove trailing slash if present for glob matching
-            # Pattern like '**/build*/' should match directories starting with 'build'
-            pattern_for_glob = abs_pattern.rstrip('/')
-
-            # Use glob to find all matches, then filter for directories only
-            matching_dirs = [
-                Path(match).resolve() for match in glob.glob(pattern_for_glob, recursive=True) if Path(match).is_dir()
-            ]
-
+        matching_dirs = self._resolve_upload_base_dirs(from_path, artifact_type, base_dir)
         logger.debug(f'Found {len(matching_dirs)} directories matching pattern {config.base_dir_pattern}')
 
         # For each matching directory, collect files and create zip
@@ -626,6 +640,7 @@ class ArtifactManager:
         branch: t.Optional[str] = None,
         artifact_type: t.Optional[str] = None,
         folder: t.Optional[str] = None,
+        base_dir: t.Optional[str] = None,
     ) -> None:
         """Upload artifacts to S3.
 
@@ -635,6 +650,9 @@ class ArtifactManager:
             branch
         :param artifact_type: Type of artifacts to upload (debug, flash, metrics)
         :param folder: Upload artifacts under this folder
+        :param base_dir: Optional directory to search for files from directly. When
+            provided, skips discovery via base_dir_pattern and only uploads files under
+            this directory.
 
         :raises ValueError: If S3 artifacts are not enabled
         :raises S3Error: If S3 is not configured
@@ -664,12 +682,14 @@ class ArtifactManager:
                     prefix=prefix,
                     from_path=params.from_path,
                     artifact_type=art_type,
+                    base_dir=base_dir,
                 )
             else:
                 uploaded_count += self._upload_files_to_s3(
                     prefix=prefix,
                     from_path=params.from_path,
                     artifact_type=art_type,
+                    base_dir=base_dir,
                 )
 
         logger.info(f'Uploaded {uploaded_count} artifacts in {time.time() - start_time:.2f} seconds')
