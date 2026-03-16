@@ -10,6 +10,31 @@ from idf_ci.cli import click_cli
 from idf_ci.settings import CiSettings, DeprecatedConfigWarning
 
 
+def test_test_pipeline_job_before_script_extra_default():
+    """job_before_script_extra defaults to empty list."""
+    assert CiSettings().gitlab.test_pipeline.job_before_script_extra == []
+
+
+def test_test_pipeline_job_before_script_extra_from_config():
+    """job_before_script_extra is loadable from config."""
+    settings = CiSettings.model_validate(
+        {
+            'gitlab': {
+                'test_pipeline': {
+                    'job_before_script_extra': [
+                        'apt-get update',
+                        'pip install some-dep',
+                    ],
+                },
+            },
+        }
+    )
+    assert settings.gitlab.test_pipeline.job_before_script_extra == [
+        'apt-get update',
+        'pip install some-dep',
+    ]
+
+
 def test_default_component_mapping_regexes():
     expected_regexes = [
         '/components/(.+?)/',
