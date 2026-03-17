@@ -526,7 +526,10 @@ class ArtifactManager:
             presigned_urls = json.load(f)
 
         zip_filename = f'{artifact_type}.zip'
-        from_path_rel = from_path.relative_to(self.envs.IDF_PATH)
+        if from_path.is_absolute():
+            from_path_rel = from_path.relative_to(self.envs.IDF_PATH)
+        else:
+            from_path_rel = from_path
 
         def _download_and_extract(url: str, output_path: Path) -> None:
             logger.debug(f'Downloading {url} to {output_path}')
@@ -616,6 +619,7 @@ class ArtifactManager:
 
         # download from presigned urls
         logger.info(f'Downloading artifacts under {params.from_path} from presigned JSON')
+        logger.debug(f'presigned_json: {presigned_json}')
 
         for art_type in self._get_artifact_types(artifact_type):
             config = self.settings.gitlab.artifacts.s3.configs[art_type]
