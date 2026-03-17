@@ -404,6 +404,9 @@ class TestPipelineSettings(BuildPipelineSettings):
     job_image: str = 'python:3-slim'
     """Docker image to use for test jobs."""
 
+    job_before_script_extra: t.List[str] = []
+    """Extra commands to append to before_script for test jobs (e.g. install deps)."""
+
     job_template_jinja: str = """
 {{ settings.gitlab.test_pipeline.job_template_name }}:
   stage: "{{ settings.gitlab.test_pipeline.job_stage }}"
@@ -425,6 +428,9 @@ class TestPipelineSettings(BuildPipelineSettings):
       job: "build_test_related_apps"
   before_script:
     - pip install -U idf-ci
+    {%- for cmd in settings.gitlab.test_pipeline.job_before_script_extra %}
+    - {{ cmd }}
+    {%- endfor %}
   script:
     - eval pytest $nodes
       --parallel-count ${CI_NODE_TOTAL:-1}
