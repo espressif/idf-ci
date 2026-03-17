@@ -20,6 +20,18 @@
 </div>
 <hr>
 
+## v1.0.0b7 (2026-03-17)
+
+### ✨ New Features
+
+- Allow extra commands in before script for test job *(Euripedes Rocha Filho - 11cf494)*
+
+### 🐛 Bug Fixes
+
+- **gitlab**: download artifacts with relative paths *(Fu Hanxi - 5c34956)*
+- not count disabled apps *(igor.udot - f722f32)*
+
+
 ## v1.0.0b6 (2026-03-15)
 
 ### ✨ New Features
