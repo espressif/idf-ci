@@ -425,7 +425,7 @@ class TestPipelineSettings(BuildPipelineSettings):
     PYTEST_EXTRA_FLAGS: ""
   needs:
     - pipeline: "$PARENT_PIPELINE_ID"
-      job: "build_test_related_apps"
+      job: "generate_test_child_pipeline"
   before_script:
     - pip install -U idf-ci
     {%- for cmd in settings.gitlab.test_pipeline.job_before_script_extra %}
