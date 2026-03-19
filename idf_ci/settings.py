@@ -36,6 +36,9 @@ class DeprecatedConfigWarning(FutureWarning):
     """Warning raised when deprecated config keys are used."""
 
 
+warnings.filterwarnings('once', category=DeprecatedConfigWarning, append=True)
+
+
 class BaseSettings(_BaseSettings):
     model_config = SettingsConfigDict(
         use_attribute_docstrings=True,
@@ -425,7 +428,7 @@ class TestPipelineSettings(BuildPipelineSettings):
     PYTEST_EXTRA_FLAGS: ""
   needs:
     - pipeline: "$PARENT_PIPELINE_ID"
-      job: "build_test_related_apps"
+      job: "generate_test_child_pipeline"
   before_script:
     - pip install -U idf-ci
     {%- for cmd in settings.gitlab.test_pipeline.job_before_script_extra %}

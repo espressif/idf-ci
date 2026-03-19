@@ -3,7 +3,7 @@
 [![Documentation Status](https://readthedocs.com/projects/espressif-idf-ci/badge/?version=latest)](https://espressif-idf-ci.readthedocs-hosted.com/en/latest/)
 ![Python 3.7+](https://img.shields.io/pypi/pyversions/idf-ci)
 
-A tool designed to streamline the CI/CD of ESP-IDF projects, with support for both GitLab CI/CD and GitHub Actions.
+A tool designed to streamline CI/CD for ESP-IDF projects, with support for both GitLab CI/CD and GitHub Actions.
 
 ## Installation
 
@@ -15,7 +15,7 @@ pip install -U idf-ci
 
 - **Sensible Defaults**
 
-  Easy setup with default settings for [idf-build-apps](https://github.com/espressif/idf-build-apps) and [pytest-embedded](https://github.com/espressif/pytest-embedded)
+  Easy setup with default settings for [idf-build-apps](https://github.com/espressif/idf-build-apps) and [pytest-embedded](https://github.com/espressif/pytest-embedded).
 
 - **Build Management**
 
@@ -54,7 +54,7 @@ idf-ci test init
 # Build all apps
 idf-ci build run
 
-# Build apps for specific target
+# Build apps for a specific target
 idf-ci build run -t esp32
 
 # Build only test-related apps
@@ -66,13 +66,13 @@ idf-ci build run --dry-run
 
 ### Run Tests
 
-We implement a pytest plugin to run tests with sensible defaults with another plugin [pytest-embedded](https://github.com/espressif/pytest-embedded)
+We provide a pytest plugin that works with [pytest-embedded](https://github.com/espressif/pytest-embedded) to run tests with sensible defaults.
 
 ```bash
 # Only collect tests that would run
 pytest --collect-only
 
-# Run tests with target esp32
+# Run tests for the esp32 target
 pytest --target esp32
 ```
 
