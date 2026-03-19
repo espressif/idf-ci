@@ -36,6 +36,9 @@ class DeprecatedConfigWarning(FutureWarning):
     """Warning raised when deprecated config keys are used."""
 
 
+warnings.filterwarnings('once', category=DeprecatedConfigWarning, append=True)
+
+
 class BaseSettings(_BaseSettings):
     model_config = SettingsConfigDict(
         use_attribute_docstrings=True,
