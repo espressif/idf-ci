@@ -20,6 +20,33 @@
 </div>
 <hr>
 
+## v1.0.0rc0 (2026-03-25)
+
+### ✨ New Features
+
+- support --build-dir in `idf-ci gitlab download-artifacts` *(Fu Hanxi - cf70775)*
+
+### 🐛 Bug Fixes
+
+- **gitlab**: test-child-pipeline download artifacts from generate_test_child_pipeline *(Fu Hanxi - ab0234f)*
+- upload and download artifacts from sub folder *(Fu Hanxi - 22a3f2e)*
+- deprecate warnings only show up once *(Fu Hanxi - ebe3ab6)*
+
+### 📖 Documentation
+
+- add gitlab-artifacts explanation *(Fu Hanxi - dfbe4f5)*
+- update contributions guide *(Fu Hanxi - d2277ec)*
+
+### 🔧 Code Refactoring
+
+- gitlab artifacts *(Fu Hanxi - 62d8f79)*
+
+### 🏗️ Changes
+
+- --base-dir-pattern rename to --build-dir-pattern. --base-dir rename to --build-dir *(Fu Hanxi - 32e99ec)*
+- compatible with idf-build-apps 2.x and 3.x *(Fu Hanxi - c5e643d)*
+
+
 ## v1.0.0b7 (2026-03-17)
 
 ### ✨ New Features
