@@ -608,6 +608,25 @@ class CiSettings(BaseSettings):
         return any(os.getenv(env) is not None for env in self.ci_detection_envs)
 
     @property
+    def project_root(self) -> Path:
+        """Resolve the project root for repo-relative paths.
+
+        Preference order:
+
+        1. Directory containing the active ``.idf_ci.toml``
+        2. ``IDF_PATH`` environment variable
+        3. Current working directory
+        """
+        config_file = pick_toml_file(self.CONFIG_FILE_PATH if self.CONFIG_FILE_PATH is not None else '.idf_ci.toml')
+        if config_file:
+            return config_file.parent.resolve()
+
+        if os.getenv('IDF_PATH'):
+            return Path(os.environ['IDF_PATH']).resolve()
+
+        return Path.cwd().resolve()
+
+    @property
     def all_component_mapping_regexes(self) -> t.Set[re.Pattern]:
         """Get all component mapping regexes as compiled pattern objects.
 
@@ -731,6 +750,9 @@ def _refresh_ci_settings(
     config_overrides: t.Optional[t.Dict[str, t.Any]] = None,
 ) -> 'CiSettings':
     """Refresh the CiSettings instance in the context. shall be called only by CLI entry point."""
+    CiSettings.CONFIG_FILE_PATH = None
+    CiSettings.CLI_OVERRIDES = {}
+
     if config_file:
         logger.debug(f'Loading from config file `{config_file}`...')
         CiSettings.CONFIG_FILE_PATH = Path(config_file)

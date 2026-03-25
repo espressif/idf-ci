@@ -12,7 +12,7 @@ import typing as t
 import zipfile
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -27,7 +27,7 @@ from minio import Minio
 from .._compat import UNDEF, is_undefined
 from .._vendor import translate
 from ..envs import GitlabEnvVars
-from ..settings import CiSettings, get_ci_settings, pick_toml_file
+from ..settings import get_ci_settings
 from ..utils import get_current_branch
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ def execute_concurrent_tasks(
     return results
 
 
-@dataclass
+@dataclass(init=False)
 class ArtifactParams:
     """Common parameters for artifacts operations.
 
@@ -79,24 +79,34 @@ class ArtifactParams:
        current git branch)
     """
 
-    commit_sha: t.Optional[str] = None
+    commit_sha: str
+    folder: str
     branch: t.Optional[str] = None
-    folder: t.Optional[str] = None
 
-    def __post_init__(self):
-        if self.folder is None:
-            self.folder = os.getcwd()
+    from_path: Path = field(init=False)
+
+    def __init__(
+        self,
+        *,
+        commit_sha: t.Optional[str] = None,
+        folder: t.Optional[str] = None,
+        branch: t.Optional[str] = None,
+    ) -> None:
+        self.branch = branch
+        self.folder = folder or os.getcwd()
+        self.commit_sha = self._resolve_commit_sha(commit_sha)
+
         self.from_path = Path(self.folder)
 
+    def _resolve_commit_sha(self, commit_sha: t.Optional[str]) -> str:
         # Get commit SHA with the following precedence:
         # 1. CLI provided commit_sha
-        if self.commit_sha:
-            return
+        if commit_sha:
+            return commit_sha
 
         # 2. Environment variable PIPELINE_COMMIT_SHA
         if os.getenv('PIPELINE_COMMIT_SHA'):
-            self.commit_sha = os.environ['PIPELINE_COMMIT_SHA']
-            return
+            return os.environ['PIPELINE_COMMIT_SHA']
 
         # 3. Latest commit from branch
         try:
@@ -108,7 +118,7 @@ class ArtifactParams:
                 capture_output=True,
                 encoding='utf-8',
             )
-            self.commit_sha = result.stdout.strip()
+            return result.stdout.strip()
         except Exception:
             raise ValueError(
                 'Failed to get commit SHA from git command. '
@@ -132,6 +142,7 @@ class ArtifactManager:
     def __init__(self):
         self.envs = GitlabEnvVars()
         self.settings = get_ci_settings()
+        self.project_root = self.settings.project_root
 
         self._s3_client: t.Optional[Minio] = UNDEF  # type: ignore
         self._s3_public_client: t.Optional[Minio] = UNDEF  # type: ignore
@@ -258,29 +269,28 @@ class ArtifactManager:
         return available_types
 
     def _get_s3_path(self, prefix: str, from_path: Path) -> str:
-        rel_path = str(self._relative_to_artifact_root(from_path))
+        rel_path = self._relative_to_project_root(from_path).as_posix()
 
         return f'{prefix}{rel_path}' if rel_path != '.' else prefix
 
-    def _get_artifact_root(self) -> Path:
-        config_file = pick_toml_file(
-            CiSettings.CONFIG_FILE_PATH if CiSettings.CONFIG_FILE_PATH is not None else '.idf_ci.toml'
-        )
-        if config_file:
-            return config_file.parent.resolve()
+    def _get_output_path(self, prefix: str, object_name: str) -> Path:
+        return self.project_root / object_name.replace(prefix, '', 1)
 
-        if self.envs.IDF_PATH:
-            return Path(self.envs.IDF_PATH).resolve()
+    def _build_s3_prefix(self, commit_sha: str) -> str:
+        return f'{self.settings.gitlab.project}/{commit_sha}/'
 
-        return Path.cwd().resolve()
-
-    def _relative_to_artifact_root(self, path: Path) -> Path:
+    def _relative_to_project_root(self, path: Path) -> Path:
         resolved_path = self._resolve_local_path(path)
-        artifact_root = self._get_artifact_root()
         try:
-            return resolved_path.relative_to(artifact_root)
+            return resolved_path.relative_to(self.project_root)
         except ValueError as e:
-            raise ArtifactError(f'Path {resolved_path} is outside artifact root {artifact_root}') from e
+            raise ArtifactError(f'Path {resolved_path} is outside artifact root {self.project_root}') from e
+
+    def _compile_patterns(self, patterns: t.Iterable[str]) -> t.List[t.Pattern[str]]:
+        return [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
+
+    def _compile_patterns_for_type(self, artifact_type: str) -> t.List[t.Pattern[str]]:
+        return self._compile_patterns(self._get_patterns_for_type(artifact_type))
 
     def _download_files_from_s3(
         self,
@@ -298,12 +308,9 @@ class ArtifactManager:
             s3_client.fget_object(config.bucket, _obj_name, str(_output_path))
 
         tasks = []
-        patterns_regexes = [
-            re.compile(translate(pattern, recursive=True, include_hidden=True))
-            for pattern in self._get_patterns_for_type(artifact_type)
-        ]
+        patterns_regexes = self._compile_patterns_for_type(artifact_type)
         for obj in s3_client.list_objects(config.bucket, prefix=self._get_s3_path(prefix, from_path), recursive=True):
-            output_path = self._get_artifact_root() / obj.object_name.replace(prefix, '')
+            output_path = self._get_output_path(prefix, obj.object_name)
             if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
                 continue
             tasks.append(
@@ -347,7 +354,7 @@ class ArtifactManager:
         # Look for zip files matching artifact types (e.g., flash.zip, debug.zip)
         # Since we're listing recursively, just check if filename matches {art_type}.zip
         for obj in s3_client.list_objects(config.bucket, prefix=self._get_s3_path(prefix, from_path), recursive=True):
-            output_path = self._get_artifact_root() / obj.object_name.replace(prefix, '')
+            output_path = self._get_output_path(prefix, obj.object_name)
             if output_path.name == f'{artifact_type}.zip':
                 tasks.append(lambda o=obj.object_name, op=output_path: _download_and_extract(o, op))
 
@@ -356,12 +363,7 @@ class ArtifactManager:
 
     def _validate_s3_client(self, artifact_type: str, uploading_or_not: bool = True) -> minio.Minio:
         config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
-        if uploading_or_not:
-            require_non_public = True
-        elif config.is_public:
-            require_non_public = False
-        else:
-            require_non_public = True
+        require_non_public = uploading_or_not or not config.is_public
 
         if require_non_public:
             if not self.s3_client:
@@ -491,26 +493,35 @@ class ArtifactManager:
                 logger.debug(f'No files found in {build_dir_path} matching patterns {config.patterns}')
                 continue
 
-            # Create zip file in the build directory with name <artifact_type>.zip
             zip_path = build_dir_path / f'{artifact_type}.zip'
             logger.debug(f'Creating zip {zip_path} with {len(files_to_zip)} files')
 
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # Resolve build_dir_path to absolute path to ensure relative_to() works correctly
                 build_dir_resolved = build_dir_path.resolve()
                 for fp in files_to_zip:
-                    # Resolve filepath to absolute path before computing relative path
                     filepath_resolved = fp.resolve()
-                    # Add file to zip with path relative to build_dir_path
                     arcname = filepath_resolved.relative_to(build_dir_resolved)
                     zipf.write(filepath_resolved, arcname)
 
-            # Upload the zip file
             s3_path = self._get_s3_path(prefix, zip_path)
             tasks.append(lambda _zip_path=zip_path, _s3_path=s3_path: _upload_zip_task(_zip_path, _s3_path))
 
         execute_concurrent_tasks(tasks, task_name='uploading zip file')
         return len(tasks)
+
+    #############
+    # Presigned #
+    #############
+    def _download_presigned_url(self, url: str, output_path: Path) -> None:
+        logger.debug(f'Downloading {url} to {output_path}')
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        response = requests.get(url, stream=True)
+        if response.status_code != 200:
+            raise PresignedUrlError(f'Failed to download {output_path.name}: {response.status_code}')
+
+        with open(output_path, 'wb') as f:
+            f.write(response.content)
 
     def _download_files_from_presigned_json(
         self,
@@ -522,32 +533,18 @@ class ArtifactManager:
             presigned_urls = json.load(f)
 
         scope_path = self._resolve_local_path(from_path)
-        patterns_regexes = [
-            re.compile(translate(pattern, recursive=True, include_hidden=True))
-            for pattern in self._get_patterns_for_type(artifact_type)
-        ]
-
-        def _download_task(_url: str, _output_path: Path) -> None:
-            logger.debug(f'Downloading {_url} to {_output_path}')
-            _output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            response = requests.get(_url, stream=True)
-            if response.status_code != 200:
-                raise PresignedUrlError(f'Failed to download {_output_path.name}: {response.status_code}')
-
-            with open(_output_path, 'wb') as f:
-                f.write(response.content)
+        patterns_regexes = self._compile_patterns_for_type(artifact_type)
 
         tasks = []
         for rel_path, url in presigned_urls.items():
-            output_path = self._get_artifact_root() / rel_path
+            output_path = self.project_root / rel_path
             if output_path != scope_path and scope_path not in output_path.parents:
                 continue
 
             if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
                 continue
 
-            tasks.append(lambda _url=url, _output_path=output_path: _download_task(_url, _output_path))
+            tasks.append(lambda _url=url, _output_path=output_path: self._download_presigned_url(_url, _output_path))
 
         execute_concurrent_tasks(tasks, task_name='downloading object')
         return len(tasks)
@@ -563,19 +560,10 @@ class ArtifactManager:
             presigned_urls = json.load(f)
 
         zip_filename = f'{artifact_type}.zip'
-        from_path_rel = self._relative_to_artifact_root(from_path)
+        from_path_rel = self._relative_to_project_root(from_path)
 
         def _download_and_extract(url: str, output_path: Path) -> None:
-            logger.debug(f'Downloading {url} to {output_path}')
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            response = requests.get(url, stream=True)
-            if response.status_code != 200:
-                raise PresignedUrlError(f'Failed to download {output_path.name}: {response.status_code}')
-
-            with open(output_path, 'wb') as f:
-                f.write(response.content)
-
+            self._download_presigned_url(url, output_path)
             self._extract_zip_file(output_path)
 
         tasks = []
@@ -587,12 +575,15 @@ class ArtifactManager:
             if from_path_rel != Path('.') and from_path_rel not in rel_path_obj.parents:
                 continue
 
-            output_path = self._get_artifact_root() / rel_path
+            output_path = self.project_root / rel_path
             tasks.append(lambda u=url, op=output_path: _download_and_extract(u, op))
 
         execute_concurrent_tasks(tasks, task_name='downloading and extracting zip from presigned URLs')
         return len(tasks)
 
+    ##################
+    # Main Functions #
+    ##################
     def download_artifacts(
         self,
         *,
@@ -647,13 +638,13 @@ class ArtifactManager:
                 config = self.settings.gitlab.artifacts.s3.configs[art_type]
                 if config.zip_first:
                     downloaded_count += self._download_zip_from_s3(
-                        prefix=f'{self.settings.gitlab.project}/{params.commit_sha}/',
+                        prefix=self._build_s3_prefix(params.commit_sha),
                         from_path=from_path,
                         artifact_type=art_type,
                     )
                 else:
                     downloaded_count += self._download_files_from_s3(
-                        prefix=f'{self.settings.gitlab.project}/{params.commit_sha}/',
+                        prefix=self._build_s3_prefix(params.commit_sha),
                         from_path=from_path,
                         artifact_type=art_type,
                     )
@@ -716,7 +707,6 @@ class ArtifactManager:
         if not self.s3_client:
             raise S3Error('Configure S3 storage to upload artifacts')
 
-        prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
         logger.info(f'Uploading artifacts under {params.from_path} to s3 (commit sha: {params.commit_sha})')
 
         start_time = time.time()
@@ -726,14 +716,14 @@ class ArtifactManager:
             config = self.settings.gitlab.artifacts.s3.configs[art_type]
             if config.zip_first:
                 uploaded_count += self._upload_zip_to_s3(
-                    prefix=prefix,
+                    prefix=self._build_s3_prefix(params.commit_sha),
                     from_path=params.from_path,
                     artifact_type=art_type,
                     build_dir=build_dir,
                 )
             else:
                 uploaded_count += self._upload_files_to_s3(
-                    prefix=prefix,
+                    prefix=self._build_s3_prefix(params.commit_sha),
                     from_path=params.from_path,
                     artifact_type=art_type,
                     build_dir=build_dir,
@@ -778,7 +768,7 @@ class ArtifactManager:
         if not self.s3_client:
             raise S3Error('Configure S3 storage to generate presigned URLs')
 
-        prefix = f'{self.settings.gitlab.project}/{params.commit_sha}/'
+        prefix = self._build_s3_prefix(params.commit_sha)
         s3_path = self._get_s3_path(prefix, params.from_path)
 
         def _get_presigned_url_task(_bucket: str, _obj_name: str) -> t.Tuple[str, str]:
@@ -807,7 +797,7 @@ class ArtifactManager:
         for bucket, artifact_types in bucket_zip_artifacts.items():
             zip_filenames = {f'{art_type}.zip' for art_type in artifact_types}
             for obj in self.s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
-                output_path = self._get_artifact_root() / obj.object_name.replace(prefix, '')
+                output_path = self._get_output_path(prefix, obj.object_name)
                 if output_path.name not in zip_filenames:
                     continue
 
@@ -816,12 +806,10 @@ class ArtifactManager:
                 )
 
         for bucket, patterns in bucket_patterns.items():
-            patterns_regexes = [
-                re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns
-            ]
+            patterns_regexes = self._compile_patterns(patterns)
 
             for obj in self.s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
-                output_path = self._get_artifact_root() / obj.object_name.replace(prefix, '')
+                output_path = self._get_output_path(prefix, obj.object_name)
                 if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
                     continue
 
@@ -831,7 +819,7 @@ class ArtifactManager:
 
         results = execute_concurrent_tasks(tasks, task_name='generating presigned URL')
         for obj_name, presigned_url in results:
-            presigned_urls[obj_name.replace(prefix, '')] = presigned_url
+            presigned_urls[obj_name.replace(prefix, '', 1)] = presigned_url
 
         return presigned_urls
 

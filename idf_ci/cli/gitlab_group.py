@@ -148,7 +148,7 @@ def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json
     'If absolute, it must be inside the project root used for artifact discovery; otherwise use a '
     'path relative to <folder>.',
 )
-@click.argument('folder', required=False)
+@click.argument('folder', required=False, type=click.Path(dir_okay=True, file_okay=False, exists=True))
 def upload_artifacts(artifact_type, commit_sha, branch, build_dir, folder):
     """Upload artifacts to S3 storage.
 
