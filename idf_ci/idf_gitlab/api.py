@@ -27,7 +27,7 @@ from minio import Minio
 from .._compat import UNDEF, is_undefined
 from .._vendor import translate
 from ..envs import GitlabEnvVars
-from ..settings import get_ci_settings
+from ..settings import CiSettings, get_ci_settings, pick_toml_file
 from ..utils import get_current_branch
 
 logger = logging.getLogger(__name__)
@@ -216,6 +216,12 @@ class ArtifactManager:
 
         return [os.path.join(config.build_dir_pattern, pattern) for pattern in config.patterns]
 
+    def _resolve_local_path(self, path: Path) -> Path:
+        if path.is_absolute():
+            return path.resolve()
+
+        return (Path.cwd() / path).resolve()
+
     def _get_artifact_types(self, artifact_type: t.Optional[str]) -> t.List[str]:
         if artifact_type and artifact_type not in self.settings.gitlab.artifacts.s3.configs:
             raise ValueError(
@@ -252,14 +258,29 @@ class ArtifactManager:
         return available_types
 
     def _get_s3_path(self, prefix: str, from_path: Path) -> str:
-        if from_path.is_absolute():
-            # Resolve IDF_PATH to absolute path to ensure relative_to() works correctly
-            idf_path = Path(self.envs.IDF_PATH).resolve() if self.envs.IDF_PATH else Path.cwd()
-            rel_path = str(from_path.relative_to(idf_path))
-        else:
-            rel_path = str(from_path)
+        rel_path = str(self._relative_to_artifact_root(from_path))
 
         return f'{prefix}{rel_path}' if rel_path != '.' else prefix
+
+    def _get_artifact_root(self) -> Path:
+        config_file = pick_toml_file(
+            CiSettings.CONFIG_FILE_PATH if CiSettings.CONFIG_FILE_PATH is not None else '.idf_ci.toml'
+        )
+        if config_file:
+            return config_file.parent.resolve()
+
+        if self.envs.IDF_PATH:
+            return Path(self.envs.IDF_PATH).resolve()
+
+        return Path.cwd().resolve()
+
+    def _relative_to_artifact_root(self, path: Path) -> Path:
+        resolved_path = self._resolve_local_path(path)
+        artifact_root = self._get_artifact_root()
+        try:
+            return resolved_path.relative_to(artifact_root)
+        except ValueError as e:
+            raise ArtifactError(f'Path {resolved_path} is outside artifact root {artifact_root}') from e
 
     def _download_files_from_s3(
         self,
@@ -282,7 +303,7 @@ class ArtifactManager:
             for pattern in self._get_patterns_for_type(artifact_type)
         ]
         for obj in s3_client.list_objects(config.bucket, prefix=self._get_s3_path(prefix, from_path), recursive=True):
-            output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
+            output_path = self._get_artifact_root() / obj.object_name.replace(prefix, '')
             if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
                 continue
             tasks.append(
@@ -326,7 +347,7 @@ class ArtifactManager:
         # Look for zip files matching artifact types (e.g., flash.zip, debug.zip)
         # Since we're listing recursively, just check if filename matches {art_type}.zip
         for obj in s3_client.list_objects(config.bucket, prefix=self._get_s3_path(prefix, from_path), recursive=True):
-            output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
+            output_path = self._get_artifact_root() / obj.object_name.replace(prefix, '')
             if output_path.name == f'{artifact_type}.zip':
                 tasks.append(lambda o=obj.object_name, op=output_path: _download_and_extract(o, op))
 
@@ -368,18 +389,36 @@ class ArtifactManager:
 
         tasks = []
         for build_dir_path in self._resolve_upload_build_dirs(from_path, artifact_type, build_dir):
-            for pattern in config.patterns:
-                abs_pattern = os.path.join(str(build_dir_path), pattern)
-                for file_str in glob.glob(abs_pattern, recursive=True):
-                    filepath = Path(file_str)
-                    if not filepath.is_file():
-                        continue
-
-                    s3_path = self._get_s3_path(prefix, filepath)
-                    tasks.append(lambda _filepath=filepath, _s3_path=s3_path: _upload_task(_filepath, _s3_path))
+            for filepath in self._find_upload_files(from_path, build_dir_path, artifact_type):
+                s3_path = self._get_s3_path(prefix, filepath)
+                tasks.append(lambda _filepath=filepath, _s3_path=s3_path: _upload_task(_filepath, _s3_path))
 
         execute_concurrent_tasks(tasks, task_name='uploading file')
         return len(tasks)
+
+    def _find_upload_files(
+        self,
+        from_path: Path,
+        build_dir_path: Path,
+        artifact_type: str,
+    ) -> t.List[Path]:
+        files: t.Dict[Path, None] = {}
+        build_dir_resolved = build_dir_path.resolve()
+        search_roots = [build_dir_resolved]
+        if build_dir_resolved != from_path.resolve():
+            search_roots.append(from_path.resolve())
+
+        for search_root in search_roots:
+            for pattern in self.settings.gitlab.artifacts.s3.configs[artifact_type].patterns:
+                for file_str in glob.glob(os.path.join(str(search_root), pattern), recursive=True):
+                    filepath = Path(file_str).resolve()
+                    if not filepath.is_file():
+                        continue
+                    if filepath != build_dir_resolved and build_dir_resolved not in filepath.parents:
+                        continue
+                    files[filepath] = None
+
+        return list(files)
 
     def _resolve_upload_build_dirs(
         self,
@@ -388,6 +427,7 @@ class ArtifactManager:
         build_dir: t.Optional[str] = None,
     ) -> t.List[Path]:
         config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
+        from_path = self._resolve_local_path(from_path)
 
         if build_dir:
             resolved_build_dir = Path(build_dir)
@@ -446,13 +486,7 @@ class ArtifactManager:
 
         # For each matching directory, collect files and create zip
         for build_dir_path in matching_dirs:
-            files_to_zip = []
-            # Search for files matching patterns relative to build_dir_path
-            for file_pattern in config.patterns:
-                for fps in glob.glob(os.path.join(str(build_dir_path), file_pattern), recursive=True):
-                    if os.path.isfile(fps):
-                        files_to_zip.append(Path(fps))
-
+            files_to_zip = self._find_upload_files(from_path, build_dir_path, artifact_type)
             if not files_to_zip:
                 logger.debug(f'No files found in {build_dir_path} matching patterns {config.patterns}')
                 continue
@@ -487,7 +521,7 @@ class ArtifactManager:
         with open(presigned_json) as f:
             presigned_urls = json.load(f)
 
-        scope_path = from_path if from_path.is_absolute() else Path(self.envs.IDF_PATH) / from_path
+        scope_path = self._resolve_local_path(from_path)
         patterns_regexes = [
             re.compile(translate(pattern, recursive=True, include_hidden=True))
             for pattern in self._get_patterns_for_type(artifact_type)
@@ -506,7 +540,7 @@ class ArtifactManager:
 
         tasks = []
         for rel_path, url in presigned_urls.items():
-            output_path = Path(self.envs.IDF_PATH) / rel_path
+            output_path = self._get_artifact_root() / rel_path
             if output_path != scope_path and scope_path not in output_path.parents:
                 continue
 
@@ -529,10 +563,7 @@ class ArtifactManager:
             presigned_urls = json.load(f)
 
         zip_filename = f'{artifact_type}.zip'
-        if from_path.is_absolute():
-            from_path_rel = from_path.relative_to(self.envs.IDF_PATH)
-        else:
-            from_path_rel = from_path
+        from_path_rel = self._relative_to_artifact_root(from_path)
 
         def _download_and_extract(url: str, output_path: Path) -> None:
             logger.debug(f'Downloading {url} to {output_path}')
@@ -556,7 +587,7 @@ class ArtifactManager:
             if from_path_rel != Path('.') and from_path_rel not in rel_path_obj.parents:
                 continue
 
-            output_path = Path(self.envs.IDF_PATH) / rel_path
+            output_path = self._get_artifact_root() / rel_path
             tasks.append(lambda u=url, op=output_path: _download_and_extract(u, op))
 
         execute_concurrent_tasks(tasks, task_name='downloading and extracting zip from presigned URLs')
@@ -776,7 +807,7 @@ class ArtifactManager:
         for bucket, artifact_types in bucket_zip_artifacts.items():
             zip_filenames = {f'{art_type}.zip' for art_type in artifact_types}
             for obj in self.s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
-                output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
+                output_path = self._get_artifact_root() / obj.object_name.replace(prefix, '')
                 if output_path.name not in zip_filenames:
                     continue
 
@@ -790,7 +821,7 @@ class ArtifactManager:
             ]
 
             for obj in self.s3_client.list_objects(bucket, prefix=s3_path, recursive=True):
-                output_path = Path(self.envs.IDF_PATH) / obj.object_name.replace(prefix, '')
+                output_path = self._get_artifact_root() / obj.object_name.replace(prefix, '')
                 if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
                     continue
 
