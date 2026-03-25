@@ -27,8 +27,10 @@ class TestUploadDownloadArtifacts:
 
         # Create some test files
         (build_dir / 'build.log').write_text('Test build log', encoding='utf-8')
+        (build_dir / 'build_log.txt').write_text('Test build log txt', encoding='utf-8')
         (build_dir / 'test.bin').write_text('Binary content', encoding='utf-8')
         (build_dir / 'size.json').write_text('{"size": 1024}', encoding='utf-8')
+        (build_dir / 'size_1.json').write_text('{"size": 2048}', encoding='utf-8')
         (tmp_path / 'optional.txt').write_text('Optional content', encoding='utf-8')
 
         return build_dir
@@ -46,19 +48,23 @@ class TestUploadDownloadArtifacts:
                 [gitlab.artifacts.s3.configs.debug]
                 bucket = "private"
                 zip_first = true
-                base_dir_pattern = "**/build*/"
+                build_dir_pattern = "**/build*/"
                 patterns = ["build.log"]
 
                 [gitlab.artifacts.s3.configs.flash]
                 bucket = "private"
                 zip_first = true
-                base_dir_pattern = "**/build*/"
+                build_dir_pattern = "**/build*/"
                 patterns = ["*.bin"]
 
                 [gitlab.artifacts.s3.configs.metrics]
                 bucket = "private"
-                base_dir_pattern = "**/build*/"
+                build_dir_pattern = "**/build*/"
                 patterns = ["size.json"]
+
+                [gitlab.artifacts.s3.configs.log]
+                bucket = "private"
+                patterns = ["**/build*/build_log.txt", "**/build*/size*.json"]
 
                 [gitlab.artifacts.s3.configs.optional]
                 bucket = "public"
@@ -112,11 +118,13 @@ class TestUploadDownloadArtifacts:
         assert result.exit_code == 0
 
         objs = list(s3_client.list_objects('private', recursive=True))
-        assert len(objs) == 3
+        assert len(objs) == 5
         assert sorted(obj.object_name for obj in objs) == [
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/build_log.txt',
             f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/debug.zip',
             f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip',
             f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size.json',
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size_1.json',
         ]
 
         shutil.rmtree(sample_artifacts_dir)
@@ -134,7 +142,9 @@ class TestUploadDownloadArtifacts:
 
         assert sorted(os.listdir(sample_artifacts_dir)) == [
             'build.log',
+            'build_log.txt',
             'size.json',
+            'size_1.json',
             'test.bin',
         ]
 
@@ -175,11 +185,13 @@ class TestUploadDownloadArtifacts:
         private_objs = list(s3_client.list_objects('private', recursive=True))
         public_objs = list(s3_client.list_objects('public', recursive=True))
 
-        assert len(private_objs) == 3
+        assert len(private_objs) == 5
         assert sorted(obj.object_name for obj in private_objs) == [
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/build_log.txt',
             f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/debug.zip',
             f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip',
             f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size.json',
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size_1.json',
         ]
 
         assert len(public_objs) == 1
@@ -200,12 +212,14 @@ class TestUploadDownloadArtifacts:
         assert result.exit_code == 0
         assert sorted(os.listdir(sample_artifacts_dir)) == [
             'build.log',
+            'build_log.txt',
             'size.json',
+            'size_1.json',
             'test.bin',
         ]
         assert (tmp_path / 'optional.txt').exists()
 
-    def test_upload_with_base_dir_only_checks_specified_dir(
+    def test_upload_with_build_dir_only_checks_specified_dir(
         self,
         runner,
         s3_client,
@@ -213,7 +227,7 @@ class TestUploadDownloadArtifacts:
     ):
         shutil.copytree(sample_artifacts_dir, sample_artifacts_dir.parent / 'build_esp32s2_build')
 
-        commit_sha = 'cli_test_base_dir_sha_123'
+        commit_sha = 'cli_test_build_dir_sha_123'
 
         result = runner.invoke(
             click_cli,
@@ -222,19 +236,198 @@ class TestUploadDownloadArtifacts:
                 'upload-artifacts',
                 '--commit-sha',
                 commit_sha,
-                '--base-dir',
+                '--build-dir',
                 'app/build_esp32_build',
             ],
         )
         assert result.exit_code == 0
 
         objs = list(s3_client.list_objects('private', recursive=True))
-        assert len(objs) == 3
+        assert len(objs) == 5
         assert sorted(obj.object_name for obj in objs) == [
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/build_log.txt',
             f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/debug.zip',
             f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/flash.zip',
             f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size.json',
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size_1.json',
         ]
+
+    def test_upload_with_build_dir_and_repo_relative_patterns(
+        self,
+        runner,
+        s3_client,
+        sample_artifacts_dir,
+    ):
+        shutil.copytree(sample_artifacts_dir, sample_artifacts_dir.parent / 'build_esp32s2_build')
+
+        commit_sha = 'cli_test_log_build_dir_sha_123'
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--type',
+                'log',
+                '--build-dir',
+                'build_esp32_build',
+                'app',
+            ],
+        )
+        assert result.exit_code == 0
+
+        objs = list(s3_client.list_objects('private', recursive=True))
+        assert sorted(obj.object_name for obj in objs) == [
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/build_log.txt',
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size.json',
+            f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size_1.json',
+        ]
+
+    def test_download_with_build_dir_only_downloads_specified_dir(
+        self,
+        runner,
+        sample_artifacts_dir,
+    ):
+        shutil.copytree(sample_artifacts_dir, sample_artifacts_dir.parent / 'build_esp32s2_build')
+
+        commit_sha = 'cli_test_download_build_dir_sha_123'
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+            ],
+        )
+        assert result.exit_code == 0
+
+        shutil.rmtree(sample_artifacts_dir.parent)
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'download-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--build-dir',
+                'build_esp32_build',
+                'app',
+            ],
+        )
+        assert result.exit_code == 0
+
+        assert sorted(os.listdir(sample_artifacts_dir.parent)) == ['build_esp32_build']
+        assert sorted(os.listdir(sample_artifacts_dir)) == [
+            'build.log',
+            'build_log.txt',
+            'size.json',
+            'size_1.json',
+            'test.bin',
+        ]
+
+    def test_download_with_presigned_json_and_build_dir_only_downloads_specified_dir(
+        self,
+        runner,
+        tmp_path,
+        sample_artifacts_dir,
+    ):
+        shutil.copytree(sample_artifacts_dir, sample_artifacts_dir.parent / 'build_esp32s2_build')
+
+        commit_sha = 'presigned_build_dir_sha_123'
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+            ],
+        )
+        assert result.exit_code == 0
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'generate-presigned-json',
+                '--commit-sha',
+                commit_sha,
+                '-o',
+                str(tmp_path / 'presigned.json'),
+            ],
+        )
+        assert result.exit_code == 0
+
+        shutil.rmtree(sample_artifacts_dir.parent, ignore_errors=True)
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'download-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--presigned-json',
+                str(tmp_path / 'presigned.json'),
+                '--build-dir',
+                'build_esp32_build',
+                'app',
+            ],
+        )
+        assert result.exit_code == 0
+
+        assert sorted(os.listdir(sample_artifacts_dir.parent)) == ['build_esp32_build']
+        assert sorted(os.listdir(sample_artifacts_dir)) == [
+            'build.log',
+            'build_log.txt',
+            'size.json',
+            'size_1.json',
+            'test.bin',
+        ]
+
+    def test_download_with_relative_folder_from_nested_cwd(self, runner, tmp_path, monkeypatch):
+        build_dir = tmp_path / 'examples' / 'app' / 'build_esp32_build'
+        build_dir.mkdir(parents=True)
+        (build_dir / 'test.bin').write_text('Binary content', encoding='utf-8')
+        (build_dir / 'size.json').write_text('{"size": 1024}', encoding='utf-8')
+
+        monkeypatch.chdir(tmp_path / 'examples')
+
+        commit_sha = 'nested_cwd_sha_123'
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+                'app',
+            ],
+        )
+        assert result.exit_code == 0
+
+        shutil.rmtree(build_dir)
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'download-artifacts',
+                '--commit-sha',
+                commit_sha,
+                'app',
+            ],
+        )
+        assert result.exit_code == 0
+        assert (build_dir / 'test.bin').read_text() == 'Binary content'
+        assert (build_dir / 'size.json').read_text() == '{"size": 1024}'
 
     def test_cli_generate_presigned_json(
         self,

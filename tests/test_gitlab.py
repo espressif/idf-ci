@@ -6,8 +6,9 @@ import os
 import pytest
 from jinja2 import Environment
 
+from idf_ci.idf_gitlab import ArtifactManager
 from idf_ci.idf_gitlab.scripts import pipeline_variables
-from idf_ci.settings import CiSettings
+from idf_ci.settings import CiSettings, _refresh_ci_settings
 
 
 class TestPipelineVariables:
@@ -76,6 +77,30 @@ class TestPipelineVariables:
 
     def test_no_env_vars(self):
         assert pipeline_variables() == {'IDF_CI_SELECT_ALL_PYTEST_CASES': '1'}
+
+
+def test_get_s3_path_preserves_nested_relative_path_from_config_root(tmp_path, monkeypatch):
+    repo_root = tmp_path
+    nested_cwd = repo_root / 'examples' / 'get-started'
+    build_dir = nested_cwd / 'hello_world' / 'build_esp32_default'
+    build_dir.mkdir(parents=True)
+    (repo_root / '.idf_ci.toml').write_text(
+        """
+[gitlab]
+project = "espressif/esp-idf"
+
+[gitlab.artifacts.s3]
+enable = true
+"""
+    )
+
+    monkeypatch.chdir(nested_cwd)
+    monkeypatch.delenv('IDF_PATH', raising=False)
+    _refresh_ci_settings()
+
+    s3_path = ArtifactManager()._get_s3_path('espressif/esp-idf/1/', build_dir / 'flash.zip')
+
+    assert s3_path == 'espressif/esp-idf/1/examples/get-started/hello_world/build_esp32_default/flash.zip'
 
 
 class TestTestPipelineJobTemplate:

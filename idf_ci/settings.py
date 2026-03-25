@@ -118,17 +118,17 @@ class S3ArtifactConfig(BaseModel):
     If False, files are uploaded individually without zipping.
     """
 
-    base_dir_pattern: t.Optional[str] = None
-    """Glob pattern for base directories to create zip files from.
+    build_dir_pattern: t.Optional[str] = None
+    """Glob pattern for build directories to create zip files from.
 
     The pattern should match directories only (for example, ``**/build*/``). If not set,
-    the current folder is used as the base directory.
+    the current folder is used as the build directory.
     """
 
     patterns: t.List[str] = ['**/*']
-    """Glob patterns (relative to each base directory) for files to include.
+    """Glob patterns (relative to each build directory) for files to include.
 
-    If empty or omitted, all files under the base directory are included.
+    If empty or omitted, all files under the build directory are included.
     """
 
     if_clause: t.Optional[str] = None
@@ -139,22 +139,22 @@ class ArtifactSettingsS3(BaseModel):
     enable: bool = False
     """Whether to enable S3 artifact upload/download and presigned URL generation."""
 
-    configs: t.Union[t.Dict[str, S3ArtifactConfig], t.Dict[str, t.Dict[str, t.Any]]] = {
-        'debug': {
-            'bucket': 'idf-artifacts',
-            'base_dir_pattern': '**/build*/',
-            'patterns': [
+    configs: t.Dict[str, S3ArtifactConfig] = {
+        'debug': S3ArtifactConfig(
+            bucket='idf-artifacts',
+            build_dir_pattern='**/build*/',
+            patterns=[
                 'bootloader/*.map',
                 'bootloader/*.elf',
                 '*.map',
                 '*.elf',
                 'build.log',  # build_log_filename
             ],
-        },
-        'flash': {
-            'bucket': 'idf-artifacts',
-            'base_dir_pattern': '**/build*/',
-            'patterns': [
+        ),
+        'flash': S3ArtifactConfig(
+            bucket='idf-artifacts',
+            build_dir_pattern='**/build*/',
+            patterns=[
                 'bootloader/*.bin',
                 '*.bin',
                 'partition_table/*.bin',
@@ -164,7 +164,7 @@ class ArtifactSettingsS3(BaseModel):
                 'sdkconfig',
                 'project_description.json',
             ],
-        },
+        ),
     }
     """Dictionary mapping artifact types to their S3 upload configuration.
 
@@ -173,15 +173,6 @@ class ArtifactSettingsS3(BaseModel):
     uploaded to the configured bucket, or uploads the matching files directly without
     creating a zip archive.
     """
-
-    @model_validator(mode='after')
-    def validate_configs(self):
-        if isinstance(self.configs, dict):
-            self.configs = {
-                key: S3ArtifactConfig.model_validate(value) if isinstance(value, dict) else value
-                for key, value in self.configs.items()
-            }
-        return self
 
 
 class ArtifactSettingsNative(BaseModel):
@@ -617,6 +608,25 @@ class CiSettings(BaseSettings):
         return any(os.getenv(env) is not None for env in self.ci_detection_envs)
 
     @property
+    def project_root(self) -> Path:
+        """Resolve the project root for repo-relative paths.
+
+        Preference order:
+
+        1. Directory containing the active ``.idf_ci.toml``
+        2. ``IDF_PATH`` environment variable
+        3. Current working directory
+        """
+        config_file = pick_toml_file(self.CONFIG_FILE_PATH if self.CONFIG_FILE_PATH is not None else '.idf_ci.toml')
+        if config_file:
+            return config_file.parent.resolve()
+
+        if os.getenv('IDF_PATH'):
+            return Path(os.environ['IDF_PATH']).resolve()
+
+        return Path.cwd().resolve()
+
+    @property
     def all_component_mapping_regexes(self) -> t.Set[re.Pattern]:
         """Get all component mapping regexes as compiled pattern objects.
 
@@ -740,6 +750,9 @@ def _refresh_ci_settings(
     config_overrides: t.Optional[t.Dict[str, t.Any]] = None,
 ) -> 'CiSettings':
     """Refresh the CiSettings instance in the context. shall be called only by CLI entry point."""
+    CiSettings.CONFIG_FILE_PATH = None
+    CiSettings.CLI_OVERRIDES = {}
+
     if config_file:
         logger.debug(f'Loading from config file `{config_file}`...')
         CiSettings.CONFIG_FILE_PATH = Path(config_file)

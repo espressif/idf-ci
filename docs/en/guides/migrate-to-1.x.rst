@@ -35,7 +35,7 @@ The artifact configuration structure has been reorganized for better clarity and
     # by default zip_first is false, so the files will be uploaded individually
     [gitlab.artifacts.s3.configs.flash]
     bucket = "idf-artifacts"
-    base_dir_pattern = "**/build*/"
+    build_dir_pattern = "**/build*/"
     patterns = [
         "bootloader/*.bin",
         "*.bin",

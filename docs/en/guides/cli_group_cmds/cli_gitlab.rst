@@ -41,13 +41,13 @@ For S3 artifacts, you can specify whether to upload as zip files or individual f
 
     [gitlab.artifacts.s3.configs.flash]
     bucket = "idf-artifacts"
-    base_dir_pattern = "**/build*/"
+    build_dir_pattern = "**/build*/"
     zip_first = true  # Upload as zip files
     patterns = []  # this overrides the default patterns to empty list
 
     [gitlab.artifacts.s3.configs.custom_group]
     bucket = "custom-bucket"
-    base_dir_pattern = "**/build*/"
+    build_dir_pattern = "**/build*/"
     zip_first = false  # Upload individual files instead of zip (default)
     patterns = [
         "custom/*.log",
@@ -153,6 +153,7 @@ Supported options:
 - ``--type [...]`` - Type of artifacts to download (if not specified, downloads all types)
 - ``--commit-sha COMMIT_SHA`` - Commit SHA to download artifacts from
 - ``--branch BRANCH`` - Git branch to get the latest pipeline from
+- ``--build-dir BUILD_DIR`` - Download artifacts for one build directory only. Relative paths are resolved from ``FOLDER``.
 
 Examples:
 
@@ -170,6 +171,9 @@ Examples:
     # Download debug artifacts from latest pipeline of a specific branch
     idf-ci gitlab download-artifacts --type debug --branch feature/new-feature
 
+    # Download artifacts for one build directory under app/
+    idf-ci gitlab download-artifacts --commit-sha abc123 --build-dir build_esp32_build app
+
 Without S3 Access
 ^^^^^^^^^^^^^^^^^
 
@@ -182,6 +186,7 @@ Supported options:
 - ``--type [...]`` - Type of artifacts to download (if not specified, downloads all types)
 - ``--presigned-json PATH`` - Path to a presigned.json file
 - ``--pipeline-id PIPELINE_ID`` - Main pipeline ID to download artifacts from
+- ``--build-dir BUILD_DIR`` - Download artifacts for one build directory only. Relative paths are resolved from ``FOLDER``.
 
 Examples:
 
@@ -196,6 +201,9 @@ Examples:
     # Download flash artifacts from a specific pipeline
     idf-ci gitlab download-artifacts --pipeline-id 12345 --type flash
 
+    # Download one build directory from presigned URLs
+    idf-ci gitlab download-artifacts --presigned-json presigned.json --build-dir build_esp32_build app
+
 Artifact Type Details
 ---------------------
 
@@ -207,9 +215,9 @@ GitLab native artifacts use file patterns defined in ``gitlab.artifacts.native.b
 
 **S3 Artifacts**
 
-S3 artifact types are defined under ``gitlab.artifacts.s3.configs``. By default, these are configured with ``base_dir_pattern = "**/build*/"``. Depending on the ``zip_first`` setting:
+S3 artifact types are defined under ``gitlab.artifacts.s3.configs``. By default, these are configured with ``build_dir_pattern = "**/build*/"``. Depending on the ``zip_first`` setting:
 
-- If ``zip_first = true``: Each matching base directory generates a ``<artifact_type>.zip`` containing the matching files
+- If ``zip_first = true``: Each matching build directory generates a ``<artifact_type>.zip`` containing the matching files
 - If ``zip_first = false`` (default): Individual files are uploaded directly to S3 without zipping
 
 1. **Flash artifacts** (``--type flash``):
@@ -243,6 +251,7 @@ Options:
 - ``--type [debug|flash]`` - Type of artifacts to upload
 - ``--commit-sha COMMIT_SHA`` - Commit SHA to upload artifacts to
 - ``--branch BRANCH`` - Git branch to use (if not provided, will use current git branch)
+- ``--build-dir BUILD_DIR`` - Upload from a specific build directory instead of discovering directories from ``build_dir_pattern``
 
 Example:
 
@@ -253,6 +262,9 @@ Example:
 
     # Upload flash artifacts from a specific directory
     idf-ci gitlab upload-artifacts --type flash --commit-sha abc123 /path/to/build
+
+    # Upload only one discovered build directory
+    idf-ci gitlab upload-artifacts --type flash --commit-sha abc123 --build-dir app/build_esp32_build
 
 Generate Presigned URLs
 -----------------------

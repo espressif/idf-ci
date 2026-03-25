@@ -104,8 +104,12 @@ def option_artifact_type(func):
     '--pipeline-id',
     help='GitLab pipeline ID to download presigned.json from. Cannot be used together with --presigned-json.',
 )
+@click.option(
+    '--build-dir',
+    help='Download artifacts for a specific build directory only. If relative, it is resolved from <folder>.',
+)
 @click.argument('folder', required=False)
-def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json, pipeline_id):
+def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json, pipeline_id, build_dir):
     """Download artifacts from S3 storage or via presigned URLs.
 
     This command downloads artifacts from S3 storage when credentials are available, or
@@ -130,6 +134,7 @@ def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json
         artifact_type=artifact_type,
         folder=folder,
         presigned_json=presigned_json,
+        build_dir=build_dir,
     )
 
 
@@ -138,13 +143,13 @@ def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json
 @option_commit_sha
 @option_branch
 @click.option(
-    '--base-dir',
-    help='Directory to search for artifact files from directly, without using base_dir_pattern discovery. '
-    'If absolute, it must be inside the project base directory used for artifact discovery; otherwise use a '
+    '--build-dir',
+    help='Build directory to search for artifact files from directly, without using build_dir_pattern discovery. '
+    'If absolute, it must be inside the project root used for artifact discovery; otherwise use a '
     'path relative to <folder>.',
 )
-@click.argument('folder', required=False)
-def upload_artifacts(artifact_type, commit_sha, branch, base_dir, folder):
+@click.argument('folder', required=False, type=click.Path(dir_okay=True, file_okay=False, exists=True))
+def upload_artifacts(artifact_type, commit_sha, branch, build_dir, folder):
     """Upload artifacts to S3 storage.
 
     This command uploads artifacts to S3 storage only. GitLab's built-in storage is not
@@ -156,7 +161,7 @@ def upload_artifacts(artifact_type, commit_sha, branch, base_dir, folder):
         branch=branch,
         artifact_type=artifact_type,
         folder=folder,
-        base_dir=base_dir,
+        build_dir=build_dir,
     )
 
 
