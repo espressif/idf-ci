@@ -211,10 +211,10 @@ class ArtifactManager:
     def _get_patterns_for_type(self, artifact_type: str) -> t.List[str]:
         config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
 
-        if not config.base_dir_pattern:
+        if not config.build_dir_pattern:
             return config.patterns
 
-        return [os.path.join(config.base_dir_pattern, pattern) for pattern in config.patterns]
+        return [os.path.join(config.build_dir_pattern, pattern) for pattern in config.patterns]
 
     def _get_artifact_types(self, artifact_type: t.Optional[str]) -> t.List[str]:
         if artifact_type and artifact_type not in self.settings.gitlab.artifacts.s3.configs:
@@ -357,7 +357,7 @@ class ArtifactManager:
         prefix: str,
         from_path: Path,
         artifact_type: str,
-        base_dir: t.Optional[str] = None,
+        build_dir: t.Optional[str] = None,
     ) -> int:
         config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
         s3_client = self._validate_s3_client(artifact_type)
@@ -367,9 +367,9 @@ class ArtifactManager:
             s3_client.fput_object(config.bucket, _s3_path, str(_filepath))
 
         tasks = []
-        for basedir in self._resolve_upload_base_dirs(from_path, artifact_type, base_dir):
+        for build_dir_path in self._resolve_upload_build_dirs(from_path, artifact_type, build_dir):
             for pattern in config.patterns:
-                abs_pattern = os.path.join(str(basedir), pattern)
+                abs_pattern = os.path.join(str(build_dir_path), pattern)
                 for file_str in glob.glob(abs_pattern, recursive=True):
                     filepath = Path(file_str)
                     if not filepath.is_file():
@@ -381,29 +381,29 @@ class ArtifactManager:
         execute_concurrent_tasks(tasks, task_name='uploading file')
         return len(tasks)
 
-    def _resolve_upload_base_dirs(
+    def _resolve_upload_build_dirs(
         self,
         from_path: Path,
         artifact_type: str,
-        base_dir: t.Optional[str] = None,
+        build_dir: t.Optional[str] = None,
     ) -> t.List[Path]:
         config = self.settings.gitlab.artifacts.s3.configs[artifact_type]
 
-        if base_dir:
-            resolved_base_dir = Path(base_dir)
-            if not resolved_base_dir.is_absolute():
-                resolved_base_dir = from_path / resolved_base_dir
-            resolved_base_dir = resolved_base_dir.resolve()
+        if build_dir:
+            resolved_build_dir = Path(build_dir)
+            if not resolved_build_dir.is_absolute():
+                resolved_build_dir = from_path / resolved_build_dir
+            resolved_build_dir = resolved_build_dir.resolve()
 
-            if not resolved_base_dir.is_dir():
-                raise ArtifactError(f'Specified base_dir is not a directory: {resolved_base_dir}')
+            if not resolved_build_dir.is_dir():
+                raise ArtifactError(f'Specified build_dir is not a directory: {resolved_build_dir}')
 
-            return [resolved_base_dir]
+            return [resolved_build_dir]
 
-        if not config.base_dir_pattern:
+        if not config.build_dir_pattern:
             return [from_path.resolve()]
 
-        abs_pattern = os.path.realpath(str(Path(from_path) / config.base_dir_pattern))
+        abs_pattern = os.path.realpath(str(Path(from_path) / config.build_dir_pattern))
         pattern_for_glob = abs_pattern.rstrip('/\\')
 
         return [Path(match).resolve() for match in glob.glob(pattern_for_glob, recursive=True) if Path(match).is_dir()]
@@ -414,13 +414,13 @@ class ArtifactManager:
         prefix: str,
         from_path: Path,
         artifact_type: str,
-        base_dir: t.Optional[str] = None,
+        build_dir: t.Optional[str] = None,
     ) -> int:
         """Upload artifacts as zip files to S3.
 
         This method:
 
-        1. Finds directories matching ``base_dir_pattern`` (only folders).
+        1. Finds directories matching ``build_dir_pattern`` (only folders).
         2. For each directory, finds files matching ``patterns`` (relative to that
            directory).
         3. Creates a zip file named ``<artifact_type>.zip`` in that directory.
@@ -429,7 +429,7 @@ class ArtifactManager:
         :param prefix: S3 prefix path
         :param from_path: Base path to search from
         :param artifact_type: Type of artifact (used as zip filename)
-        :param base_dir: Base directory path; absolute or relative to ``from_path``
+        :param build_dir: Build directory path; absolute or relative to ``from_path``
 
         :returns: Number of zip files uploaded
         """
@@ -441,34 +441,34 @@ class ArtifactManager:
             s3_client.fput_object(config.bucket, _s3_path, str(_zip_path))
 
         tasks = []
-        matching_dirs = self._resolve_upload_base_dirs(from_path, artifact_type, base_dir)
-        logger.debug(f'Found {len(matching_dirs)} directories matching pattern {config.base_dir_pattern}')
+        matching_dirs = self._resolve_upload_build_dirs(from_path, artifact_type, build_dir)
+        logger.debug(f'Found {len(matching_dirs)} directories matching pattern {config.build_dir_pattern}')
 
         # For each matching directory, collect files and create zip
-        for basedir in matching_dirs:
+        for build_dir_path in matching_dirs:
             files_to_zip = []
-            # Search for files matching patterns relative to basedir
+            # Search for files matching patterns relative to build_dir_path
             for file_pattern in config.patterns:
-                for fps in glob.glob(os.path.join(str(basedir), file_pattern), recursive=True):
+                for fps in glob.glob(os.path.join(str(build_dir_path), file_pattern), recursive=True):
                     if os.path.isfile(fps):
                         files_to_zip.append(Path(fps))
 
             if not files_to_zip:
-                logger.debug(f'No files found in {basedir} matching patterns {config.patterns}')
+                logger.debug(f'No files found in {build_dir_path} matching patterns {config.patterns}')
                 continue
 
-            # Create zip file in the basedir with name <artifact_type>.zip
-            zip_path = basedir / f'{artifact_type}.zip'
+            # Create zip file in the build directory with name <artifact_type>.zip
+            zip_path = build_dir_path / f'{artifact_type}.zip'
             logger.debug(f'Creating zip {zip_path} with {len(files_to_zip)} files')
 
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # Resolve basedir to absolute path to ensure relative_to() works correctly
-                basedir_resolved = basedir.resolve()
+                # Resolve build_dir_path to absolute path to ensure relative_to() works correctly
+                build_dir_resolved = build_dir_path.resolve()
                 for fp in files_to_zip:
                     # Resolve filepath to absolute path before computing relative path
                     filepath_resolved = fp.resolve()
-                    # Add file to zip with path relative to basedir
-                    arcname = filepath_resolved.relative_to(basedir_resolved)
+                    # Add file to zip with path relative to build_dir_path
+                    arcname = filepath_resolved.relative_to(build_dir_resolved)
                     zipf.write(filepath_resolved, arcname)
 
             # Upload the zip file
@@ -644,7 +644,7 @@ class ArtifactManager:
         branch: t.Optional[str] = None,
         artifact_type: t.Optional[str] = None,
         folder: t.Optional[str] = None,
-        base_dir: t.Optional[str] = None,
+        build_dir: t.Optional[str] = None,
     ) -> None:
         """Upload artifacts to S3.
 
@@ -654,9 +654,9 @@ class ArtifactManager:
             branch
         :param artifact_type: Type of artifacts to upload (debug, flash, metrics)
         :param folder: Upload artifacts under this folder
-        :param base_dir: Optional directory to search for files from directly. When
-            provided, skips discovery via base_dir_pattern and only uploads files under
-            this directory.
+        :param build_dir: Optional build directory to search for files from directly.
+            When provided, skips discovery via build_dir_pattern and only uploads files
+            under this directory.
 
         :raises ValueError: If S3 artifacts are not enabled
         :raises S3Error: If S3 is not configured
@@ -686,14 +686,14 @@ class ArtifactManager:
                     prefix=prefix,
                     from_path=params.from_path,
                     artifact_type=art_type,
-                    base_dir=base_dir,
+                    build_dir=build_dir,
                 )
             else:
                 uploaded_count += self._upload_files_to_s3(
                     prefix=prefix,
                     from_path=params.from_path,
                     artifact_type=art_type,
-                    base_dir=base_dir,
+                    build_dir=build_dir,
                 )
 
         logger.info(f'Uploaded {uploaded_count} artifacts in {time.time() - start_time:.2f} seconds')

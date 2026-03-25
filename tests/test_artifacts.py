@@ -46,18 +46,18 @@ class TestUploadDownloadArtifacts:
                 [gitlab.artifacts.s3.configs.debug]
                 bucket = "private"
                 zip_first = true
-                base_dir_pattern = "**/build*/"
+                build_dir_pattern = "**/build*/"
                 patterns = ["build.log"]
 
                 [gitlab.artifacts.s3.configs.flash]
                 bucket = "private"
                 zip_first = true
-                base_dir_pattern = "**/build*/"
+                build_dir_pattern = "**/build*/"
                 patterns = ["*.bin"]
 
                 [gitlab.artifacts.s3.configs.metrics]
                 bucket = "private"
-                base_dir_pattern = "**/build*/"
+                build_dir_pattern = "**/build*/"
                 patterns = ["size.json"]
 
                 [gitlab.artifacts.s3.configs.optional]
@@ -205,7 +205,7 @@ class TestUploadDownloadArtifacts:
         ]
         assert (tmp_path / 'optional.txt').exists()
 
-    def test_upload_with_base_dir_only_checks_specified_dir(
+    def test_upload_with_build_dir_only_checks_specified_dir(
         self,
         runner,
         s3_client,
@@ -213,7 +213,7 @@ class TestUploadDownloadArtifacts:
     ):
         shutil.copytree(sample_artifacts_dir, sample_artifacts_dir.parent / 'build_esp32s2_build')
 
-        commit_sha = 'cli_test_base_dir_sha_123'
+        commit_sha = 'cli_test_build_dir_sha_123'
 
         result = runner.invoke(
             click_cli,
@@ -222,7 +222,7 @@ class TestUploadDownloadArtifacts:
                 'upload-artifacts',
                 '--commit-sha',
                 commit_sha,
-                '--base-dir',
+                '--build-dir',
                 'app/build_esp32_build',
             ],
         )
