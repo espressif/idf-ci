@@ -153,6 +153,7 @@ Supported options:
 - ``--type [...]`` - Type of artifacts to download (if not specified, downloads all types)
 - ``--commit-sha COMMIT_SHA`` - Commit SHA to download artifacts from
 - ``--branch BRANCH`` - Git branch to get the latest pipeline from
+- ``--build-dir BUILD_DIR`` - Download artifacts for one build directory only. Relative paths are resolved from ``FOLDER``.
 
 Examples:
 
@@ -170,6 +171,9 @@ Examples:
     # Download debug artifacts from latest pipeline of a specific branch
     idf-ci gitlab download-artifacts --type debug --branch feature/new-feature
 
+    # Download artifacts for one build directory under app/
+    idf-ci gitlab download-artifacts --commit-sha abc123 --build-dir build_esp32_build app
+
 Without S3 Access
 ^^^^^^^^^^^^^^^^^
 
@@ -182,6 +186,7 @@ Supported options:
 - ``--type [...]`` - Type of artifacts to download (if not specified, downloads all types)
 - ``--presigned-json PATH`` - Path to a presigned.json file
 - ``--pipeline-id PIPELINE_ID`` - Main pipeline ID to download artifacts from
+- ``--build-dir BUILD_DIR`` - Download artifacts for one build directory only. Relative paths are resolved from ``FOLDER``.
 
 Examples:
 
@@ -195,6 +200,9 @@ Examples:
 
     # Download flash artifacts from a specific pipeline
     idf-ci gitlab download-artifacts --pipeline-id 12345 --type flash
+
+    # Download one build directory from presigned URLs
+    idf-ci gitlab download-artifacts --presigned-json presigned.json --build-dir build_esp32_build app
 
 Artifact Type Details
 ---------------------

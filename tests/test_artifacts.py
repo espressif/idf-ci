@@ -236,6 +236,108 @@ class TestUploadDownloadArtifacts:
             f'espressif/esp-idf/{commit_sha}/app/build_esp32_build/size.json',
         ]
 
+    def test_download_with_build_dir_only_downloads_specified_dir(
+        self,
+        runner,
+        sample_artifacts_dir,
+    ):
+        shutil.copytree(sample_artifacts_dir, sample_artifacts_dir.parent / 'build_esp32s2_build')
+
+        commit_sha = 'cli_test_download_build_dir_sha_123'
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+            ],
+        )
+        assert result.exit_code == 0
+
+        shutil.rmtree(sample_artifacts_dir.parent)
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'download-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--build-dir',
+                'build_esp32_build',
+                'app',
+            ],
+        )
+        assert result.exit_code == 0
+
+        assert sorted(os.listdir(sample_artifacts_dir.parent)) == ['build_esp32_build']
+        assert sorted(os.listdir(sample_artifacts_dir)) == [
+            'build.log',
+            'size.json',
+            'test.bin',
+        ]
+
+    def test_download_with_presigned_json_and_build_dir_only_downloads_specified_dir(
+        self,
+        runner,
+        tmp_path,
+        sample_artifacts_dir,
+    ):
+        shutil.copytree(sample_artifacts_dir, sample_artifacts_dir.parent / 'build_esp32s2_build')
+
+        commit_sha = 'presigned_build_dir_sha_123'
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'upload-artifacts',
+                '--commit-sha',
+                commit_sha,
+            ],
+        )
+        assert result.exit_code == 0
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'generate-presigned-json',
+                '--commit-sha',
+                commit_sha,
+                '-o',
+                str(tmp_path / 'presigned.json'),
+            ],
+        )
+        assert result.exit_code == 0
+
+        shutil.rmtree(sample_artifacts_dir.parent, ignore_errors=True)
+
+        result = runner.invoke(
+            click_cli,
+            [
+                'gitlab',
+                'download-artifacts',
+                '--commit-sha',
+                commit_sha,
+                '--presigned-json',
+                str(tmp_path / 'presigned.json'),
+                '--build-dir',
+                'build_esp32_build',
+                'app',
+            ],
+        )
+        assert result.exit_code == 0
+
+        assert sorted(os.listdir(sample_artifacts_dir.parent)) == ['build_esp32_build']
+        assert sorted(os.listdir(sample_artifacts_dir)) == [
+            'build.log',
+            'size.json',
+            'test.bin',
+        ]
+
     def test_cli_generate_presigned_json(
         self,
         runner,

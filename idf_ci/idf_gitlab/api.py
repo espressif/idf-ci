@@ -487,11 +487,11 @@ class ArtifactManager:
         with open(presigned_json) as f:
             presigned_urls = json.load(f)
 
-        from_path_rel = from_path.relative_to(self.envs.IDF_PATH)
-        patterns = self._get_patterns_for_type(artifact_type)
-        if from_path_rel != Path('.'):
-            patterns = [os.path.join(str(from_path_rel), pattern) for pattern in patterns]
-        patterns_regexes = [re.compile(translate(pattern, recursive=True, include_hidden=True)) for pattern in patterns]
+        scope_path = from_path if from_path.is_absolute() else Path(self.envs.IDF_PATH) / from_path
+        patterns_regexes = [
+            re.compile(translate(pattern, recursive=True, include_hidden=True))
+            for pattern in self._get_patterns_for_type(artifact_type)
+        ]
 
         def _download_task(_url: str, _output_path: Path) -> None:
             logger.debug(f'Downloading {_url} to {_output_path}')
@@ -506,10 +506,13 @@ class ArtifactManager:
 
         tasks = []
         for rel_path, url in presigned_urls.items():
-            if not any(pattern.match(str(rel_path)) for pattern in patterns_regexes):
+            output_path = Path(self.envs.IDF_PATH) / rel_path
+            if output_path != scope_path and scope_path not in output_path.parents:
                 continue
 
-            output_path = Path(self.envs.IDF_PATH) / rel_path
+            if not any(pattern.match(str(output_path)) for pattern in patterns_regexes):
+                continue
+
             tasks.append(lambda _url=url, _output_path=output_path: _download_task(_url, _output_path))
 
         execute_concurrent_tasks(tasks, task_name='downloading object')
@@ -567,6 +570,7 @@ class ArtifactManager:
         artifact_type: t.Optional[str] = None,
         folder: t.Optional[str] = None,
         presigned_json: t.Optional[str] = None,
+        build_dir: t.Optional[str] = None,
     ) -> None:
         """Download artifacts from S3 or via presigned URLs.
 
@@ -581,6 +585,8 @@ class ArtifactManager:
         :param artifact_type: Type of artifacts to download (debug, flash, metrics)
         :param folder: Download artifacts under this folder
         :param presigned_json: Path to the presigned.json file for download
+        :param build_dir: Optional build directory to download artifacts for only. When
+            provided, relative paths are resolved from ``folder``.
 
         :raises ValueError: If S3 artifacts are not enabled
         """
@@ -592,33 +598,39 @@ class ArtifactManager:
             branch=branch,
             folder=folder,
         )
+        from_path = params.from_path
+        if build_dir:
+            from_path = Path(build_dir)
+            if not from_path.is_absolute():
+                from_path = params.from_path / from_path
+            from_path = from_path.resolve()
 
         start_time = time.time()
         downloaded_count = 0
 
         if not presigned_json:
             # download from s3 directly
-            logger.info(f'Downloading artifacts under {params.from_path} from s3 (commit sha: {params.commit_sha})')
+            logger.info(f'Downloading artifacts under {from_path} from s3 (commit sha: {params.commit_sha})')
 
             for art_type in self._get_artifact_types(artifact_type):
                 config = self.settings.gitlab.artifacts.s3.configs[art_type]
                 if config.zip_first:
                     downloaded_count += self._download_zip_from_s3(
                         prefix=f'{self.settings.gitlab.project}/{params.commit_sha}/',
-                        from_path=params.from_path,
+                        from_path=from_path,
                         artifact_type=art_type,
                     )
                 else:
                     downloaded_count += self._download_files_from_s3(
                         prefix=f'{self.settings.gitlab.project}/{params.commit_sha}/',
-                        from_path=params.from_path,
+                        from_path=from_path,
                         artifact_type=art_type,
                     )
             logger.info(f'Downloaded {downloaded_count} artifacts in {time.time() - start_time:.2f} seconds')
             return
 
         # download from presigned urls
-        logger.info(f'Downloading artifacts under {params.from_path} from presigned JSON')
+        logger.info(f'Downloading artifacts under {from_path} from presigned JSON')
         logger.debug(f'presigned_json: {presigned_json}')
 
         for art_type in self._get_artifact_types(artifact_type):
@@ -626,13 +638,13 @@ class ArtifactManager:
             if config.zip_first:
                 downloaded_count += self._download_zip_from_presigned_json(
                     presigned_json,
-                    params.from_path,
+                    from_path,
                     art_type,
                 )
             else:
                 downloaded_count += self._download_files_from_presigned_json(
                     presigned_json,
-                    params.from_path,
+                    from_path,
                     art_type,
                 )
         logger.info(f'Downloaded {downloaded_count} artifacts in {time.time() - start_time:.2f} seconds')

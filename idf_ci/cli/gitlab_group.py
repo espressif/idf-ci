@@ -104,8 +104,12 @@ def option_artifact_type(func):
     '--pipeline-id',
     help='GitLab pipeline ID to download presigned.json from. Cannot be used together with --presigned-json.',
 )
+@click.option(
+    '--build-dir',
+    help='Download artifacts for a specific build directory only. If relative, it is resolved from <folder>.',
+)
 @click.argument('folder', required=False)
-def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json, pipeline_id):
+def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json, pipeline_id, build_dir):
     """Download artifacts from S3 storage or via presigned URLs.
 
     This command downloads artifacts from S3 storage when credentials are available, or
@@ -130,6 +134,7 @@ def download_artifacts(artifact_type, commit_sha, branch, folder, presigned_json
         artifact_type=artifact_type,
         folder=folder,
         presigned_json=presigned_json,
+        build_dir=build_dir,
     )
 
 
