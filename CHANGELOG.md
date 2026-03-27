@@ -20,105 +20,7 @@
 </div>
 <hr>
 
-## v1.0.0rc0 (2026-03-25)
-
-### ✨ New Features
-
-- support --build-dir in `idf-ci gitlab download-artifacts` *(Fu Hanxi - cf70775)*
-
-### 🐛 Bug Fixes
-
-- **gitlab**: test-child-pipeline download artifacts from generate_test_child_pipeline *(Fu Hanxi - ab0234f)*
-- upload and download artifacts from sub folder *(Fu Hanxi - 22a3f2e)*
-- deprecate warnings only show up once *(Fu Hanxi - ebe3ab6)*
-
-### 📖 Documentation
-
-- add gitlab-artifacts explanation *(Fu Hanxi - dfbe4f5)*
-- update contributions guide *(Fu Hanxi - d2277ec)*
-
-### 🔧 Code Refactoring
-
-- gitlab artifacts *(Fu Hanxi - 62d8f79)*
-
-### 🏗️ Changes
-
-- --base-dir-pattern rename to --build-dir-pattern. --base-dir rename to --build-dir *(Fu Hanxi - 32e99ec)*
-- compatible with idf-build-apps 2.x and 3.x *(Fu Hanxi - c5e643d)*
-
-
-## v1.0.0b7 (2026-03-17)
-
-### ✨ New Features
-
-- Allow extra commands in before script for test job *(Euripedes Rocha Filho - 11cf494)*
-
-### 🐛 Bug Fixes
-
-- **gitlab**: download artifacts with relative paths *(Fu Hanxi - 5c34956)*
-- not count disabled apps *(igor.udot - f722f32)*
-
-
-## v1.0.0b6 (2026-03-15)
-
-### ✨ New Features
-
-- support upload-artifacts with --base-dir *(Fu Hanxi - 36725d4)*
-
-
-## v1.0.0b5 (2026-03-15)
-
-### ✨ New Features
-
-- **build-collect**: support temporary filter *(Fu Hanxi - 89c9174)*
-- legacy artifact key backward compatible *(Fu Hanxi - ae26a5d)*
-- Target test reports *(Euripedes Rocha Filho - 7d84bf0)*
-
-### 🐛 Bug Fixes
-
-- skip pytest collection if all dirs are excluded *(Fu Hanxi - d13b41c)*
-- preserve formatting when highlighting temporary markers *(Evgeny Torbin - 7aeaa63)*
-- hide empty popup when app is disabled *(Evgeny Torbin - caf4fea)*
-
-
-## v1.0.0b4 (2026-02-11)
-
-### 🐛 Bug Fixes
-
-- match all files in check-tests-missing-config pre-commit hook *(Evgeny Torbin - 7c7b5cd)*
-- remove subfolders in check-tests-missing-config pre-commit hook *(Evgeny Torbin - e6d78be)*
-
-
-## v1.0.0b3 (2026-02-10)
-
-### ✨ New Features
-
-- create check-tests-missing-config pre-commit hook *(Evgeny Torbin - 71e67e7)*
-
-### 🔧 Code Refactoring
-
-- improve build collect command, add more tests *(Evgeny Torbin - e70615a)*
-
-
-## v1.0.0b2 (2026-02-02)
-
-### 🐛 Bug Fixes
-
-- **s3**: should always use token while uploading *(Fu Hanxi - 8c2f522)*
-
-
-## v1.0.0b1 (2026-02-02)
-
-### 🐛 Bug Fixes
-
-- set poolmanager maxsize=10 *(Fu Hanxi - 36116d6)*
-
-### 🏗️ Changes
-
-- revert unnecessary breaking changes *(Fu Hanxi - 0b2aae3)*
-
-
-## v1.0.0b0 (2026-02-02)
+## v1.0.0 (2026-03-27)
 
 ### 🚨 Breaking changes
 
@@ -127,15 +29,47 @@
 
 ### ✨ New Features
 
+- **build-collect**: support temporary filter *(Fu Hanxi - 89c9174)*
+- support --build-dir in `idf-ci gitlab download-artifacts` *(Fu Hanxi - cf70775)*
+- Allow extra commands in before script for test job *(Euripedes Rocha Filho - 11cf494)*
+- support upload-artifacts with --base-dir *(Fu Hanxi - 36725d4)*
+- legacy artifact key backward compatible *(Fu Hanxi - ae26a5d)*
+- Target test reports *(Euripedes Rocha Filho - 7d84bf0)*
+- create check-tests-missing-config pre-commit hook *(Evgeny Torbin - 71e67e7)*
 - expand info about tests cases requiring nonexistent app *(Evgeny Torbin - 38b5b58)*
 
 ### 🐛 Bug Fixes
 
+- **gitlab**: test-child-pipeline download artifacts from generate_test_child_pipeline *(Fu Hanxi - ab0234f)*
+- **gitlab**: download artifacts with relative paths *(Fu Hanxi - 5c34956)*
+- **s3**: should always use token while uploading *(Fu Hanxi - 8c2f522)*
+- upload and download artifacts from sub folder *(Fu Hanxi - 22a3f2e)*
+- deprecate warnings only show up once *(Fu Hanxi - ebe3ab6)*
+- not count disabled apps *(igor.udot - f722f32)*
+- skip pytest collection if all dirs are excluded *(Fu Hanxi - d13b41c)*
+- preserve formatting when highlighting temporary markers *(Evgeny Torbin - 7aeaa63)*
+- hide empty popup when app is disabled *(Evgeny Torbin - caf4fea)*
+- match all files in check-tests-missing-config pre-commit hook *(Evgeny Torbin - 7c7b5cd)*
+- remove subfolders in check-tests-missing-config pre-commit hook *(Evgeny Torbin - e6d78be)*
+- set poolmanager maxsize=10 *(Fu Hanxi - 36116d6)*
 - group tests by target and sdkconfig correctly *(Evgeny Torbin - 7fc83f9)*
 
 ### 📖 Documentation
 
+- add gitlab-artifacts explanation *(Fu Hanxi - dfbe4f5)*
+- update contributions guide *(Fu Hanxi - d2277ec)*
 - improve migration guide *(Fu Hanxi - 1ac0b23)*
+
+### 🔧 Code Refactoring
+
+- gitlab artifacts *(Fu Hanxi - 62d8f79)*
+- improve build collect command, add more tests *(Evgeny Torbin - e70615a)*
+
+### 🏗️ Changes
+
+- --base-dir-pattern rename to --build-dir-pattern. --base-dir rename to --build-dir *(Fu Hanxi - 32e99ec)*
+- compatible with idf-build-apps 2.x and 3.x *(Fu Hanxi - c5e643d)*
+- revert unnecessary breaking changes *(Fu Hanxi - 0b2aae3)*
 
 
 ## v0.7.0 (2026-01-15)
