@@ -21,6 +21,41 @@ if t.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _filter_apps_by_modified_files(
+    apps: t.Iterable['App'],
+    modified_files: t.Sequence[str],
+) -> t.List['App']:
+    """Filter a list of apps to include only those affected by modified files.
+
+    This ensures that only apps directly affected by changes in the merge request are
+    returned, reducing unnecessary processing of unaffected apps.
+    """
+    app_classes = {app.__class__ for app in apps}
+    checked_dirs: t.Set[str] = set()  # folders we've already checked
+    modified_app_dirs: t.Set[str] = set()
+
+    def is_app(path: str) -> bool:
+        return any(c.is_app(path) for c in app_classes)
+
+    for f in modified_files:
+        current = os.path.abspath(f)
+        if not os.path.isdir(current):
+            current = os.path.dirname(current)
+
+        while current and current != '/':
+            if current in checked_dirs:
+                break  # already checked this folder, no need to repeat
+            checked_dirs.add(current)
+
+            if is_app(current):
+                modified_app_dirs.add(current)
+                break  # found app, stop walking up
+
+            current = os.path.dirname(current)
+
+    return [app for app in apps if os.path.abspath(app.app_dir) in modified_app_dirs]
+
+
 @dataclass
 class ProcessedArgs:
     """Container for processed arguments with meaningful field names."""
@@ -262,6 +297,13 @@ def get_all_apps(
 
     test_apps = test_apps - modified_test_apps
     non_test_apps = non_test_apps - modified_test_apps - test_apps
+
+    if (
+        settings.filter_non_test_related_apps_by_modified_files
+        and processed_args.modified_files
+        and os.getenv('CI_MERGE_REQUEST_IID') is not None
+    ):
+        non_test_apps = set(_filter_apps_by_modified_files(non_test_apps, processed_args.modified_files))
     for app in modified_test_apps:
         app.build_status = BuildStatus.SHOULD_BE_BUILT  # must be built
 
