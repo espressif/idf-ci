@@ -20,6 +20,17 @@
 </div>
 <hr>
 
+## v1.0.1 (2026-04-01)
+
+### ✨ New Features
+
+- **gitlab**: support job_name_suffix *(Fu Hanxi - 8ca0f11)*
+
+### 🐛 Bug Fixes
+
+- **gitlab**: generate_test_child_pipeline should upload build artifacts *(Fu Hanxi - adb5ca6)*
+
+
 ## v1.0.0 (2026-03-27)
 
 ### 🚨 Breaking changes
