@@ -37,6 +37,8 @@ extensions = [
 templates_path = ['../_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
+mermaid_version = '11.13.0'
+
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
