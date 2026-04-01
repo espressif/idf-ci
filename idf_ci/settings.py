@@ -360,6 +360,9 @@ generate_test_child_pipeline:
     - "build_test_related_apps"
   artifacts:
     paths:
+    {%- for path in settings.gitlab.artifacts.native.build_job_filepatterns %}
+      - "{{ path }}"
+    {%- endfor %}
       - "{{ settings.gitlab.test_pipeline.yaml_filename }}"
   script:
     - idf-ci
@@ -401,6 +404,8 @@ class TestPipelineSettings(BuildPipelineSettings):
     job_before_script_extra: t.List[str] = []
     """Extra commands to append to before_script for test jobs (e.g. install deps)."""
 
+    # not needs: `build_test_related_apps` since gitlab won't download when
+    # `parallel: <int>` is set
     job_template_jinja: str = """
 {{ settings.gitlab.test_pipeline.job_template_name }}:
   stage: "{{ settings.gitlab.test_pipeline.job_stage }}"
