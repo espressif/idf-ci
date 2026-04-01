@@ -4,6 +4,7 @@
 import os
 
 import pytest
+import yaml
 from jinja2 import Environment
 
 from idf_ci.idf_gitlab import ArtifactManager
@@ -141,3 +142,97 @@ class TestTestPipelineJobTemplate:
         # No extra before_script commands when job_before_script_extra is empty
         assert '- apt-get update' not in rendered
         assert '- pip install some-test-dep' not in rendered
+
+
+def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
+    """Rendered build and test pipeline YAMLs keep suffix references and artifact wiring consistent."""
+    settings = CiSettings.model_validate(
+        {
+            'gitlab': {
+                'build_pipeline': {
+                    'job_name_suffix': ':build-sfx',
+                },
+                'test_pipeline': {
+                    'job_name_suffix': ':test-sfx',
+                },
+            },
+        }
+    )
+    env = Environment()
+
+    build_jobs = env.from_string(settings.gitlab.build_pipeline.jobs_jinja).render(
+        settings=settings,
+        test_related_apps_count=1,
+        test_related_parallel_count=1,
+        non_test_related_apps_count=1,
+        non_test_related_parallel_count=1,
+    )
+    build_rendered = env.from_string(settings.gitlab.build_pipeline.yaml_jinja).render(
+        settings=settings,
+        job_template='',
+        jobs=build_jobs,
+        test_related_apps_count=1,
+    )
+    build_pipeline = yaml.safe_load(build_rendered)
+
+    build_test_job = build_pipeline['build_test_related_apps:build-sfx']
+    build_non_test_job = build_pipeline['build_non_test_related_apps:build-sfx']
+    generate_test_pipeline_job = build_pipeline['generate_test_child_pipeline:build-sfx']
+    trigger_test_pipeline_job = build_pipeline['test-child-pipeline:build-sfx']
+
+    assert build_test_job['extends'] == settings.gitlab.build_pipeline.job_template_name
+    assert build_test_job['needs'] == [
+        {
+            'pipeline': '$PARENT_PIPELINE_ID',
+            'job': 'generate_build_child_pipeline',
+        },
+        {
+            'pipeline': '$PARENT_PIPELINE_ID',
+            'job': 'pipeline_variables',
+        },
+    ]
+    assert build_non_test_job['extends'] == settings.gitlab.build_pipeline.job_template_name
+    assert generate_test_pipeline_job['needs'] == ['build_test_related_apps:build-sfx']
+    assert generate_test_pipeline_job['artifacts']['paths'] == [
+        *settings.gitlab.artifacts.native.build_job_filepatterns,
+        settings.gitlab.test_pipeline.yaml_filename,
+    ]
+    assert trigger_test_pipeline_job['needs'] == ['generate_test_child_pipeline:build-sfx']
+    assert trigger_test_pipeline_job['trigger']['include'] == [
+        {
+            'artifact': settings.gitlab.test_pipeline.yaml_filename,
+            'job': 'generate_test_child_pipeline:build-sfx',
+        }
+    ]
+
+    test_jobs = env.from_string(settings.gitlab.test_pipeline.jobs_jinja).render(
+        settings=settings,
+        jobs=[
+            {
+                'name': 'esp32 - generic',
+                'tags': ['esp32', 'generic'],
+                'parallel_count': 1,
+                'nodes': '"\'tests/test_example.py::test_case\'"',
+            }
+        ],
+    )
+    test_rendered = env.from_string(settings.gitlab.test_pipeline.yaml_jinja).render(
+        settings=settings,
+        default_template=env.from_string(settings.gitlab.test_pipeline.job_template_jinja).render(settings=settings),
+        jobs=test_jobs,
+    )
+    test_pipeline = yaml.safe_load(test_rendered)
+
+    default_test_template = test_pipeline[settings.gitlab.test_pipeline.job_template_name]
+    test_job = test_pipeline['esp32 - generic:test-sfx']
+
+    assert default_test_template['needs'] == [
+        {
+            'pipeline': '$PARENT_PIPELINE_ID',
+            'job': 'generate_test_child_pipeline:build-sfx',
+        }
+    ]
+    assert default_test_template['artifacts']['paths'] == settings.gitlab.artifacts.native.test_job_filepatterns
+    assert test_job['extends'] == [settings.gitlab.test_pipeline.job_template_name]
+    assert test_job['tags'] == ['esp32', 'generic']
+    assert test_job['variables']['nodes'] == "'tests/test_example.py::test_case'"

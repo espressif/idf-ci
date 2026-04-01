@@ -299,12 +299,15 @@ class BuildPipelineSettings(BaseModel):
     runs_per_job: int = 60
     """Maximum number of apps to build in a single job."""
 
+    job_name_suffix: str = ''
+    """Suffix to append while generating build child pipeline job names."""
+
     parent_pipeline_job_suffix: str = ''
     """Suffix to append to parent pipeline job names when referencing them."""
 
     jobs_jinja: str = """
 {%- if test_related_apps_count > 0 %}
-build_test_related_apps:
+build_test_related_apps{{ settings.gitlab.build_pipeline.job_name_suffix }}:
   extends: "{{ settings.gitlab.build_pipeline.job_template_name }}"
 {%- if test_related_parallel_count > 1 %}
   parallel: {{ test_related_parallel_count }}
@@ -319,7 +322,7 @@ build_test_related_apps:
 
 {% endif %}
 {%- if non_test_related_apps_count > 0 %}
-build_non_test_related_apps:
+build_non_test_related_apps{{ settings.gitlab.build_pipeline.job_name_suffix }}:
   extends: "{{ settings.gitlab.build_pipeline.job_template_name }}"
 {%- if non_test_related_parallel_count > 1 %}
   parallel: {{ non_test_related_parallel_count }}
@@ -354,10 +357,10 @@ workflow:
 {{ jobs }}
 
 {%- if test_related_apps_count > 0 %}
-generate_test_child_pipeline:
+generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
   extends: "{{ settings.gitlab.build_pipeline.job_template_name }}"
   needs:
-    - "build_test_related_apps"
+    - "build_test_related_apps{{ settings.gitlab.build_pipeline.job_name_suffix }}"
   artifacts:
     paths:
     {%- for path in settings.gitlab.artifacts.native.build_job_filepatterns %}
@@ -369,16 +372,16 @@ generate_test_child_pipeline:
       --config 'gitlab.test_pipeline.job_image="{{ settings.gitlab.test_pipeline.job_image }}"'
       gitlab test-child-pipeline
 
-test-child-pipeline:
+test-child-pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
   stage: ".post"
   needs:
-    - "generate_test_child_pipeline"
+    - "generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}"
   variables:
     PARENT_PIPELINE_ID: "$CI_PIPELINE_ID"
   trigger:
     include:
       - artifact: "{{ settings.gitlab.test_pipeline.yaml_filename }}"
-        job: "generate_test_child_pipeline"
+        job: "generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}"
     strategy: "depend"
 {%- endif %}
 """.strip()
@@ -404,6 +407,9 @@ class TestPipelineSettings(BuildPipelineSettings):
     job_before_script_extra: t.List[str] = []
     """Extra commands to append to before_script for test jobs (e.g. install deps)."""
 
+    job_name_suffix: str = ''
+    """Suffix to append while generating test child pipeline job names."""
+
     # not needs: `build_test_related_apps` since gitlab won't download when
     # `parallel: <int>` is set
     job_template_jinja: str = """
@@ -424,7 +430,7 @@ class TestPipelineSettings(BuildPipelineSettings):
     PYTEST_EXTRA_FLAGS: ""
   needs:
     - pipeline: "$PARENT_PIPELINE_ID"
-      job: "generate_test_child_pipeline"
+      job: "generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}"
   before_script:
     - pip install -U idf-ci
     {%- for cmd in settings.gitlab.test_pipeline.job_before_script_extra %}
@@ -447,7 +453,7 @@ class TestPipelineSettings(BuildPipelineSettings):
 
     jobs_jinja: str = """
 {% for job in jobs %}
-{{ job['name'] }}:
+{{ job['name'] }}{{ settings.gitlab.test_pipeline.job_name_suffix }}:
   extends:
     - "{{ settings.gitlab.test_pipeline.job_template_name }}"
     {%- for extra_extend in job.get('extra_extends', []) %}
