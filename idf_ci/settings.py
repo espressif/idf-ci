@@ -554,6 +554,9 @@ class CiSettings(BaseSettings):
     preserve_non_test_related_apps: bool = True
     """Whether to preserve non-test-related apps."""
 
+    filter_non_test_related_apps_by_modified_files: bool = False
+    """Whether to keep only directly modified non-test apps when modified files are provided."""
+
     extra_default_build_targets: t.List[str] = []
     """Additional build targets to include by default."""
 
