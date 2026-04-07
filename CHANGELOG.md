@@ -20,6 +20,17 @@
 </div>
 <hr>
 
+## v1.0.2 (2026-04-07)
+
+### ✨ New Features
+
+- support filter non_test_related by modified files *(Igor Udot - bcb8759)*
+
+### 📖 Documentation
+
+- explain gitlab dynamic pipeline *(Fu Hanxi - 221917c)*
+
+
 ## v1.0.1 (2026-04-01)
 
 ### ✨ New Features
