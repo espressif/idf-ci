@@ -557,6 +557,9 @@ class CiSettings(BaseSettings):
     filter_non_test_related_apps_by_modified_files: bool = False
     """Whether to keep only directly modified non-test apps when modified files are provided."""
 
+    filter_apps_by_component_target: bool = False
+    """Filter apps by the component's target."""
+
     extra_default_build_targets: t.List[str] = []
     """Additional build targets to include by default."""
 
