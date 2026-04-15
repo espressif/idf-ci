@@ -61,11 +61,6 @@ def _filter_apps_by_component_target(
     apps: t.Iterable['App'],
     modified_files: t.Sequence[str],
 ):
-    # test_apps should build all targets for this component,
-    # but when determining whether this target affects other apps,
-    # we should exclude it.
-    modified_files = [f for f in modified_files if '/test_apps' in f]
-
     app_list: t.List[App] = list(apps)
     logger.debug(
         'Number of apps before component-target filter: %d',

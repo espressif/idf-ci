@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from contextvars import ContextVar
 from pathlib import Path
 
+from esp_bool_parser.constants import ALL_TARGETS
 from idf_build_apps import App, json_list_files_to_apps
 from idf_build_apps.constants import BuildStatus
 from pydantic import BaseModel, model_validator
@@ -526,6 +527,14 @@ class CiSettings(BaseSettings):
     ]
     """List of regex patterns to exclude certain paths from component mapping."""
 
+    component_target_regexes: t.List[str] = [
+        r'(?<![a-z0-9])(' + '|'.join(sorted(ALL_TARGETS, key=len, reverse=True)) + r')(?![a-z0-9])',
+    ]
+    """List of regex patterns to extract build targets from component paths."""
+
+    extend_component_target_regexes: t.List[str] = []
+    """Additional target extraction regex patterns to extend the default list."""
+
     component_ignored_file_extensions: t.List[str] = [
         '.md',
         '.rst',
@@ -658,6 +667,14 @@ class CiSettings(BaseSettings):
         :returns: Set of compiled regex patterns
         """
         return {re.compile(regex) for regex in self.component_mapping_exclude_regexes}
+
+    @property
+    def all_component_target_regexes(self) -> t.Set[re.Pattern]:
+        """Get all component target regexes as compiled pattern objects.
+
+        :returns: Set of compiled regex patterns
+        """
+        return {re.compile(regex) for regex in self.component_target_regexes + self.extend_component_target_regexes}
 
     def get_modified_components(self, modified_files: t.Iterable[str]) -> t.Set[str]:
         """Get the set of components that have been modified based on the provided files.

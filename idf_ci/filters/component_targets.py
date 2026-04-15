@@ -2,26 +2,53 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import os
 import re
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional, Set
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
-from esp_bool_parser.constants import ALL_TARGETS
+from idf_ci.settings import get_ci_settings
 
 logger = logging.getLogger(__name__)
 
-TARGET_PATTERN = re.compile(r'(?<![a-z0-9])(' + '|'.join(sorted(ALL_TARGETS, key=len, reverse=True)) + r')(?![a-z0-9])')
+
+def _normalized_path(path: str) -> str:
+    raw_path = Path(path)
+    if not raw_path.is_absolute():
+        return raw_path.as_posix()
+
+    settings = get_ci_settings()
+    abs_path = raw_path.as_posix()
+
+    try:
+        return Path(abs_path).relative_to(settings.project_root).as_posix()
+    except ValueError:
+        return abs_path
 
 
-def component_for_path(path: str) -> Optional[str]:
-    parts = [part for part in path.split('/') if part]
-    if len(parts) < 2 or parts[0] != 'components':
-        return None
-    return parts[1]
+def _component_mapping_search_path(path: str) -> str:
+    search_path = path if path.startswith('/') else f'/{path}'
+    return f'{search_path.rstrip("/")}/'
 
 
-def component_root(component: str) -> str:
-    return f'components/{component}'
+def _component_mapping_for_path(path: str) -> Optional[Tuple[str, str, str]]:
+    settings = get_ci_settings()
+    normalized_path = _normalized_path(path)
+    candidate = _component_mapping_search_path(normalized_path)
+
+    for regex in settings.all_component_mapping_regexes:
+        match = regex.search(candidate)
+        if not match:
+            continue
+
+        root = candidate[: match.end()].rstrip('/')
+        if not normalized_path.startswith('/'):
+            root = root.lstrip('/')
+
+        return match.group(1), root, normalized_path
+
+    return None
 
 
 def folder_for_path(path: str) -> str:
@@ -40,7 +67,19 @@ def collapse_folders(folders: Iterable[str]) -> List[str]:
 
 
 def extract_targets(path: str) -> Set[str]:
-    return set(TARGET_PATTERN.findall(path))
+    settings = get_ci_settings()
+    candidates = [path]
+    if not path.endswith('/'):
+        candidates.append(f'{path}/')
+
+    found_targets: Set[str] = set()
+    for candidate in candidates:
+        for regex in settings.all_component_target_regexes:
+            overlapping_regex = re.compile(f'(?={regex.pattern})', regex.flags)
+            for match in overlapping_regex.findall(candidate):
+                found_targets.add(match[0] if isinstance(match, tuple) else match)
+
+    return found_targets
 
 
 def targets_for_folders(folders: List[str]) -> List[str]:
@@ -53,6 +92,13 @@ def targets_for_folders(folders: List[str]) -> List[str]:
         found_targets.update(folder_targets)
 
     return sorted(found_targets)
+
+
+def _is_path_excluded(path: str) -> bool:
+    abs_path = Path(os.path.abspath(path)).as_posix()
+    settings = get_ci_settings()
+
+    return any(regex.search(abs_path) for regex in settings.all_component_mapping_exclude_regexes)
 
 
 @lru_cache()
@@ -69,12 +115,16 @@ def component_targets_from_files(
         if not path:
             continue
 
-        component = component_for_path(path)
-        if component is None:
+        if _is_path_excluded(path):
+            logger.debug('Skipping excluded path for component mapping: %s', path)
             continue
 
-        folder = folder_for_path(path)
-        root = component_root(component)
+        component_mapping = _component_mapping_for_path(path)
+        if component_mapping is None:
+            continue
+
+        component, root, normalized_path = component_mapping
+        folder = folder_for_path(normalized_path)
         if not folder.startswith(root):
             folder = root
 

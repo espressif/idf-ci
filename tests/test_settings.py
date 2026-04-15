@@ -5,6 +5,7 @@ import os
 import re
 
 import pytest
+from esp_bool_parser.constants import ALL_TARGETS
 
 from idf_ci.cli import click_cli
 from idf_ci.settings import CiSettings, DeprecatedConfigWarning
@@ -41,6 +42,13 @@ def test_default_component_mapping_regexes():
         '/common_components/(.+?)/',
     ]
     assert CiSettings().component_mapping_regexes == expected_regexes
+
+
+def test_default_component_target_regexes():
+    expected_regexes = [
+        r'(?<![a-z0-9])(' + '|'.join(sorted(ALL_TARGETS, key=len, reverse=True)) + r')(?![a-z0-9])',
+    ]
+    assert CiSettings().component_target_regexes == expected_regexes
 
 
 def test_default_component_ignored_file_extensions():
@@ -125,6 +133,24 @@ def test_all_component_mapping_regexes():
         if '/components/(.+)/' in pattern.pattern:
             assert match is not None
             assert match.group(1) == 'test_component'
+
+
+def test_all_component_target_regexes():
+    settings = CiSettings(
+        extend_component_target_regexes=[
+            r'(?<![a-z0-9])(linux)(?![a-z0-9])',
+        ]
+    )
+    patterns = settings.all_component_target_regexes
+    assert len(patterns) == 2
+
+    default_pattern = next(pattern for pattern in patterns if 'esp32' in pattern.pattern)
+    assert default_pattern.search('/components/test/esp32/main.c')
+
+    extended_pattern = next(pattern for pattern in patterns if 'linux' in pattern.pattern)
+    match = extended_pattern.search('/components/test/linux/main.c')
+    assert match is not None
+    assert match.group(1) == 'linux'
 
 
 def test_component_mapping_with_absolute_paths():
