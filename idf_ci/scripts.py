@@ -13,6 +13,7 @@ from idf_build_apps.utils import get_parallel_start_stop
 
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
 from .envs import GitlabEnvVars
+from .filters.component_targets import should_skip_build_for_components
 from .settings import get_ci_settings
 
 if t.TYPE_CHECKING:
@@ -54,6 +55,34 @@ def _filter_apps_by_modified_files(
             current = os.path.dirname(current)
 
     return [app for app in apps if os.path.abspath(app.app_dir) in modified_app_dirs]
+
+
+def _filter_apps_by_component_target(
+    apps: t.Iterable['App'],
+    modified_files: t.Sequence[str],
+):
+    app_list: t.List[App] = list(apps)
+    logger.debug(
+        'Number of apps before component-target filter: %d',
+        len(app_list),
+    )
+
+    filtered_apps = {
+        _app
+        for _app in app_list
+        if not should_skip_build_for_components(
+            modified_files,
+            _app.depends_components,
+            _app.target,
+        )
+    }
+
+    logger.debug(
+        'Number of apps after component-target filter: %d',
+        len(filtered_apps),
+    )
+
+    return filtered_apps
 
 
 @dataclass
@@ -310,6 +339,17 @@ def get_all_apps(
     if _select_by_targets:
         # no need to remove test_apps, since they are not in non_test_apps
         non_test_apps = {app for app in non_test_apps if app.target in _select_by_targets}
+
+    if (
+        settings.filter_apps_by_component_target
+        and processed_args.modified_files
+        and os.getenv('CI_MERGE_REQUEST_IID') is not None
+    ):
+        # Build all targets apps for modified folders
+        full_target_apps = set(_filter_apps_by_modified_files(test_apps, processed_args.modified_files))
+        # Skip non target-related apps
+        filtered_apps = _filter_apps_by_component_target(test_apps, processed_args.modified_files)
+        test_apps = filtered_apps.union(full_target_apps)
 
     test_apps = test_apps.union(modified_test_apps)
     for app in test_apps:
