@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v1.1.0 (2026-04-16)
+
+### ✨ New Features
+
+- support filter modified component by targets *(Igor Udot - ccab3aa)*
+
+
 ## v1.0.2 (2026-04-07)
 
 ### ✨ New Features
