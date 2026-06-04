@@ -68,12 +68,12 @@ def test_child_pipeline(yaml_output):
 
 
 @gitlab.command()
-@click.option('--nodes', required=True, help='Shell-quoted pytest node list from the CI job variable')
 @click.option('--output', required=True, type=click.Path(dir_okay=False, file_okay=True))
 @click.option('--artifact-dir', default='previous-attempt-artifacts', help='Directory to store downloaded artifacts')
-def prepare_retry_app_filter(nodes, output, artifact_dir):
+@click.argument('nodes', nargs=-1)
+def prepare_retry_app_filter(output, artifact_dir, nodes):
     """Prepare a reduced pytest node list for a retried GitLab target-test job."""
-    prepare_retry_app_filter_cmd(output=output, artifact_dir=artifact_dir, nodes_arg=nodes)
+    prepare_retry_app_filter_cmd(output=output, artifact_dir=artifact_dir, nodes=nodes)
 
 
 def validate_artifact_type(

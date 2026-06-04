@@ -133,14 +133,18 @@ def download_job_artifact(manager: ArtifactManager, job_id: int, artifact_path: 
     return str(output)
 
 
-def prepare_retry_app_filter(output: str, artifact_dir: str, nodes_arg: str) -> bool:
+def prepare_retry_app_filter(output: str, artifact_dir: str, nodes: t.Union[str, t.Sequence[str]]) -> bool:
     Path(output).write_text('', encoding='utf-8')
 
     if not _is_job_retry():
         LOGGER.info('Not a retried job. Skipping app retry filter preparation.')
         return False
 
-    nodes = shlex.split(nodes_arg)
+    if isinstance(nodes, str):
+        nodes = shlex.split(nodes)
+    else:
+        nodes = list(nodes)
+
     if not nodes:
         LOGGER.warning('No nodes provided. Skipping app retry filter preparation.')
         return False
