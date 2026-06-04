@@ -12,13 +12,6 @@ from .api import ArtifactManager
 LOGGER = logging.getLogger(__name__)
 
 
-def _is_job_retry() -> bool:
-    try:
-        return int(os.getenv('CI_JOB_RETRY', '0')) > 0
-    except ValueError:
-        return False
-
-
 def _iter_pipeline_jobs(manager: ArtifactManager, pipeline_id: str):
     pipeline = manager.project.pipelines.get(pipeline_id)
 
@@ -135,10 +128,6 @@ def download_job_artifact(manager: ArtifactManager, job_id: int, artifact_path: 
 
 def prepare_retry_app_filter(output: str, artifact_dir: str, nodes: t.Union[str, t.Sequence[str]]) -> bool:
     Path(output).write_text('', encoding='utf-8')
-
-    if not _is_job_retry():
-        LOGGER.info('Not a retried job. Skipping app retry filter preparation.')
-        return False
 
     if isinstance(nodes, str):
         nodes = shlex.split(nodes)
