@@ -13,6 +13,7 @@ from idf_ci.cli._options import (
 from idf_ci.idf_gitlab import ArtifactManager
 from idf_ci.idf_gitlab import build_child_pipeline as build_child_pipeline_cmd
 from idf_ci.idf_gitlab import pipeline_variables as pipeline_variables_cmd
+from idf_ci.idf_gitlab import prepare_retry_app_filter as prepare_retry_app_filter_cmd
 from idf_ci.idf_gitlab import test_child_pipeline as test_child_pipeline_cmd
 from idf_ci.settings import get_ci_settings
 
@@ -64,6 +65,15 @@ def build_child_pipeline(paths, modified_files, compare_manifest_sha_filepath, y
 def test_child_pipeline(yaml_output):
     """Generate test child pipeline yaml file."""
     test_child_pipeline_cmd(yaml_output)
+
+
+@gitlab.command()
+@click.option('--nodes', required=True, help='Shell-quoted pytest node list from the CI job variable')
+@click.option('--output', required=True, type=click.Path(dir_okay=False, file_okay=True))
+@click.option('--artifact-dir', default='previous-attempt-artifacts', help='Directory to store downloaded artifacts')
+def prepare_retry_app_filter(nodes, output, artifact_dir):
+    """Prepare a reduced pytest node list for a retried GitLab target-test job."""
+    prepare_retry_app_filter_cmd(output=output, artifact_dir=artifact_dir, nodes_arg=nodes)
 
 
 def validate_artifact_type(
