@@ -38,7 +38,6 @@ class IdfPytestPlugin:
         *,
         cli_target: str,
         sdkconfig_name: t.Optional[str] = None,
-        app_key_file: t.Optional[str] = None,
     ) -> None:
         """Initialize the IDF pytest plugin.
 
@@ -49,7 +48,6 @@ class IdfPytestPlugin:
         """
         self.cli_target = cli_target
         self.sdkconfig_name = sdkconfig_name
-        self.app_keys = self._load_app_keys(app_key_file)
 
         settings = get_ci_settings()
         if settings.is_in_ci:
@@ -58,14 +56,6 @@ class IdfPytestPlugin:
             self.apps = None
 
         self.cases: t.List[PytestCase] = []
-
-    @staticmethod
-    def _load_app_keys(app_key_file: t.Optional[str]) -> t.Optional[t.Set[str]]:
-        if not app_key_file:
-            return None
-
-        with open(app_key_file, encoding='utf-8') as fr:
-            return {line.strip() for line in fr if line.strip()}
 
     @staticmethod
     def get_case_by_item(item: pytest.Item) -> t.Optional[PytestCase]:
@@ -206,8 +196,6 @@ class IdfPytestPlugin:
             if case is None:
                 continue
 
-            item.user_properties.append(('idf_ci_app_keys', '\n'.join(case.app_keys)))
-
             # Add 'host_test' marker to host test cases
             if 'qemu' in case.all_markers or 'linux' in case.targets:
                 item.add_marker(pytest.mark.host_test)
@@ -267,22 +255,6 @@ class IdfPytestPlugin:
                     filtered_items.append(item)
             items[:] = filtered_items
 
-        # Filter by app keys, used by app-scoped CI retry.
-        if self.app_keys is not None:
-            print("APPKEYS", self.app_keys)
-            filtered_items = []
-            for item in items:
-                case = self.get_case_by_item(item)
-                if case is None:
-                    continue
-
-                if set(case.app_keys) & self.app_keys:
-                    filtered_items.append(item)
-                else:
-                    item.stash[IDF_CI_PYTEST_DEBUG_INFO_KEY]['skip_reason'] = 'app key mismatch'
-                    deselected_items.append(item)
-            items[:] = filtered_items
-
         # Filter by app list
         if self.apps is not None:
             app_dirs = [os.path.abspath(app.build_path) for app in self.apps]
@@ -326,10 +298,6 @@ def pytest_addoption(parser: pytest.Parser):
         '--sdkconfig',
         help='Run only tests whose apps are built with this sdkconfig name',
     )
-    idf_ci_group.addoption(
-        '--idf-ci-app-key-file',
-        help='Run only tests whose app identity is listed in this file',
-    )
 
     # INI values
     parser.addini(
@@ -349,7 +317,6 @@ def pytest_configure(config: Config):
 
     cli_target = config.getoption('target') or 'all'
     sdkconfig_name = config.getoption('sdkconfig')
-    app_key_file = config.getoption('idf_ci_app_key_file')
 
     env_markers: t.Set[str] = set()
     for line in config.getini('env_markers'):
@@ -359,7 +326,7 @@ def pytest_configure(config: Config):
 
     PytestCase.KNOWN_ENV_MARKERS = env_markers
 
-    plugin = IdfPytestPlugin(cli_target=cli_target, sdkconfig_name=sdkconfig_name, app_key_file=app_key_file)
+    plugin = IdfPytestPlugin(cli_target=cli_target, sdkconfig_name=sdkconfig_name)
     config.stash[IDF_CI_PLUGIN_KEY] = plugin
     config.pluginmanager.register(plugin)
 

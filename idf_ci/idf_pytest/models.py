@@ -40,11 +40,6 @@ class PytestApp:
         """
         return os.path.join(self.path, f'build_{self.target}_{self.config}')
 
-    @property
-    def key(self) -> str:
-        """Stable app identity used to group app-scoped retries."""
-        return f'{self.path}|{self.target}|{self.config}'
-
 
 class PytestCase:
     """Represents a pytest test case."""
@@ -115,11 +110,6 @@ class PytestCase:
     def targets(self) -> t.List[str]:
         # sequence matters
         return [app.target for app in self.apps]
-
-    @property
-    def app_keys(self) -> t.Tuple[str, ...]:
-        # sequence matters for multi-DUT apps
-        return tuple(app.key for app in self.apps)
 
     @property
     def target_selector(self) -> str:
