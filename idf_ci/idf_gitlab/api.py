@@ -150,8 +150,12 @@ class ArtifactManager:
     @property
     @lru_cache()
     def gl(self):
+        gitlab_server = self.envs.GITLAB_HTTPS_SERVER
+        if not gitlab_server.startswith(('http://', 'https://')):
+            gitlab_server = f'https://{gitlab_server}'
+
         return Gitlab(
-            self.envs.GITLAB_HTTPS_SERVER,
+            gitlab_server,
             private_token=self.envs.GITLAB_ACCESS_TOKEN,
         )
 
