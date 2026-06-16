@@ -10,7 +10,7 @@ repos:
       - id: mixed-line-ending
         args: [ '-f=lf' ]
   - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: 'v1.5.5'
+    rev: 'v1.5.6'
     hooks:
       - id: insert-license
         files: \.py$
@@ -20,13 +20,13 @@ repos:
           - license_header.txt        # defaults to: LICENSE.txt
           - --use-current-year
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 'v0.14.10'
+    rev: 'v0.15.9'
     hooks:
       - id: ruff-check
         args: ['--fix']
       - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v1.19.1'
+    rev: 'v1.20.0'
     hooks:
       - id: mypy
         args: ['--warn-unused-ignores']
@@ -45,13 +45,13 @@ repos:
           - types-PyYAML
           - types-requests
   - repo: https://github.com/LilSpazJoekp/docstrfmt
-    rev: v2.0.1
+    rev: v2.0.2
     hooks:
       - id: docstrfmt
         types: [rst]
         args: ['-l', '99999999999999999999999']
   - repo: https://github.com/LilSpazJoekp/docstrfmt
-    rev: v2.0.1
+    rev: v2.0.2
     hooks:
       - id: docstrfmt
         types: [python]
