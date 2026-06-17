@@ -67,6 +67,36 @@ class IdfPytestPlugin:
         """
         return item.stash.get(IDF_CI_PYTEST_CASE_KEY, None)
 
+    @staticmethod
+    def _has_parametrized_arg(metafunc, arg_name: str) -> bool:
+        for marker in metafunc.definition.iter_markers(name='parametrize'):
+            if not marker.args:
+                continue
+
+            argnames = marker.args[0]
+            if isinstance(argnames, str):
+                names = [name.strip() for name in argnames.split(',')]
+            else:
+                names = list(argnames)
+
+            if arg_name in names:
+                return True
+
+        return False
+
+    @staticmethod
+    def _is_linux_target_run(config: Config) -> bool:
+        target = config.getoption('target')
+        if not target:
+            return False
+
+        if isinstance(target, str):
+            targets = [_t.strip() for _t in target.split(',')]
+        else:
+            targets = [str(_t).strip() for _t in target]
+
+        return 'linux' in targets
+
     @pytest.fixture
     @multi_dut_argument
     def target(
@@ -149,6 +179,21 @@ class IdfPytestPlugin:
             'No valid build directory found. '
             f'Please build the binary via "idf.py -B {check_dirs[0]} build" and run pytest again'
         )
+
+    @pytest.hookimpl(trylast=True)
+    def pytest_generate_tests(self, metafunc) -> None:
+        if 'embedded_services' not in metafunc.fixturenames:
+            return
+
+        if self._has_parametrized_arg(metafunc, 'embedded_services'):
+            return
+
+        if metafunc.definition.get_closest_marker('qemu') is not None:
+            metafunc.parametrize('embedded_services', ['idf,qemu'], indirect=True)
+            return
+
+        if self._is_linux_target_run(metafunc.config):
+            metafunc.parametrize('embedded_services', ['idf'], indirect=True)
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_pycollect_makemodule(
