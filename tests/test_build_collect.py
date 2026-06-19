@@ -142,7 +142,7 @@ class TestBuildCollect:
             ], indirect=True)
             @pytest.mark.parametrize('config', [
                 'cfg1', 'cfg2',
-            ])
+            ], indirect=True)
             def test_foo(dut):
                 pass
             """)

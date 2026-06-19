@@ -8,7 +8,7 @@ from collections import defaultdict
 from functools import lru_cache
 from typing import NamedTuple
 
-from _pytest.python import Function
+import pytest
 from pytest_embedded.plugin import parse_multi_dut_args
 
 from idf_ci.utils import to_list
@@ -46,12 +46,12 @@ class PytestCase:
 
     KNOWN_ENV_MARKERS: t.ClassVar[t.Set[str]] = set()
 
-    def __init__(self, apps: t.List[PytestApp], item: Function) -> None:
+    def __init__(self, apps: t.List[PytestApp], item: pytest.Function) -> None:
         self.apps = apps
         self.item = item
 
     @classmethod
-    def get_param(cls, item: Function, key: str, default: t.Any = None) -> t.Any:
+    def get_param(cls, item: pytest.Function, key: str, default: t.Any = None) -> t.Any:
         """Get parameter value from pytest item.
 
         :param item: Pytest function item
@@ -68,7 +68,7 @@ class PytestCase:
         return item.callspec.params.get(key, default) or default
 
     @classmethod
-    def from_item(cls, item: Function) -> t.Optional['PytestCase']:
+    def from_item(cls, item: pytest.Function) -> t.Optional['PytestCase']:
         """Create a PytestCase from a pytest item.
 
         :param item: Pytest function item
@@ -183,6 +183,44 @@ class PytestCase:
                     targets[t_name] = _m.kwargs['reason']
 
         return targets
+
+    def disabled_target_selectors(self, *, in_ci: t.Optional[bool] = None) -> t.Set[str]:
+        """Get normalized target selectors disabled by temp skip markers."""
+        if in_ci is None:
+            in_ci = bool(os.getenv('CI_JOB_ID'))
+
+        marker_names = {'temp_skip'}
+        if in_ci:
+            marker_names.add('temp_skip_ci')
+
+        disabled: t.Set[str] = set()
+        count = len(self.targets)
+
+        for _m in self.item.own_markers:
+            if _m.name not in marker_names:
+                continue
+
+            if not _m.kwargs.get('targets') or not _m.kwargs.get('reason'):
+                raise ValueError(
+                    f'`{_m.name}` should always use keyword arguments `targets` and `reason`. '
+                    f'For example: '
+                    f'`@pytest.mark.{_m.name}(targets=["esp32"], reason="IDF-xxxx, will fix it ASAP")`'
+                )
+
+            for target in to_list(_m.kwargs['targets']):
+                parts = target.split(',')
+                if len(parts) == 1:
+                    disabled.add(','.join(parts * count))
+                elif len(parts) == count:
+                    disabled.add(target)
+                else:
+                    raise ValueError(
+                        f"Invalid target format: '{target}'. "
+                        f'Expected a single target or exactly {count} values separated by commas. '
+                        f'len({parts}) != {count}'
+                    )
+
+        return disabled
 
     def get_skip_reason_if_not_built(self, app_dirs: t.Optional[t.List[str]] = None) -> t.Optional[str]:
         """Check if all binaries of the test case are built in the app lists.
