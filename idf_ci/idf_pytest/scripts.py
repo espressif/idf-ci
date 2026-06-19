@@ -9,7 +9,6 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 import pytest
-from _pytest.config import ExitCode
 
 from idf_ci._compat import UNDEF, UndefinedOr, is_undefined
 from idf_ci.envs import GitlabEnvVars
@@ -117,7 +116,7 @@ def get_pytest_cases(
         logging.debug('Ignoring result from args `%s` because it contains no:pytest-embedded marker', args)
         return []
 
-    if result == ExitCode.OK:
+    if result == pytest.ExitCode.OK:
         return plugin.cases
 
     raise RuntimeError(f'pytest collection failed.\nArgs: {args}\nStdout: {stdout_content}\nStderr: {stderr_content}')
