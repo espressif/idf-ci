@@ -18,6 +18,13 @@ from idf_ci.settings import CiSettings, get_ci_settings
 logger = logging.getLogger(__name__)
 
 
+def _parallel_count(item_count: int, runs_per_job: int) -> int:
+    if item_count <= 0:
+        return 0
+
+    return (item_count - 1) // runs_per_job + 1
+
+
 def _get_fake_pass_job(settings: CiSettings, workflow_name: str) -> t.Dict[str, t.Any]:
     # no matter being used in build or test child pipeline,
     # always use the same fake_pass job that extends the build job template
@@ -89,11 +96,13 @@ def build_child_pipeline(
         dump_apps_to_txt(non_test_related_apps, settings.collected_non_test_related_apps_filepath)
 
     apps_total = len(test_related_apps) + len(non_test_related_apps)
-    test_related_parallel_count = (
-        len(test_related_apps) // settings.gitlab.build_pipeline.runs_per_job + 1 if test_related_apps else 0
+    test_related_parallel_count = _parallel_count(
+        len(test_related_apps),
+        settings.gitlab.build_pipeline.runs_per_job,
     )
-    non_test_related_parallel_count = (
-        len(non_test_related_apps) // settings.gitlab.build_pipeline.runs_per_job + 1 if non_test_related_apps else 0
+    non_test_related_parallel_count = _parallel_count(
+        len(non_test_related_apps),
+        settings.gitlab.build_pipeline.runs_per_job,
     )
 
     if not apps_total:
@@ -208,7 +217,10 @@ def test_child_pipeline(
                 'tags': sorted(key.runner_tags),
                 # quote nodeids to avoid special chars issues
                 'nodes': '"' + ' '.join([f"'{c.item.nodeid}'" for c in grouped_cases]) + '"',
-                'parallel_count': len(grouped_cases) // settings.gitlab.test_pipeline.runs_per_job + 1,
+                'parallel_count': _parallel_count(
+                    len(grouped_cases),
+                    settings.gitlab.test_pipeline.runs_per_job,
+                ),
                 **cases.additional_dict.get(key, {}),
             }
         )

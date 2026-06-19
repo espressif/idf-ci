@@ -8,6 +8,7 @@ import yaml
 from jinja2 import Environment
 
 from idf_ci.idf_gitlab import ArtifactManager
+from idf_ci.idf_gitlab.pipeline import _parallel_count
 from idf_ci.idf_gitlab.scripts import pipeline_variables
 from idf_ci.settings import CiSettings, _refresh_ci_settings
 
@@ -236,3 +237,19 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
     assert test_job['extends'] == [settings.gitlab.test_pipeline.job_template_name]
     assert test_job['tags'] == ['esp32', 'generic']
     assert test_job['variables']['nodes'] == "'tests/test_example.py::test_case'"
+
+
+@pytest.mark.parametrize(
+    'item_count,runs_per_job,expected',
+    [
+        (0, 60, 0),
+        (1, 60, 1),
+        (59, 60, 1),
+        (60, 60, 1),
+        (61, 60, 2),
+        (120, 60, 2),
+        (121, 60, 3),
+    ],
+)
+def test_parallel_count(item_count, runs_per_job, expected):
+    assert _parallel_count(item_count, runs_per_job) == expected
