@@ -205,3 +205,39 @@ class TestGetPytestCases:
             assert len(cases) == 0
         finally:
             _ci_settings_context.reset(token)
+
+    def test_disabled_target_selectors_respects_ci_marker_scope(self, tmp_path: Path) -> None:
+        script = tmp_path / 'test_disabled_target_selectors_respects_ci_marker_scope.py'
+        script.write_text(
+            textwrap.dedent("""
+            import pytest
+
+            @pytest.mark.parametrize('target', ['esp32'], indirect=True)
+            @pytest.mark.temp_skip(targets=['esp32c3'], reason='always')
+            @pytest.mark.temp_skip_ci(targets=['esp32s3'], reason='ci only')
+            def test_disabled_target_selectors(dut):
+                pass
+            """)
+        )
+
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32')
+        assert len(cases) == 1
+        assert cases[0].disabled_target_selectors(in_ci=False) == {'esp32c3'}
+        assert cases[0].disabled_target_selectors(in_ci=True) == {'esp32c3', 'esp32s3'}
+
+    def test_disabled_target_selectors_normalizes_multi_dut_targets(self, tmp_path: Path) -> None:
+        script = tmp_path / 'test_disabled_target_selectors_normalizes_multi_dut_targets.py'
+        script.write_text(
+            textwrap.dedent("""
+            import pytest
+
+            @pytest.mark.parametrize('count,target', [(2, 'esp32|esp32s2')], indirect=True)
+            @pytest.mark.temp_skip(targets=['esp32'], reason='single target expands to both DUTs')
+            def test_disabled_target_selectors_multi(dut):
+                pass
+            """)
+        )
+
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32,esp32s2')
+        assert len(cases) == 1
+        assert cases[0].disabled_target_selectors(in_ci=False) == {'esp32,esp32'}
