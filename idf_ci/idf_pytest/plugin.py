@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.python import Metafunc
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
 from ..settings import get_ci_settings
@@ -64,7 +65,7 @@ class IdfPytestPlugin:
         return item.stash.get(IDF_CI_PYTEST_CASE_KEY, None)
 
     @staticmethod
-    def _has_parametrized_arg(metafunc, arg_name: str) -> bool:
+    def _has_parametrized_arg(metafunc: Metafunc, arg_name: str) -> bool:
         for marker in metafunc.definition.iter_markers(name='parametrize'):
             if not marker.args:
                 continue
