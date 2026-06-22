@@ -11,8 +11,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from _pytest.config import Config
-from _pytest.python import Metafunc
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
 from ..settings import get_ci_settings
@@ -66,62 +64,7 @@ class IdfPytestPlugin:
         return item.stash.get(IDF_CI_PYTEST_CASE_KEY, None)
 
     @staticmethod
-    def _format_case_id(
-        target: t.Optional[t.Any],
-        config: t.Optional[t.Any],
-        case_name: str,
-        *,
-        is_qemu: bool = False,
-        params: t.Optional[t.Dict[str, t.Any]] = None,
-    ) -> str:
-        parts: t.List[str] = []
-        if target:
-            parts.append((str(target) + '_qemu') if is_qemu else str(target))
-        if config:
-            parts.append(str(config))
-        parts.append(case_name)
-        if params:
-            parts.append(str(params))
-
-        return '.'.join(parts)
-
-    @staticmethod
-    def _filtered_non_fixture_params(item: pytest.Function) -> t.Dict[str, t.Any]:
-        if not hasattr(item, 'callspec'):
-            return {}
-
-        fixture_manager = item.session._fixturemanager
-        return {k: v for k, v in item.callspec.params.items() if k not in fixture_manager._arg2fixturedefs}
-
-    @staticmethod
-    def _get_runtime_target_and_config(item: pytest.Function) -> t.Tuple[t.Any, t.Any]:
-        target = item.funcargs.get('target')
-        config = item.funcargs.get('config')
-        if target is not None and config is not None:
-            return target, config
-
-        if hasattr(item, 'callspec'):
-            return (
-                item.callspec.params.get('target', target),
-                item.callspec.params.get('config', config or 'default'),
-            )
-
-        return target, config or 'default'
-
-    @classmethod
-    def _custom_test_case_name(cls, item: pytest.Function) -> str:
-        target, config = cls._get_runtime_target_and_config(item)
-        is_qemu = item.get_closest_marker('qemu') is not None
-        return cls._format_case_id(
-            target,
-            config,
-            item.originalname,
-            is_qemu=is_qemu,
-            params=cls._filtered_non_fixture_params(item),
-        )
-
-    @staticmethod
-    def _has_parametrized_arg(metafunc: Metafunc, arg_name: str) -> bool:
+    def _has_parametrized_arg(metafunc, arg_name: str) -> bool:
         for marker in metafunc.definition.iter_markers(name='parametrize'):
             if not marker.args:
                 continue
@@ -145,7 +88,7 @@ class IdfPytestPlugin:
         return False
 
     @staticmethod
-    def _is_linux_target_run(config: Config) -> bool:
+    def _is_linux_target_run(config: pytest.Config) -> bool:
         target = config.getoption('target')
         if not target:
             return False
@@ -186,21 +129,6 @@ class IdfPytestPlugin:
         :returns: Configuration string, defaults to 'default' if not specified
         """
         return getattr(request, 'param', None) or 'default'
-
-    @pytest.fixture
-    def test_case_name(self, request: pytest.FixtureRequest, target: t.Any, config: t.Any) -> str:
-        item = request.node
-        if not isinstance(item, pytest.Function):
-            return request.node.nodeid
-
-        is_qemu = item.get_closest_marker('qemu') is not None
-        return self._format_case_id(
-            target,
-            config,
-            item.originalname,
-            is_qemu=is_qemu,
-            params=self._filtered_non_fixture_params(item),
-        )
 
     @pytest.fixture
     @multi_dut_fixture
@@ -256,7 +184,7 @@ class IdfPytestPlugin:
         )
 
     @pytest.hookimpl(trylast=True)
-    def pytest_generate_tests(self, metafunc: Metafunc) -> None:
+    def pytest_generate_tests(self, metafunc) -> None:
         if 'embedded_services' not in metafunc.fixturenames:
             return
 
@@ -292,13 +220,11 @@ class IdfPytestPlugin:
                 break
             except ModuleNotFoundError as e:
                 match = _MODULE_NOT_FOUND_REGEX.search(e.msg)
-                if not match:
-                    raise
-
-                pkg = match.group(1)
-                logger.warning('Mocking missing package during collection: %s', pkg)
-                sys.modules[pkg] = MagicMock()
-                continue
+                if match:
+                    pkg = match.group(1)
+                    logger.warning('Mocking missing package during collection: %s', pkg)
+                    sys.modules[pkg] = MagicMock()
+                    continue
 
     @pytest.hookimpl(wrapper=True)
     def pytest_collection_modifyitems(self, config: pytest.Config, items: t.List[pytest.Function]):
@@ -353,6 +279,7 @@ class IdfPytestPlugin:
                     continue
 
                 if case.target_selector != self.cli_target:
+                    item.add_marker(pytest.mark.skip(reason=f'Target mismatch: {self.cli_target}'))
                     deselected_items.append(item)
                 else:
                     filtered_items.append(item)
@@ -403,31 +330,6 @@ class IdfPytestPlugin:
                 continue
 
             self.cases.append(case)
-
-    @pytest.hookimpl(hookwrapper=True, trylast=True)
-    def pytest_runtest_makereport(self, item: pytest.Function):
-        outcome = yield
-        report = outcome.get_result()
-
-        # should be called after pytest_custom_test_case_name is called to
-        # ensure custom_test_case_name is set in the report
-        custom_test_case_name = getattr(report, 'custom_test_case_name', None) or self._custom_test_case_name(item)
-
-        # pytest-junitxml derives testcase names from nodeid. Preserve our
-        # custom case name by overriding the xml reporter's name attribute.
-        try:
-            from _pytest.junitxml import xml_key
-        except ImportError:
-            return
-
-        xml = item.config.stash.get(xml_key, None)
-        if xml is not None:
-            xml.node_reporter(item.nodeid).add_attribute('name', custom_test_case_name)
-
-    @pytest.hookimpl(optionalhook=True)  # pytest-ignore-test-results
-    def pytest_custom_test_case_name(self, item: pytest.Function) -> str:
-        """Provide stable custom test case name for ignore-results matching."""
-        return self._custom_test_case_name(item)
 
 
 ##################
