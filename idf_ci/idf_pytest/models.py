@@ -8,7 +8,7 @@ from collections import defaultdict
 from functools import lru_cache
 from typing import NamedTuple
 
-import pytest
+from _pytest.python import Function
 from pytest_embedded.plugin import parse_multi_dut_args
 
 from idf_ci.utils import to_list
@@ -46,12 +46,12 @@ class PytestCase:
 
     KNOWN_ENV_MARKERS: t.ClassVar[t.Set[str]] = set()
 
-    def __init__(self, apps: t.List[PytestApp], item: pytest.Function) -> None:
+    def __init__(self, apps: t.List[PytestApp], item: Function) -> None:
         self.apps = apps
         self.item = item
 
     @classmethod
-    def get_param(cls, item: pytest.Function, key: str, default: t.Any = None) -> t.Any:
+    def get_param(cls, item: Function, key: str, default: t.Any = None) -> t.Any:
         """Get parameter value from pytest item.
 
         :param item: Pytest function item
@@ -68,7 +68,7 @@ class PytestCase:
         return item.callspec.params.get(key, default) or default
 
     @classmethod
-    def from_item(cls, item: pytest.Function) -> t.Optional['PytestCase']:
+    def from_item(cls, item: Function) -> t.Optional['PytestCase']:
         """Create a PytestCase from a pytest item.
 
         :param item: Pytest function item

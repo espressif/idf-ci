@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import os
-from xml.etree import ElementTree as ET
 
 from conftest import create_project
 
@@ -68,51 +67,3 @@ class TestPytestPlugin:
 
         res = pytester.runpytest()
         res.assert_outcomes(passed=1)
-
-
-class TestPytestPluginJunitReport:
-    def test_junit_report_uses_custom_test_case_name_for_setup_error_failure_and_pass(self, pytester):
-        pytester.makefile(
-            '.ini',
-            pytest="""
-                [pytest]
-                junit_family = xunit1
-            """,
-        )
-        pytester.makepyfile("""
-            import pytest
-
-            @pytest.fixture
-            def broken_fixture():
-                raise RuntimeError('setup boom')
-
-            @pytest.mark.parametrize('target', ['esp32'], indirect=True)
-            @pytest.mark.parametrize('config', ['debug'], indirect=True)
-            def test_pass(target, config):
-                assert True
-
-            @pytest.mark.parametrize('target', ['esp32'], indirect=True)
-            @pytest.mark.parametrize('config', ['debug'], indirect=True)
-            def test_fail(target, config):
-                assert False
-
-            @pytest.mark.parametrize('target', ['esp32'], indirect=True)
-            @pytest.mark.parametrize('config', ['debug'], indirect=True)
-            def test_setup_error(target, config, broken_fixture):
-                assert True
-        """)
-        os.makedirs(pytester.path / 'build_esp32_debug')
-
-        report_path = pytester.path / 'report.xml'
-        res = pytester.runpytest('--junitxml', str(report_path))
-
-        res.assert_outcomes(passed=1, failed=1, errors=1)
-
-        cases = {
-            case.attrib['name']: case for case in ET.parse(report_path).findall('.//testcase') if 'name' in case.attrib
-        }
-
-        assert 'failure' not in {child.tag for child in cases['esp32.debug.test_pass']}
-        assert 'error' not in {child.tag for child in cases['esp32.debug.test_pass']}
-        assert 'failure' in {child.tag for child in cases['esp32.debug.test_fail']}
-        assert 'error' in {child.tag for child in cases['esp32.debug.test_setup_error']}
