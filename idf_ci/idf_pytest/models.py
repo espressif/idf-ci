@@ -184,44 +184,6 @@ class PytestCase:
 
         return targets
 
-    def disabled_target_selectors(self, *, in_ci: t.Optional[bool] = None) -> t.Set[str]:
-        """Get normalized target selectors disabled by temp skip markers."""
-        if in_ci is None:
-            in_ci = bool(os.getenv('CI_JOB_ID'))
-
-        marker_names = {'temp_skip'}
-        if in_ci:
-            marker_names.add('temp_skip_ci')
-
-        disabled: t.Set[str] = set()
-        count = len(self.targets)
-
-        for _m in self.item.own_markers:
-            if _m.name not in marker_names:
-                continue
-
-            if not _m.kwargs.get('targets') or not _m.kwargs.get('reason'):
-                raise ValueError(
-                    f'`{_m.name}` should always use keyword arguments `targets` and `reason`. '
-                    f'For example: '
-                    f'`@pytest.mark.{_m.name}(targets=["esp32"], reason="IDF-xxxx, will fix it ASAP")`'
-                )
-
-            for target in to_list(_m.kwargs['targets']):
-                parts = target.split(',')
-                if len(parts) == 1:
-                    disabled.add(','.join(parts * count))
-                elif len(parts) == count:
-                    disabled.add(target)
-                else:
-                    raise ValueError(
-                        f"Invalid target format: '{target}'. "
-                        f'Expected a single target or exactly {count} values separated by commas. '
-                        f'len({parts}) != {count}'
-                    )
-
-        return disabled
-
     def get_skip_reason_if_not_built(self, app_dirs: t.Optional[t.List[str]] = None) -> t.Optional[str]:
         """Check if all binaries of the test case are built in the app lists.
 
