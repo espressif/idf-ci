@@ -11,10 +11,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from _pytest.config import Config
-from _pytest.fixtures import FixtureRequest
-from _pytest.python import Function
-from _pytest.stash import StashKey
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
 from ..settings import get_ci_settings
@@ -22,9 +18,9 @@ from ..utils import setup_logging
 from .models import PytestCase
 
 _MODULE_NOT_FOUND_REGEX = re.compile(r"No module named '(.+?)'")
-IDF_CI_PYTEST_CASE_KEY = StashKey[t.Optional[PytestCase]]()
-IDF_CI_PYTEST_DEBUG_INFO_KEY = StashKey[t.Dict[str, t.Any]]()
-IDF_CI_PLUGIN_KEY = StashKey['IdfPytestPlugin']()
+IDF_CI_PYTEST_CASE_KEY = pytest.StashKey[t.Optional[PytestCase]]()
+IDF_CI_PYTEST_DEBUG_INFO_KEY = pytest.StashKey[t.Dict[str, t.Any]]()
+IDF_CI_PLUGIN_KEY = pytest.StashKey['IdfPytestPlugin']()
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +78,17 @@ class IdfPytestPlugin:
             if arg_name in names:
                 return True
 
+        # Other plugins may have already parametrized the argument via
+        # pytest_generate_tests, which updates metafunc._calls but does not add
+        # a parametrize marker to the definition.
+        for callspec in getattr(metafunc, '_calls', []):
+            if arg_name in callspec.params:
+                return True
+
         return False
 
     @staticmethod
-    def _is_linux_target_run(config: Config) -> bool:
+    def _is_linux_target_run(config: pytest.Config) -> bool:
         target = config.getoption('target')
         if not target:
             return False
@@ -101,7 +104,7 @@ class IdfPytestPlugin:
     @multi_dut_argument
     def target(
         self,
-        request: FixtureRequest,
+        request: pytest.FixtureRequest,
     ) -> str:
         """Fixture that provides the target for tests.
 
@@ -118,7 +121,7 @@ class IdfPytestPlugin:
 
     @pytest.fixture
     @multi_dut_argument
-    def config(self, request: FixtureRequest) -> str:
+    def config(self, request: pytest.FixtureRequest) -> str:
         """Fixture that provides the configuration for tests.
 
         :param request: Pytest fixture request
@@ -131,7 +134,7 @@ class IdfPytestPlugin:
     @multi_dut_fixture
     def build_dir(
         self,
-        request: FixtureRequest,
+        request: pytest.FixtureRequest,
         app_path: str,
         target: t.Optional[str],
         config: t.Optional[str],
@@ -224,7 +227,7 @@ class IdfPytestPlugin:
                     continue
 
     @pytest.hookimpl(wrapper=True)
-    def pytest_collection_modifyitems(self, config: Config, items: t.List[Function]):
+    def pytest_collection_modifyitems(self, config: pytest.Config, items: t.List[pytest.Function]):
         """Filter test cases based on target, sdkconfig, and available apps.
 
         :param config: Pytest configuration
@@ -247,7 +250,7 @@ class IdfPytestPlugin:
 
         yield
 
-        deselected_items: t.List[Function] = []
+        deselected_items: t.List[pytest.Function] = []
 
         # Filter by nightly_run marker
         if os.getenv('INCLUDE_NIGHTLY_RUN') == '1':
@@ -320,7 +323,7 @@ class IdfPytestPlugin:
         # Report deselected items
         config.hook.pytest_deselected(items=deselected_items)
 
-    def pytest_report_collectionfinish(self, items: t.List[Function]) -> None:
+    def pytest_report_collectionfinish(self, items: t.List[pytest.Function]) -> None:
         for item in items:
             case = self.get_case_by_item(item)
             if case is None:
@@ -353,7 +356,7 @@ def pytest_addoption(parser: pytest.Parser):
     )
 
 
-def pytest_configure(config: Config):
+def pytest_configure(config: pytest.Config):
     """Configure the pytest environment for IDF tests.
 
     :param config: Pytest configuration object
@@ -380,7 +383,7 @@ def pytest_configure(config: Config):
     config.addinivalue_line('markers', 'nightly_run: this test case is a nightly run')
 
 
-def pytest_unconfigure(config: Config):
+def pytest_unconfigure(config: pytest.Config):
     """Clean up the IDF pytest plugin when pytest is shutting down.
 
     :param config: Pytest configuration object

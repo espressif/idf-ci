@@ -2,9 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import os
 import subprocess
-import tempfile
 import textwrap
 
 import pytest
@@ -55,41 +53,22 @@ def test_multi_dut(dut) -> None:
 #   test_multi_dut
 
 
-@pytest.fixture
-def sample_test_file():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Create pytest.ini with env_markers
-        with open(os.path.join(tmpdir, 'pytest.ini'), 'w') as f:
-            f.write("""
-[pytest]
-env_markers =
-    generic: applicable to generic ESP devices
-    host_test: this test case runs on host machines
-""")
-
-        # Create the test file
-        test_file_path = os.path.join(tmpdir, 'test_sample.py')
-        with open(test_file_path, 'w') as f:
-            f.write(TEST_FILE_CONTENT)
-
-        yield test_file_path
-
-
 class TestCollectFunction:
     @pytest.fixture(autouse=True)
-    def setup_test_project(self, tmp_path, test_case_name):
-        create_project('sample', tmp_path)
-        with open('pytest.ini', 'w') as f:
+    def setup_test_project(self, pytester):
+        create_project('sample', pytester.path)
+        with open(pytester.path / 'pytest.ini', 'w') as f:
             f.write("""
 [pytest]
 env_markers =
     generic: applicable to generic ESP devices
     multiboard: test case runs on multiple ESP devices
+    qemu: test case runs on qemu
 """)
-        with open(f'{test_case_name}.py', 'w') as f:
+        with open(pytester.path / 'test_sample.py', 'w') as f:
             f.write(TEST_FILE_CONTENT)
 
-    def test_output_as_string(self):
+    def test_output_as_string(self, pytester):
         assert (
             textwrap.dedent("""
                 esp32 - generic: 1 cases
@@ -101,59 +80,61 @@ env_markers =
             """).strip()
             == subprocess.check_output(
                 ['idf-ci', 'test', 'collect'],
+                cwd=pytester.path,
                 encoding='utf8',
             ).strip()
         )
 
-    def test_output_as_github_ci(self, test_case_name):
+    def test_output_as_github_ci(self, pytester):
         assert {
             'include': [
                 {
                     'targets': 'esp32',
                     'env_markers': 'generic',
                     'runner_tags': ['self-hosted', 'esp32', 'generic'],
-                    'nodes': f'{test_case_name}.py::test_single_target[esp32]',
+                    'nodes': 'test_sample.py::test_single_target[esp32]',
                 },
                 {
                     'targets': 'linux',
                     'env_markers': 'generic',
                     'runner_tags': ['self-hosted', 'generic', 'linux'],
-                    'nodes': f'{test_case_name}.py::test_single_target[linux]',
+                    'nodes': 'test_sample.py::test_single_target[linux]',
                 },
                 {
                     'targets': 'esp32',
-                    'env_markers': '',
-                    'runner_tags': ['self-hosted', 'esp32'],
-                    'nodes': f'{test_case_name}.py::test_single_target_qemu[esp32]',
+                    'env_markers': 'qemu',
+                    'runner_tags': ['self-hosted', 'esp32', 'qemu'],
+                    'nodes': 'test_sample.py::test_single_target_qemu[esp32-idf,qemu]',
                 },
                 {
                     'targets': 'esp32c3',
-                    'env_markers': '',
-                    'runner_tags': ['self-hosted', 'esp32c3'],
-                    'nodes': f'{test_case_name}.py::test_single_target_qemu[esp32c3]',
+                    'env_markers': 'qemu',
+                    'runner_tags': ['self-hosted', 'esp32c3', 'qemu'],
+                    'nodes': 'test_sample.py::test_single_target_qemu[esp32c3-idf,qemu]',
                 },
                 {
                     'targets': 'esp32,esp32s2',
                     'env_markers': 'multiboard',
                     'runner_tags': ['self-hosted', 'esp32', 'esp32s2', 'multiboard'],
-                    'nodes': f'{test_case_name}.py::test_multi_dut[2-esp32|esp32s2]',
+                    'nodes': 'test_sample.py::test_multi_dut[2-esp32|esp32s2]',
                 },
                 {
                     'targets': 'esp32,esp32,esp32s2',
                     'env_markers': 'multiboard',
                     'runner_tags': ['self-hosted', 'esp32_2', 'esp32s2', 'multiboard'],
-                    'nodes': f'{test_case_name}.py::test_multi_dut[3-esp32|esp32|esp32s2]',
+                    'nodes': 'test_sample.py::test_multi_dut[3-esp32|esp32|esp32s2]',
                 },
                 {
                     'targets': 'linux,linux',
                     'env_markers': 'multiboard',
                     'runner_tags': ['self-hosted', 'linux_2', 'multiboard'],
-                    'nodes': f'{test_case_name}.py::test_multi_dut[2-linux]',
+                    'nodes': 'test_sample.py::test_multi_dut[2-linux]',
                 },
             ]
         } == json.loads(
             subprocess.check_output(
                 ['idf-ci', 'test', 'collect', '--format', 'github', '--marker-expr', ''],
+                cwd=pytester.path,
                 encoding='utf8',
             ).strip()
         )  # ensure the output is valid JSON
