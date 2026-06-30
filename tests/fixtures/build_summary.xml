@@ -1,0 +1,11 @@
+<testsuites>
+    <testsuite name="build_apps" tests="1" errors="0" failures="0" skipped="0" time="26.44313"
+        timestamp="2026-06-30T11:43:23.132479+00:00" platform="Linux"
+        platform-release="7.0.14-arch1-1" architecture="x86_64" hostname="cutiepie"
+        processor="AMD Ryzen 5 4500U with Radeon Graphics" cpu_count="6" ram="38.40GB">
+        <testcase name="examples/get-started/hello_world/build_esp32_default" time="26.44313"
+            timestamp="2026-06-30T11:43:23.136162+00:00" app_dir="examples/get-started/hello_world"
+            target="esp32" config="default"
+            size="{&quot;version&quot;: &quot;1.2&quot;, &quot;total_size&quot;: 124759, &quot;layout&quot;: [{&quot;name&quot;: &quot;Flash Code&quot;, &quot;total&quot;: 0, &quot;used&quot;: 44550, &quot;free&quot;: 0, &quot;parts&quot;: {&quot;.text&quot;: {&quot;size&quot;: 44550}}}, {&quot;name&quot;: &quot;IRAM&quot;, &quot;total&quot;: 131072, &quot;used&quot;: 41643, &quot;free&quot;: 89429, &quot;parts&quot;: {&quot;.text&quot;: {&quot;size&quot;: 40615}, &quot;.vectors&quot;: {&quot;size&quot;: 1028}}}, {&quot;name&quot;: &quot;Flash Data&quot;, &quot;total&quot;: 0, &quot;used&quot;: 28100, &quot;free&quot;: 0, &quot;parts&quot;: {&quot;.rodata&quot;: {&quot;size&quot;: 27828}, &quot;.appdesc&quot;: {&quot;size&quot;: 256}, &quot;.tdata&quot;: {&quot;size&quot;: 16}}}, {&quot;name&quot;: &quot;DRAM&quot;, &quot;total&quot;: 180736, &quot;used&quot;: 12946, &quot;free&quot;: 167790, &quot;parts&quot;: {&quot;.data&quot;: {&quot;size&quot;: 10426}, &quot;.bss&quot;: {&quot;size&quot;: 2520}}}, {&quot;name&quot;: &quot;RTC SLOW&quot;, &quot;total&quot;: 8192, &quot;used&quot;: 64, &quot;free&quot;: 8128, &quot;parts&quot;: {&quot;.force_slow&quot;: {&quot;size&quot;: 40}, &quot;.rtc_slow_reserved&quot;: {&quot;size&quot;: 24}}}]}" />
+    </testsuite>
+</testsuites>

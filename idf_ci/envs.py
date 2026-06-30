@@ -35,6 +35,13 @@ class GitlabEnvVars(BaseSettings):
     IDF_S3_TIMEOUT_TOTAL: float = 300.0
     """S3 total request timeout in seconds."""
 
+    # Infra Dashboard Configuration
+    INFRA_DASHBOARD_API_URL: t.Optional[str] = None
+    """Infra Dashboard API URL."""
+
+    INFRA_DASHBOARD_PROJECT_ID: t.Optional[int] = None
+    """Infra Dashboard Project ID."""
+
     # other env vars used
     IDF_PATH: str = ''
     """Path to the ESP-IDF directory."""

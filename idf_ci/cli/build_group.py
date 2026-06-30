@@ -9,6 +9,7 @@ import click
 
 from idf_ci.build_collect.scripts import collect_apps, format_as_html, format_as_json
 from idf_ci.scripts import build as build_cmd
+from idf_ci.scripts import upload_app_sizes as upload_app_sizes_cmd
 
 from .._compat import UNDEF
 from ._options import (
@@ -117,3 +118,50 @@ def collect(
             f.write(result_str)
     else:
         click.echo(result_str)
+
+
+@build.command('upload-app-sizes', hidden=True)
+@click.argument('pattern', default='**/build_summary_*.xml')
+@click.option(
+    '--job-token',
+    envvar='CI_JOB_TOKEN',
+    help='GitLab CI job token for authentication.',
+)
+@click.option(
+    '--private-token',
+    help='GitLab personal access token for authentication.',
+)
+@click.option(
+    '--commit-sha',
+    envvar='PIPELINE_COMMIT_SHA',
+    help='Commit SHA.',
+)
+def upload_app_sizes(
+    pattern,
+    job_token,
+    private_token,
+    commit_sha,
+):
+    """Parse build JUnit reports and upload application sizes."""
+    if not commit_sha:
+        raise click.ClickException(
+            'Commit SHA must be specified via --commit-sha or PIPELINE_COMMIT_SHA environment variable.'
+        )
+
+    if not job_token and not private_token:
+        raise click.ClickException('Either GitLab CI job token or GitLab personal access token must be specified.')
+
+    try:
+        count = upload_app_sizes_cmd(
+            pattern=pattern,
+            job_token=job_token,
+            private_token=private_token,
+            commit_sha=commit_sha,
+        )
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+    if count > 0:
+        click.echo(f'Successfully uploaded size information for {count} app{"s" if count > 1 else ""}.')
+    else:
+        click.echo('No app size information was uploaded.')
