@@ -106,6 +106,19 @@ For detailed guides about specific command groups:
 
     cli_group_cmds/*
 
+********************
+ Internal Utilities
+********************
+
+For internal commands and utilities:
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Internal Utilities
+    :glob:
+
+    cli_internal_cmds/*
+
 *************************
  Command Group Reference
 *************************

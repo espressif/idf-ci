@@ -1,11 +1,15 @@
 # SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
+import glob
+import json
 import logging
 import os
 import typing as t
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dataclasses import dataclass
 
+import requests
 from idf_build_apps import App, build_apps, find_apps
 from idf_build_apps.constants import BuildStatus
 from idf_build_apps.manifest import DEFAULT_BUILD_TARGETS
@@ -454,3 +458,110 @@ def build(
     start, stop = get_parallel_start_stop(len(apps), parallel_count, parallel_index)
 
     return apps[start - 1 : stop], ret
+
+
+def upload_app_sizes(
+    pattern: str,
+    commit_sha: str,
+    job_token: t.Optional[str] = None,
+    private_token: t.Optional[str] = None,
+) -> int:
+    """Parse build JUnit reports and upload application sizes.
+
+    :param pattern: Glob pattern for JUnit xml files
+    :param commit_sha: Commit SHA
+    :param job_token: GitLab CI job token for authentication
+    :param private_token: GitLab personal access token for authentication
+
+    Token precedence: job_token -> private_token.
+
+    :returns: Number of uploaded apps
+    """
+    envs = GitlabEnvVars()
+
+    if not envs.INFRA_DASHBOARD_API_URL:
+        raise ValueError('INFRA_DASHBOARD_API_URL environment variable is not set')
+
+    if envs.INFRA_DASHBOARD_PROJECT_ID is None:
+        raise ValueError('INFRA_DASHBOARD_PROJECT_ID environment variable is not set')
+
+    if not job_token and not private_token:
+        raise ValueError('Either GitLab CI job token or GitLab personal access token must be specified')
+
+    url = f'{envs.INFRA_DASHBOARD_API_URL.rstrip("/")}/project/{envs.INFRA_DASHBOARD_PROJECT_ID}/app/size'
+
+    xml_files = glob.glob(pattern, recursive=True)
+    if not xml_files:
+        logger.info('No XML files found matching pattern: %s', pattern)
+        return 0
+
+    payload = []
+    for xml_file in xml_files:
+        try:
+            tree = ET.parse(xml_file)
+            root = tree.getroot()
+        except Exception as e:
+            logger.warning('Failed to parse XML file %s: %s', xml_file, e)
+            continue
+
+        for tc in root.findall('.//testcase'):
+            app_dir = tc.get('app_dir')
+            target = tc.get('target')
+            config = tc.get('config')
+            size_str = tc.get('size')
+
+            try:
+                size_json = json.loads(size_str) if size_str else {}
+            except json.JSONDecodeError:
+                logger.warning('Invalid size JSON "%s" in %s', size_str, xml_file)
+                continue
+
+            total_size_str = size_json.get('total_size')
+
+            if not (app_dir and target and config) or total_size_str is None:
+                logger.warning(
+                    'Missing required attributes in testcase in %s: app_dir=%s, target=%s, config=%s, total_size=%s',
+                    xml_file,
+                    app_dir,
+                    target,
+                    config,
+                    total_size_str,
+                )
+                continue
+
+            try:
+                total_size = int(total_size_str)
+            except ValueError:
+                logger.warning('Invalid total_size "%s" in %s', total_size_str, xml_file)
+                continue
+
+            payload.append(
+                {
+                    'app_path': app_dir,
+                    'target': target,
+                    'config': config,
+                    'total_size': total_size,
+                    'commit_sha': commit_sha,
+                }
+            )
+
+    if not payload:
+        logger.info('No app size information found in the parsed XML files.')
+        return 0
+
+    headers = {
+        'Content-Type': 'application/json',
+    }
+
+    if job_token:
+        headers['Job-Token'] = job_token
+    elif private_token:
+        headers['Private-Token'] = private_token
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise RuntimeError(f'Failed to upload app sizes: {e}') from e
+
+    return len(payload)
