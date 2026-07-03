@@ -496,7 +496,8 @@ class ArtifactManager:
             zip_path = build_dir_path / f'{artifact_type}.zip'
             logger.debug(f'Creating zip {zip_path} with {len(files_to_zip)} files')
 
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Higher compression levels require more CPU resources.
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=1) as zipf:
                 build_dir_resolved = build_dir_path.resolve()
                 for fp in files_to_zip:
                     filepath_resolved = fp.resolve()
