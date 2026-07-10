@@ -61,6 +61,16 @@ def _filter_apps_by_modified_files(
     return [app for app in apps if os.path.abspath(app.app_dir) in modified_app_dirs]
 
 
+def _select_one_variant_per_app(apps: t.Iterable['App']) -> t.List['App']:
+    selected: t.Dict[str, App] = {}
+    for app in sorted(
+        apps, key=lambda _app: (os.path.abspath(_app.app_dir), _app.target, _app.config_name or 'default')
+    ):
+        selected.setdefault(os.path.abspath(app.app_dir), app)
+
+    return list(selected.values())
+
+
 def _filter_apps_by_component_target(
     apps: t.Iterable['App'],
     modified_files: t.Sequence[str],
@@ -336,7 +346,10 @@ def get_all_apps(
         and processed_args.modified_files
         and os.getenv('CI_MERGE_REQUEST_IID') is not None
     ):
-        non_test_apps = set(_filter_apps_by_modified_files(non_test_apps, processed_args.modified_files))
+        non_test_apps = set(_filter_apps_by_modified_files(non_test_apps, processed_args.modified_files)) | set(
+            _select_one_variant_per_app(non_test_apps)
+        )
+
     for app in modified_test_apps:
         app.build_status = BuildStatus.SHOULD_BE_BUILT  # must be built
 
