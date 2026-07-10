@@ -370,6 +370,7 @@ generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}
       - "{{ settings.gitlab.test_pipeline.yaml_filename }}"
   script:
     - idf-ci
+      --config 'gitlab.build_pipeline.job_name_suffix="{{ settings.gitlab.build_pipeline.job_name_suffix }}"'
       --config 'gitlab.test_pipeline.job_image="{{ settings.gitlab.test_pipeline.job_image }}"'
       gitlab test-child-pipeline
 
