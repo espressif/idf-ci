@@ -9,7 +9,10 @@ from pydantic import BaseModel
 from tomlkit import TOMLDocument, load
 from tomlkit import dumps as toml_dumps
 
+from idf_ci.scripts import preprocess_args
 from idf_ci.settings import CiSettings, get_ci_settings, pick_toml_file
+
+from ._options import option_modified_files
 
 
 def _parse_config_key(config_key: str) -> t.List[str]:
@@ -214,3 +217,15 @@ def _format_toml_value(path: str, value: t.Any) -> str:
         cursor = cursor[part]
     cursor[parts[-1]] = value
     return toml_dumps(data).strip()
+
+
+@config.command('get-modified-components')
+@option_modified_files
+def get_modified_components(modified_files: t.Optional[t.List[str]]):
+    """Get components modified by the given files."""
+    processed_args = preprocess_args(
+        modified_files=modified_files,
+    )
+
+    for component in processed_args.modified_components or []:
+        click.echo(component)
