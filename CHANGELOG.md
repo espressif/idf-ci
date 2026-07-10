@@ -20,6 +20,19 @@
 </div>
 <hr>
 
+## v1.2.0 (2026-07-10)
+
+### ✨ New Features
+
+- **pytest**: auto-set embedded_services values *(Fu Hanxi - d6bd886)*
+- support idf-ci config get-modified-components *(Fu Hanxi - a878791)*
+
+### 🐛 Bug Fixes
+
+- **gitlab**: propagate job_name_suffix to test-child-pipeline generation *(Guilherme Ferreira - bc9a535)*
+- **gitlab**: correct pipeline parallel count *(Fu Hanxi - cfe8d5d)*
+
+
 ## v1.1.0 (2026-04-16)
 
 ### ✨ New Features
