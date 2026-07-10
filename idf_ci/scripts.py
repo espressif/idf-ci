@@ -341,6 +341,7 @@ def get_all_apps(
     test_apps = test_apps - modified_test_apps
     non_test_apps = non_test_apps - modified_test_apps - test_apps
 
+    logger.warning('NON_TEST_APPS BEFORE', len(non_test_apps))
     if (
         settings.filter_non_test_related_apps_by_modified_files
         and processed_args.modified_files
@@ -353,7 +354,6 @@ def get_all_apps(
     for app in modified_test_apps:
         app.build_status = BuildStatus.SHOULD_BE_BUILT  # must be built
 
-    print('LEN OF NON_TEST_APPS: ', len(non_test_apps))
     if _select_by_targets:
         # no need to remove test_apps, since they are not in non_test_apps
         non_test_apps = {app for app in non_test_apps if app.target in _select_by_targets}
