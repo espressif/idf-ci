@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v1.2.1 (2026-07-22)
+
+### 🐛 Bug Fixes
+
+- **settings**: unwrap tomlkit values to native python types *(Fu Hanxi - d8cb81c)*
+
+
 ## v1.2.0 (2026-07-10)
 
 ### ✨ New Features
