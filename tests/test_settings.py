@@ -189,6 +189,38 @@ component_ignored_file_extensions = [
     assert len(CiSettings().all_component_mapping_regexes) == 2  # default got 2
 
 
+def test_toml_bool_is_native_bool_not_tomlkit_bool(tmp_path, runner):
+    """Regression test: tomlkit's `Bool` wrapper must be unwrapped to a native bool.
+
+    Without unwrapping, pydantic's strict bool validation rejects tomlkit's `Bool` item
+    type (even though it prints/behaves like `True`/`False`), raising: `Input should be
+    a valid boolean [type=bool_type, input_value=True, input_type=Bool]`
+    """
+    custom_config = tmp_path / 'custom_ci_config.toml'
+    with open(custom_config, 'w') as f:
+        f.write("""
+[gitlab.artifacts.s3.configs.debug]
+bucket = "test-bucket"
+zip_first = true
+
+[gitlab.artifacts.s3.configs.flash]
+bucket = "test-bucket"
+zip_first = true
+""")
+
+    result = runner.invoke(click_cli, ['--config-file', custom_config, 'completions'])
+    assert result.exit_code == 0
+
+    settings = CiSettings()
+    debug_zip_first = settings.gitlab.artifacts.s3.configs['debug'].zip_first
+    flash_zip_first = settings.gitlab.artifacts.s3.configs['flash'].zip_first
+
+    assert debug_zip_first is True
+    assert flash_zip_first is True
+    assert type(debug_zip_first) is bool
+    assert type(flash_zip_first) is bool
+
+
 def test_ci_profile_not_specified(runner):
     original_config_path = CiSettings.CONFIG_FILE_PATH
     with runner.isolated_filesystem() as tmp_d:
