@@ -63,7 +63,15 @@ class TomlConfigSettingsSource(InitSettingsSource):
             return {}
 
         with open(path) as f:
-            return load(f)
+            # tomlkit preserves style-aware wrapper types (e.g. its own `Bool`/`Integer`)
+            # which fail pydantic's strict type checks. `.unwrap()` converts them to
+            # plain python types (bool, int, str, etc.).
+            #
+            # Reproduced with tomlkit==0.13.3, pydantic==2.11.4, pydantic-core==2.33.2,
+            # pydantic-settings==2.9.1: a `bool` field set in the toml file (e.g.
+            # `zip_first = true`) raised `pydantic_core.ValidationError: Input should be
+            # a valid boolean [type=bool_type, input_value=True, input_type=Bool]`.
+            return load(f).unwrap()
 
 
 def pick_toml_file(provided: t.Optional[PathLike], filename: str = '.idf_ci.toml') -> t.Optional[Path]:
