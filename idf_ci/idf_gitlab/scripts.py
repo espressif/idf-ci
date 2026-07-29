@@ -6,6 +6,9 @@ import re
 import typing as t
 
 import yaml
+from gitlab import Gitlab
+
+from ..envs import GitlabEnvVars
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +22,42 @@ def _doublequote_string(value: str) -> str:
     if any(c in value for c in ' \n'):
         return f'"{value}"'
     return value
+
+
+def get_last_nightly_run_pipeline() -> t.Optional[t.Dict[str, t.Any]]:
+    """Get the last pipeline for the scheduled nightly run."""
+    target_branch = os.getenv('CI_MERGE_REQUEST_TARGET_BRANCH_NAME', os.getenv('CI_COMMIT_REF_NAME'))
+    project_id = os.getenv('CI_PROJECT_ID')
+    schedule_name = 'nightly run'
+
+    if not project_id:
+        logger.warning('Cannot find last nightly run pipeline because CI_PROJECT_ID is not set.')
+        return None
+
+    envs = GitlabEnvVars()
+    gl = Gitlab(url=envs.GITLAB_HTTPS_SERVER, private_token=envs.GITLAB_ACCESS_TOKEN)
+
+    project = gl.projects.get(project_id)
+    schedules = project.pipelineschedules.list(all=True)
+    schedule = None
+
+    for s in schedules:
+        if s.description.startswith(schedule_name) and s.ref == target_branch:
+            schedule = s
+            break
+
+    if not schedule:
+        logger.warning(f'No matching schedule found for "{schedule_name}" on branch "{target_branch}".')
+        return None
+
+    schedule_details = project.pipelineschedules.get(schedule.id)
+    last_pipeline = schedule_details.last_pipeline
+
+    if not last_pipeline:
+        logger.warning(f'No pipeline found for schedule "{schedule_name}" on branch "{target_branch}".')
+        return None
+
+    return last_pipeline
 
 
 def pipeline_variables() -> t.Dict[str, str]:
@@ -109,5 +148,13 @@ def pipeline_variables() -> t.Dict[str, str]:
                             f'Setting `IDF_CI_SELECT_BY_TARGETS={res["IDF_CI_SELECT_BY_TARGETS"]}` '
                             f'based on MR description "Select by Targets"'
                         )
+
+    nightly_last_pipeline = get_last_nightly_run_pipeline()
+    if nightly_last_pipeline:
+        res['NIGHTLY_RUN_LAST_PIPELINE_SHA'] = nightly_last_pipeline.get('sha', '')
+        logger.info(
+            f'Setting `NIGHTLY_RUN_LAST_PIPELINE_SHA={res["NIGHTLY_RUN_LAST_PIPELINE_SHA"]}` '
+            f'based on the last nightly run pipeline'
+        )
 
     return {k: _doublequote_string(v) for k, v in res.items()}
