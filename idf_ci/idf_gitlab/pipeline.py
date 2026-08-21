@@ -209,6 +209,7 @@ def test_child_pipeline(
             yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.test_pipeline.workflow_name), fw)
         return
 
+    env = Environment()
     jobs = []
     for key, grouped_cases in cases.grouped_cases.items():
         jobs.append(
@@ -225,9 +226,13 @@ def test_child_pipeline(
             }
         )
 
-    job_template = Environment().from_string(settings.gitlab.test_pipeline.job_template_jinja)
-    jobs_template = Environment().from_string(settings.gitlab.test_pipeline.jobs_jinja)
-    yaml_template = Environment().from_string(settings.gitlab.test_pipeline.yaml_jinja)
+    extra_jobs = env.from_string(settings.gitlab.test_pipeline.extra_jobs_jinja).render(
+        settings=settings,
+        jobs=jobs,
+    )
+    job_template = env.from_string(settings.gitlab.test_pipeline.job_template_jinja)
+    jobs_template = env.from_string(settings.gitlab.test_pipeline.jobs_jinja)
+    yaml_template = env.from_string(settings.gitlab.test_pipeline.yaml_jinja)
 
     with open(yaml_output, 'w') as fw:
         fw.write(
@@ -239,6 +244,7 @@ def test_child_pipeline(
                     jobs=jobs,
                     settings=settings,
                 ),
+                extra_jobs=extra_jobs,
                 settings=settings,
             )
         )
