@@ -152,9 +152,11 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
             'gitlab': {
                 'build_pipeline': {
                     'job_name_suffix': ':build-sfx',
+                    'job_image': 'custom-build:1',
                 },
                 'test_pipeline': {
                     'job_name_suffix': ':test-sfx',
+                    'job_image': 'custom-test:2',
                 },
             },
         }
@@ -205,6 +207,11 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
             'job': 'generate_test_child_pipeline:build-sfx',
         }
     ]
+    generate_script = '\n'.join(generate_test_pipeline_job['script'])
+    assert """--config 'gitlab.build_pipeline.job_name_suffix=":build-sfx"'""" in generate_script
+    assert """--config 'gitlab.build_pipeline.job_image="custom-build:1"'""" in generate_script
+    assert """--config 'gitlab.test_pipeline.job_name_suffix=":test-sfx"'""" in generate_script
+    assert """--config 'gitlab.test_pipeline.job_image="custom-test:2"'""" in generate_script
 
     test_jobs = env.from_string(settings.gitlab.test_pipeline.jobs_jinja).render(
         settings=settings,
@@ -227,6 +234,7 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
     default_test_template = test_pipeline[settings.gitlab.test_pipeline.job_template_name]
     test_job = test_pipeline['esp32 - generic:test-sfx']
 
+    assert default_test_template['image'] == 'custom-test:2'
     assert default_test_template['needs'] == [
         {
             'pipeline': '$PARENT_PIPELINE_ID',
@@ -237,6 +245,24 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
     assert test_job['extends'] == [settings.gitlab.test_pipeline.job_template_name]
     assert test_job['tags'] == ['esp32', 'generic']
     assert test_job['variables']['nodes'] == "'tests/test_example.py::test_case'"
+
+
+def test_generate_test_child_pipeline_forwards_empty_suffixes():
+    """Empty suffixes are forwarded with the same quoting and leave job names unsuffixed."""
+    settings = CiSettings()
+    env = Environment()
+    build_rendered = env.from_string(settings.gitlab.build_pipeline.yaml_jinja).render(
+        settings=settings,
+        job_template='',
+        jobs='',
+        test_related_apps_count=1,
+    )
+    generate_script = '\n'.join(yaml.safe_load(build_rendered)['generate_test_child_pipeline']['script'])
+
+    assert """--config 'gitlab.build_pipeline.job_name_suffix=""'""" in generate_script
+    assert """--config 'gitlab.build_pipeline.job_image="espressif/idf:latest"'""" in generate_script
+    assert """--config 'gitlab.test_pipeline.job_name_suffix=""'""" in generate_script
+    assert """--config 'gitlab.test_pipeline.job_image="python:3-slim"'""" in generate_script
 
 
 @pytest.mark.parametrize(
