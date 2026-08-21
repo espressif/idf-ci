@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v1.2.2 (2026-08-21)
+
+### ✨ New Features
+
+- **gitlab**: forward nested pipeline images and suffixes *(Euripedes Rocha Filho - 7150aa9)*
+
+
 ## v1.2.1 (2026-07-22)
 
 ### 🐛 Bug Fixes
