@@ -361,6 +361,146 @@ coverage:
         assert 'coverage' not in pipeline
 
 
+class TestJobVariablesJinja:
+    def test_empty_output_keeps_only_nodes(self, monkeypatch, tmp_path):
+        settings = CiSettings()
+        pipeline = _write_test_pipeline(
+            monkeypatch,
+            settings,
+            tmp_path,
+            _grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')),
+        )
+
+        assert list(pipeline['esp32 - generic']['variables']) == ['nodes']
+
+    def test_one_variable_applied_to_every_job(self, monkeypatch, tmp_path):
+        settings = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_variables_jinja': 'SHARED: "yes: #keep"',
+                    },
+                },
+            }
+        )
+        pipeline = _write_test_pipeline(
+            monkeypatch,
+            settings,
+            tmp_path,
+            _grouped_cases(
+                _FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_a.py::test_a'),
+                _FakeCase('esp32s2', 'generic', ['esp32s2', 'generic'], 'tests/test_b.py::test_b'),
+            ),
+        )
+
+        for job_name in ('esp32 - generic', 'esp32s2 - generic'):
+            variables = pipeline[job_name]['variables']
+            assert list(variables) == ['nodes', 'SHARED']
+            assert variables['SHARED'] == 'yes: #keep'
+
+    def test_latest_only_output(self, monkeypatch, tmp_path):
+        latest = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_name_suffix': ':idf-latest',
+                        'job_variables_jinja': """
+{% if settings.gitlab.test_pipeline.job_name_suffix == ":idf-latest" %}
+MQTT_CONFORMANCE_SETUP_OPENOCD: "1"
+{% endif %}
+""",
+                    },
+                },
+            }
+        )
+        other = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_name_suffix': ':idf-release',
+                        'job_variables_jinja': latest.gitlab.test_pipeline.job_variables_jinja,
+                    },
+                },
+            }
+        )
+        cases = _grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case'))
+
+        latest_pipeline = _write_test_pipeline(monkeypatch, latest, tmp_path, cases)
+        other_dir = tmp_path / 'other'
+        other_dir.mkdir()
+        other_pipeline = _write_test_pipeline(monkeypatch, other, other_dir, cases)
+
+        assert latest_pipeline['esp32 - generic:idf-latest']['variables']['MQTT_CONFORMANCE_SETUP_OPENOCD'] == '1'
+        assert 'MQTT_CONFORMANCE_SETUP_OPENOCD' not in other_pipeline['esp32 - generic:idf-release']['variables']
+
+    def test_condition_based_on_current_job(self, monkeypatch, tmp_path):
+        settings = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_variables_jinja': """
+{% if job['name'] == 'esp32 - generic' %}
+ONLY_ESP32: "1"
+{% endif %}
+""",
+                    },
+                },
+            }
+        )
+        pipeline = _write_test_pipeline(
+            monkeypatch,
+            settings,
+            tmp_path,
+            _grouped_cases(
+                _FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_a.py::test_a'),
+                _FakeCase('esp32s2', 'generic', ['esp32s2', 'generic'], 'tests/test_b.py::test_b'),
+            ),
+        )
+
+        assert pipeline['esp32 - generic']['variables']['ONLY_ESP32'] == '1'
+        assert 'ONLY_ESP32' not in pipeline['esp32s2 - generic']['variables']
+
+    def test_invalid_non_mapping_output(self, monkeypatch, tmp_path):
+        settings = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_variables_jinja': '- not-a-mapping',
+                    },
+                },
+            }
+        )
+        monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', lambda: settings)
+
+        with pytest.raises(ValueError, match='must render to a YAML mapping of job variables, got list'):
+            generate_test_child_pipeline(
+                str(tmp_path / 'test_child_pipeline.yml'),
+                cases=_grouped_cases(
+                    _FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')
+                ),
+            )
+
+    def test_invalid_yaml_output(self, monkeypatch, tmp_path):
+        settings = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_variables_jinja': 'MQTT_CONFORMANCE_SETUP_OPENOCD: [unterminated',
+                    },
+                },
+            }
+        )
+        monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', lambda: settings)
+
+        with pytest.raises(ValueError, match='rendered invalid YAML'):
+            generate_test_child_pipeline(
+                str(tmp_path / 'test_child_pipeline.yml'),
+                cases=_grouped_cases(
+                    _FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')
+                ),
+            )
+
+
 @pytest.mark.parametrize(
     'item_count,runs_per_job,expected',
     [
