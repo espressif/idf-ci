@@ -65,7 +65,7 @@ class TestPipelineVariables:
         )
 
         assert pipeline_variables() == {
-            'IDF_CI_SELECT_BY_FILTER_EXPR': '"filter1 or filter2"',
+            'IDF_CI_SELECT_BY_FILTER_EXPR': 'filter1 or filter2',
             'IDF_CI_IS_DEBUG_PIPELINE': '1',
             'PIPELINE_COMMIT_SHA': 'abcdef12345',
         }
