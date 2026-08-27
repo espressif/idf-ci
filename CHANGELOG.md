@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v1.2.3 (2026-08-27)
+
+### 🐛 Bug Fixes
+
+- gitlab env files should not contain doublequotes *(Fu Hanxi - c0bd8dc)*
+
+
 ## v1.2.2 (2026-08-21)
 
 ### ✨ New Features
