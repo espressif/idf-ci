@@ -9,7 +9,9 @@ from jinja2 import Environment
 
 from idf_ci.idf_gitlab import ArtifactManager
 from idf_ci.idf_gitlab.pipeline import _parallel_count
+from idf_ci.idf_gitlab.pipeline import test_child_pipeline as generate_test_child_pipeline
 from idf_ci.idf_gitlab.scripts import pipeline_variables
+from idf_ci.idf_pytest.models import GroupedPytestCases
 from idf_ci.settings import CiSettings, _refresh_ci_settings
 
 
@@ -228,6 +230,7 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
         settings=settings,
         default_template=env.from_string(settings.gitlab.test_pipeline.job_template_jinja).render(settings=settings),
         jobs=test_jobs,
+        extra_jobs='',
     )
     test_pipeline = yaml.safe_load(test_rendered)
 
@@ -263,6 +266,239 @@ def test_generate_test_child_pipeline_forwards_empty_suffixes():
     assert """--config 'gitlab.build_pipeline.job_image="espressif/idf:latest"'""" in generate_script
     assert """--config 'gitlab.test_pipeline.job_name_suffix=""'""" in generate_script
     assert """--config 'gitlab.test_pipeline.job_image="python:3-slim"'""" in generate_script
+
+
+class _FakeItem:
+    def __init__(self, nodeid: str):
+        self.nodeid = nodeid
+
+
+class _FakeCase:
+    def __init__(self, target_selector, env_selector, runner_tags, nodeid):
+        self.target_selector = target_selector
+        self.env_selector = env_selector
+        self.runner_tags = tuple(runner_tags)
+        self.item = _FakeItem(nodeid)
+
+
+def _grouped_cases(*cases):
+    return GroupedPytestCases(list(cases))
+
+
+def _write_test_pipeline(monkeypatch, settings, tmp_path, cases):
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', lambda: settings)
+    yaml_output = tmp_path / 'test_child_pipeline.yml'
+    generate_test_child_pipeline(str(yaml_output), cases=cases)
+    return yaml.safe_load(yaml_output.read_text())
+
+
+class TestExtraJobsJinja:
+    def test_empty_fragment_keeps_generated_jobs_only(self, monkeypatch, tmp_path):
+        settings = CiSettings()
+        pipeline = _write_test_pipeline(
+            monkeypatch,
+            settings,
+            tmp_path,
+            _grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')),
+        )
+
+        assert 'esp32 - generic' in pipeline
+        assert list(pipeline) == [
+            'workflow',
+            settings.gitlab.test_pipeline.job_template_name,
+            'esp32 - generic',
+        ]
+
+    def test_rendered_conditional_fragment_appends_job(self, monkeypatch, tmp_path):
+        settings = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_name_suffix': ':idf-latest',
+                        'extra_jobs_jinja': """
+{% if settings.gitlab.test_pipeline.job_name_suffix == ":idf-latest" %}
+coverage{{ settings.gitlab.test_pipeline.job_name_suffix }}:
+  needs:
+    - job: "esp32 - generic{{ settings.gitlab.test_pipeline.job_name_suffix }}"
+  image: "{{ settings.gitlab.test_pipeline.job_image }}"
+  script:
+    - generate-coverage
+{% endif %}
+""",
+                    },
+                },
+            }
+        )
+        pipeline = _write_test_pipeline(
+            monkeypatch,
+            settings,
+            tmp_path,
+            _grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')),
+        )
+
+        assert list(pipeline)[-1] == 'coverage:idf-latest'
+        assert pipeline['coverage:idf-latest']['needs'] == [{'job': 'esp32 - generic:idf-latest'}]
+        assert pipeline['coverage:idf-latest']['image'] == settings.gitlab.test_pipeline.job_image
+        assert pipeline['coverage:idf-latest']['script'] == ['generate-coverage']
+
+    def test_fake_pass_skips_extra_jobs(self, monkeypatch, tmp_path):
+        settings = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'extra_jobs_jinja': """
+coverage:
+  script:
+    - generate-coverage
+""",
+                    },
+                },
+            }
+        )
+        pipeline = _write_test_pipeline(monkeypatch, settings, tmp_path, GroupedPytestCases([]))
+
+        assert pipeline['fake_pass']['script'] == ['echo "skip the entire child pipeline"']
+        assert 'coverage' not in pipeline
+
+
+class TestJobVariablesJinja:
+    def test_empty_output_keeps_only_nodes(self, monkeypatch, tmp_path):
+        settings = CiSettings()
+        pipeline = _write_test_pipeline(
+            monkeypatch,
+            settings,
+            tmp_path,
+            _grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')),
+        )
+
+        assert list(pipeline['esp32 - generic']['variables']) == ['nodes']
+
+    def test_one_variable_applied_to_every_job(self, monkeypatch, tmp_path):
+        settings = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_variables_jinja': 'SHARED: "yes: #keep"',
+                    },
+                },
+            }
+        )
+        pipeline = _write_test_pipeline(
+            monkeypatch,
+            settings,
+            tmp_path,
+            _grouped_cases(
+                _FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_a.py::test_a'),
+                _FakeCase('esp32s2', 'generic', ['esp32s2', 'generic'], 'tests/test_b.py::test_b'),
+            ),
+        )
+
+        for job_name in ('esp32 - generic', 'esp32s2 - generic'):
+            variables = pipeline[job_name]['variables']
+            assert list(variables) == ['nodes', 'SHARED']
+            assert variables['SHARED'] == 'yes: #keep'
+
+    def test_latest_only_output(self, monkeypatch, tmp_path):
+        latest = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_name_suffix': ':idf-latest',
+                        'job_variables_jinja': """
+{% if settings.gitlab.test_pipeline.job_name_suffix == ":idf-latest" %}
+MQTT_CONFORMANCE_SETUP_OPENOCD: "1"
+{% endif %}
+""",
+                    },
+                },
+            }
+        )
+        other = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_name_suffix': ':idf-release',
+                        'job_variables_jinja': latest.gitlab.test_pipeline.job_variables_jinja,
+                    },
+                },
+            }
+        )
+        cases = _grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case'))
+
+        latest_pipeline = _write_test_pipeline(monkeypatch, latest, tmp_path, cases)
+        other_dir = tmp_path / 'other'
+        other_dir.mkdir()
+        other_pipeline = _write_test_pipeline(monkeypatch, other, other_dir, cases)
+
+        assert latest_pipeline['esp32 - generic:idf-latest']['variables']['MQTT_CONFORMANCE_SETUP_OPENOCD'] == '1'
+        assert 'MQTT_CONFORMANCE_SETUP_OPENOCD' not in other_pipeline['esp32 - generic:idf-release']['variables']
+
+    def test_condition_based_on_current_job(self, monkeypatch, tmp_path):
+        settings = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_variables_jinja': """
+{% if job['name'] == 'esp32 - generic' %}
+ONLY_ESP32: "1"
+{% endif %}
+""",
+                    },
+                },
+            }
+        )
+        pipeline = _write_test_pipeline(
+            monkeypatch,
+            settings,
+            tmp_path,
+            _grouped_cases(
+                _FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_a.py::test_a'),
+                _FakeCase('esp32s2', 'generic', ['esp32s2', 'generic'], 'tests/test_b.py::test_b'),
+            ),
+        )
+
+        assert pipeline['esp32 - generic']['variables']['ONLY_ESP32'] == '1'
+        assert 'ONLY_ESP32' not in pipeline['esp32s2 - generic']['variables']
+
+    def test_invalid_non_mapping_output(self, monkeypatch, tmp_path):
+        settings = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_variables_jinja': '- not-a-mapping',
+                    },
+                },
+            }
+        )
+        monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', lambda: settings)
+
+        with pytest.raises(ValueError, match='must render to a YAML mapping of job variables, got list'):
+            generate_test_child_pipeline(
+                str(tmp_path / 'test_child_pipeline.yml'),
+                cases=_grouped_cases(
+                    _FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')
+                ),
+            )
+
+    def test_invalid_yaml_output(self, monkeypatch, tmp_path):
+        settings = CiSettings.model_validate(
+            {
+                'gitlab': {
+                    'test_pipeline': {
+                        'job_variables_jinja': 'MQTT_CONFORMANCE_SETUP_OPENOCD: [unterminated',
+                    },
+                },
+            }
+        )
+        monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', lambda: settings)
+
+        with pytest.raises(ValueError, match='rendered invalid YAML'):
+            generate_test_child_pipeline(
+                str(tmp_path / 'test_child_pipeline.yml'),
+                cases=_grouped_cases(
+                    _FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')
+                ),
+            )
 
 
 @pytest.mark.parametrize(

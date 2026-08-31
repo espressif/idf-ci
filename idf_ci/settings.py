@@ -463,6 +463,12 @@ class TestPipelineSettings(BuildPipelineSettings):
     runs_per_job: int = 30
     """Maximum number of test cases to run in a single job."""
 
+    job_variables_jinja: str = ''
+    """Jinja2 fragment rendered per generated test job as extra CI variables."""
+
+    extra_jobs_jinja: str = ''
+    """Jinja2 fragment rendered as extra jobs after the generated test jobs."""
+
     jobs_jinja: str = """
 {% for job in jobs %}
 {{ job['name'] }}{{ settings.gitlab.test_pipeline.job_name_suffix }}:
@@ -477,6 +483,9 @@ class TestPipelineSettings(BuildPipelineSettings):
 {%- endif %}
   variables:
     nodes: {{ job['nodes'] }}
+{%- for extra_key, extra_value in job.get('extra_variables', {}).items() %}
+    {{ extra_key }}: {{ extra_value }}
+{%- endfor %}
 {% endfor %}
 """.strip()
     """Jinja2 template for test jobs configuration."""
@@ -494,6 +503,8 @@ workflow:
 {%- endif %}
 
 {{ jobs }}
+
+{{ extra_jobs }}
 """.strip()
     """Jinja2 template for the test child pipeline YAML content."""
 

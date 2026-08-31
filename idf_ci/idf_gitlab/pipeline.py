@@ -25,6 +25,40 @@ def _parallel_count(item_count: int, runs_per_job: int) -> int:
     return (item_count - 1) // runs_per_job + 1
 
 
+def _yaml_flow(value: t.Any) -> str:
+    dumped = yaml.safe_dump(value, allow_unicode=True, default_flow_style=True).strip()
+    if dumped.endswith('...'):
+        dumped = dumped[:-3].strip()
+    return dumped
+
+
+def _extra_variables_for_job(
+    settings: CiSettings,
+    job: t.Dict[str, t.Any],
+    env: Environment,
+) -> t.Dict[str, str]:
+    fragment = settings.gitlab.test_pipeline.job_variables_jinja
+    if not fragment.strip():
+        return {}
+
+    rendered = env.from_string(fragment).render(settings=settings, job=job).strip()
+    if not rendered:
+        return {}
+
+    try:
+        parsed = yaml.safe_load(rendered)
+    except yaml.YAMLError as e:
+        raise ValueError(f'gitlab.test_pipeline.job_variables_jinja rendered invalid YAML: {e}') from e
+
+    if not isinstance(parsed, dict):
+        raise ValueError(
+            'gitlab.test_pipeline.job_variables_jinja must render to a YAML mapping of job variables, '
+            f'got {type(parsed).__name__}'
+        )
+
+    return {_yaml_flow(key): _yaml_flow(value) for key, value in parsed.items()}
+
+
 def _get_fake_pass_job(settings: CiSettings, workflow_name: str) -> t.Dict[str, t.Any]:
     # no matter being used in build or test child pipeline,
     # always use the same fake_pass job that extends the build job template
@@ -209,25 +243,30 @@ def test_child_pipeline(
             yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.test_pipeline.workflow_name), fw)
         return
 
+    env = Environment()
     jobs = []
     for key, grouped_cases in cases.grouped_cases.items():
-        jobs.append(
-            {
-                'name': f'{key.target_selector} - {key.env_selector}',
-                'tags': sorted(key.runner_tags),
-                # quote nodeids to avoid special chars issues
-                'nodes': '"' + ' '.join([f"'{c.item.nodeid}'" for c in grouped_cases]) + '"',
-                'parallel_count': _parallel_count(
-                    len(grouped_cases),
-                    settings.gitlab.test_pipeline.runs_per_job,
-                ),
-                **cases.additional_dict.get(key, {}),
-            }
-        )
+        job = {
+            'name': f'{key.target_selector} - {key.env_selector}',
+            'tags': sorted(key.runner_tags),
+            # quote nodeids to avoid special chars issues
+            'nodes': '"' + ' '.join([f"'{c.item.nodeid}'" for c in grouped_cases]) + '"',
+            'parallel_count': _parallel_count(
+                len(grouped_cases),
+                settings.gitlab.test_pipeline.runs_per_job,
+            ),
+            **cases.additional_dict.get(key, {}),
+        }
+        job['extra_variables'] = _extra_variables_for_job(settings, job, env)
+        jobs.append(job)
 
-    job_template = Environment().from_string(settings.gitlab.test_pipeline.job_template_jinja)
-    jobs_template = Environment().from_string(settings.gitlab.test_pipeline.jobs_jinja)
-    yaml_template = Environment().from_string(settings.gitlab.test_pipeline.yaml_jinja)
+    extra_jobs = env.from_string(settings.gitlab.test_pipeline.extra_jobs_jinja).render(
+        settings=settings,
+        jobs=jobs,
+    )
+    job_template = env.from_string(settings.gitlab.test_pipeline.job_template_jinja)
+    jobs_template = env.from_string(settings.gitlab.test_pipeline.jobs_jinja)
+    yaml_template = env.from_string(settings.gitlab.test_pipeline.yaml_jinja)
 
     with open(yaml_output, 'w') as fw:
         fw.write(
@@ -239,6 +278,7 @@ def test_child_pipeline(
                     jobs=jobs,
                     settings=settings,
                 ),
+                extra_jobs=extra_jobs,
                 settings=settings,
             )
         )
