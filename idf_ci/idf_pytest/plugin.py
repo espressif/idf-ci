@@ -16,7 +16,7 @@ from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
 from ..settings import get_ci_settings
 from ..utils import setup_logging
-from .models import PytestCase
+from .models import EMULATOR_MARKER_SERVICES, PytestCase
 
 _MODULE_NOT_FOUND_REGEX = re.compile(r"No module named '(.+?)'")
 IDF_CI_PYTEST_CASE_KEY = pytest.StashKey[t.Optional[PytestCase]]()
@@ -192,9 +192,10 @@ class IdfPytestPlugin:
         if self._has_parametrized_arg(metafunc, 'embedded_services'):
             return
 
-        if metafunc.definition.get_closest_marker('qemu') is not None:
-            metafunc.parametrize('embedded_services', ['idf,qemu'], indirect=True)
-            return
+        for marker, services in sorted(EMULATOR_MARKER_SERVICES.items()):
+            if metafunc.definition.get_closest_marker(marker) is not None:
+                metafunc.parametrize('embedded_services', [services], indirect=True)
+                return
 
         if self._is_linux_target_run(metafunc.config):
             metafunc.parametrize('embedded_services', ['idf'], indirect=True)
@@ -246,7 +247,7 @@ class IdfPytestPlugin:
                 continue
 
             # Add 'host_test' marker to host test cases
-            if 'qemu' in case.all_markers or 'linux' in case.targets:
+            if case.emulator_marker or 'linux' in case.targets:
                 item.add_marker(pytest.mark.host_test)
 
         yield

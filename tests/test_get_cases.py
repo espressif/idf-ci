@@ -46,6 +46,13 @@ class TestGetPytestCases:
         @pytest.mark.qemu
         def test_foo_qemu(dut):
             pass
+
+        @pytest.mark.parametrize('target', [
+            'esp32c3',
+        ], indirect=True)
+        @pytest.mark.espemu
+        def test_foo_espemu(dut):
+            pass
         """)
 
     def test_get_single_specific(self, tmp_path: Path) -> None:
@@ -142,9 +149,10 @@ class TestGetPytestCases:
         assert cases[0].name == 'test_foo_host'
 
         cases = get_pytest_cases(paths=[str(tmp_path)], target='all', marker_expr='host_test')
-        assert len(cases) == 2
+        assert len(cases) == 3
         assert cases[0].name == 'test_foo_host'
         assert cases[1].name == 'test_foo_qemu'
+        assert cases[2].name == 'test_foo_espemu'
 
     def test_custom_app_path(self, tmp_path: Path) -> None:
         script = tmp_path / 'test_custom_app_path.py'
@@ -192,6 +200,17 @@ class TestGetPytestCases:
         assert len(cases) == 1
         assert cases[0].name == 'test_foo_single'
         assert cases[0].caseid == 'esp32.default.test_foo_single'
+
+    def test_espemu_caseid(self, tmp_path: Path) -> None:
+        script = tmp_path / 'test_espemu_caseid.py'
+        script.write_text(self.TEMPLATE_SCRIPT)
+
+        cases = get_pytest_cases(paths=[str(tmp_path)], target='esp32c3', marker_expr='espemu')
+        assert len(cases) == 1
+        assert cases[0].name == 'test_foo_espemu'
+        assert cases[0].caseid == 'esp32c3_espemu.default.test_foo_espemu'
+        # espemu cases are host tests, they must not be picked up by target runs
+        assert cases[0].is_host_test
 
     def test_exclude_dirs(self, tmp_path: Path) -> None:
         script = tmp_path / 'test_exclude_dirs.py'

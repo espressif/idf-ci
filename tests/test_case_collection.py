@@ -22,6 +22,11 @@ def test_single_target(dut) -> None:
 def test_single_target_qemu(dut) -> None:
     pass
 
+@pytest.mark.parametrize('target', ['esp32c3'], indirect=True)
+@pytest.mark.espemu
+def test_single_target_espemu(dut) -> None:
+    pass
+
 @pytest.mark.parametrize(
     'count, target',
     [
@@ -45,6 +50,8 @@ def test_multi_dut(dut) -> None:
 #   test_single_target_qemu
 # esp32c3 - qemu:
 #   test_single_target_qemu
+# esp32c3 - espemu:
+#   test_single_target_espemu
 # esp32,esp32s2 - multiboard:
 #   test_multi_dut
 # esp32,esp32,esp32s2 - multiboard:
@@ -64,6 +71,7 @@ env_markers =
     generic: applicable to generic ESP devices
     multiboard: test case runs on multiple ESP devices
     qemu: test case runs on qemu
+    espemu: test case runs on esp-emu
 """)
         with open(pytester.path / 'test_sample.py', 'w') as f:
             f.write(TEST_FILE_CONTENT)
@@ -111,6 +119,12 @@ env_markers =
                     'env_markers': 'qemu',
                     'runner_tags': ['self-hosted', 'esp32c3', 'qemu'],
                     'nodes': 'test_sample.py::test_single_target_qemu[esp32c3-idf,qemu]',
+                },
+                {
+                    'targets': 'esp32c3',
+                    'env_markers': 'espemu',
+                    'runner_tags': ['self-hosted', 'esp32c3', 'espemu'],
+                    'nodes': 'test_sample.py::test_single_target_espemu[esp32c3-idf,espemu]',
                 },
                 {
                     'targets': 'esp32,esp32s2',

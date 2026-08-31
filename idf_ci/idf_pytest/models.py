@@ -15,6 +15,32 @@ from idf_ci.utils import to_list
 
 logger = logging.getLogger(__name__)
 
+#: Markers of test cases that run the firmware on a host emulator instead of
+#: real hardware, mapped to the pytest-embedded services they require.
+#:
+#: Cases carrying one of these markers are host tests, and their emulator name
+#: is appended to the target in :attr:`PytestCase.caseid` to keep them apart
+#: from the real-target runs of the same test.
+EMULATOR_MARKER_SERVICES: t.Dict[str, str] = {
+    'espemu': 'idf,espemu',
+    'qemu': 'idf,qemu',
+}
+
+
+def get_emulator_marker(markers: t.Iterable[str]) -> t.Optional[str]:
+    """Get the emulator marker out of the given marker names.
+
+    :param markers: Marker names to check
+
+    :returns: The emulator marker name, or None if there is no emulator marker
+    """
+    # sorted for a deterministic result when a case somehow carries more than one
+    for marker in sorted(EMULATOR_MARKER_SERVICES):
+        if marker in markers:
+            return marker
+
+    return None
+
 
 class PytestApp:
     """Represents a pytest app."""
@@ -148,8 +174,8 @@ class PytestCase:
     @property
     def caseid(self) -> str:
         target_str = self.targets[0] if self.is_single_dut else str(tuple(self.targets))
-        if 'qemu' in self.all_markers:
-            target_str += '_qemu'
+        if self.emulator_marker:
+            target_str += f'_{self.emulator_marker}'
         configs = self.configs[0] if self.is_single_dut else tuple(self.configs)
         return f'{target_str}.{configs}.{self.name}'
 
@@ -160,6 +186,15 @@ class PytestCase:
     @property
     def is_host_test(self) -> bool:
         return 'host_test' in self.all_markers or 'linux' in self.targets
+
+    @property
+    def emulator_marker(self) -> t.Optional[str]:
+        """Get the emulator the test case runs on, if any.
+
+        :returns: The emulator marker name, or None if the case runs on real hardware or
+            on linux
+        """
+        return get_emulator_marker(self.all_markers)
 
     @property
     def all_markers(self) -> t.Set[str]:
