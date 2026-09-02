@@ -8,6 +8,7 @@ import pytest
 
 from idf_ci import get_pytest_cases
 from idf_ci.cli import click_cli
+from idf_ci.idf_pytest.models import get_emulator_marker
 
 
 class TestGetPytestCases:
@@ -212,6 +213,26 @@ class TestGetPytestCases:
         # espemu cases are host tests, they must not be picked up by target runs
         assert cases[0].is_host_test
 
+    def test_multiple_emulator_markers_rejected(self, tmp_path: Path) -> None:
+        script = tmp_path / 'test_multiple_emulator_markers.py'
+        script.write_text(
+            textwrap.dedent("""
+            import pytest
+
+            @pytest.mark.parametrize('target', [
+                'esp32c3',
+            ], indirect=True)
+            @pytest.mark.qemu
+            @pytest.mark.espemu
+            def test_foo_two_emulators(dut):
+                pass
+            """)
+        )
+
+        # a case can only run on one emulator, collection must fail loudly
+        with pytest.raises(RuntimeError, match='multiple emulator markers'):
+            get_pytest_cases(paths=[str(tmp_path)], target='esp32c3', marker_expr='')
+
     def test_exclude_dirs(self, tmp_path: Path) -> None:
         script = tmp_path / 'test_exclude_dirs.py'
         script.write_text(self.TEMPLATE_SCRIPT)
@@ -224,3 +245,16 @@ class TestGetPytestCases:
             assert len(cases) == 0
         finally:
             _ci_settings_context.reset(token)
+
+
+class TestGetEmulatorMarker:
+    def test_no_emulator_marker(self) -> None:
+        assert get_emulator_marker(['generic', 'host_test']) is None
+
+    def test_single_emulator_marker(self) -> None:
+        assert get_emulator_marker(['qemu', 'generic']) == 'qemu'
+        assert get_emulator_marker(['espemu']) == 'espemu'
+
+    def test_multiple_emulator_markers(self) -> None:
+        with pytest.raises(ValueError, match='multiple emulator markers: espemu, qemu'):
+            get_emulator_marker(['qemu', 'espemu'], name='test_foo')

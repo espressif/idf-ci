@@ -27,19 +27,26 @@ EMULATOR_MARKER_SERVICES: t.Dict[str, str] = {
 }
 
 
-def get_emulator_marker(markers: t.Iterable[str]) -> t.Optional[str]:
+def get_emulator_marker(markers: t.Iterable[str], *, name: t.Optional[str] = None) -> t.Optional[str]:
     """Get the emulator marker out of the given marker names.
 
     :param markers: Marker names to check
+    :param name: Test case name, used in the error message
 
     :returns: The emulator marker name, or None if there is no emulator marker
-    """
-    # sorted for a deterministic result when a case somehow carries more than one
-    for marker in sorted(EMULATOR_MARKER_SERVICES):
-        if marker in markers:
-            return marker
 
-    return None
+    :raises ValueError: If more than one emulator marker is applied. A test case runs on
+        one emulator or none, so this is always a mistake in the test file.
+    """
+    # sorted for a deterministic error message
+    found = sorted(set(markers) & set(EMULATOR_MARKER_SERVICES))
+    if len(found) > 1:
+        raise ValueError(
+            f'Test case {name or "<unknown>"} is marked with multiple emulator markers: '
+            f'{", ".join(found)}. A test case can only run on one emulator.'
+        )
+
+    return found[0] if found else None
 
 
 class PytestApp:
@@ -193,8 +200,10 @@ class PytestCase:
 
         :returns: The emulator marker name, or None if the case runs on real hardware or
             on linux
+
+        :raises ValueError: If the case is marked with more than one emulator marker
         """
-        return get_emulator_marker(self.all_markers)
+        return get_emulator_marker(self.all_markers, name=self.name)
 
     @property
     def all_markers(self) -> t.Set[str]:
