@@ -15,6 +15,39 @@ from idf_ci.utils import to_list
 
 logger = logging.getLogger(__name__)
 
+#: Markers of test cases that run the firmware on a host emulator instead of
+#: real hardware, mapped to the pytest-embedded services they require.
+#:
+#: Cases carrying one of these markers are host tests, and their emulator name
+#: is appended to the target in :attr:`PytestCase.caseid` to keep them apart
+#: from the real-target runs of the same test.
+EMULATOR_MARKER_SERVICES: t.Dict[str, str] = {
+    'espemu': 'idf,espemu',
+    'qemu': 'idf,qemu',
+}
+
+
+def get_emulator_marker(markers: t.Iterable[str], *, name: t.Optional[str] = None) -> t.Optional[str]:
+    """Get the emulator marker out of the given marker names.
+
+    :param markers: Marker names to check
+    :param name: Test case name, used in the error message
+
+    :returns: The emulator marker name, or None if there is no emulator marker
+
+    :raises ValueError: If more than one emulator marker is applied. A test case runs on
+        one emulator or none, so this is always a mistake in the test file.
+    """
+    # sorted for a deterministic error message
+    found = sorted(set(markers) & set(EMULATOR_MARKER_SERVICES))
+    if len(found) > 1:
+        raise ValueError(
+            f'Test case {name or "<unknown>"} is marked with multiple emulator markers: '
+            f'{", ".join(found)}. A test case can only run on one emulator.'
+        )
+
+    return found[0] if found else None
+
 
 class PytestApp:
     """Represents a pytest app."""
@@ -148,8 +181,8 @@ class PytestCase:
     @property
     def caseid(self) -> str:
         target_str = self.targets[0] if self.is_single_dut else str(tuple(self.targets))
-        if 'qemu' in self.all_markers:
-            target_str += '_qemu'
+        if self.emulator_marker:
+            target_str += f'_{self.emulator_marker}'
         configs = self.configs[0] if self.is_single_dut else tuple(self.configs)
         return f'{target_str}.{configs}.{self.name}'
 
@@ -160,6 +193,17 @@ class PytestCase:
     @property
     def is_host_test(self) -> bool:
         return 'host_test' in self.all_markers or 'linux' in self.targets
+
+    @property
+    def emulator_marker(self) -> t.Optional[str]:
+        """Get the emulator the test case runs on, if any.
+
+        :returns: The emulator marker name, or None if the case runs on real hardware or
+            on linux
+
+        :raises ValueError: If the case is marked with more than one emulator marker
+        """
+        return get_emulator_marker(self.all_markers, name=self.name)
 
     @property
     def all_markers(self) -> t.Set[str]:
