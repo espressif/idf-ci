@@ -20,6 +20,19 @@
 </div>
 <hr>
 
+## v1.3.0 (2026-09-07)
+
+### ✨ New Features
+
+- **pytest**: support esp-emu emulator alongside qemu *(Mahavir Jain - e935c99)*
+- **gitlab**: add job_variables_jinja for generated test jobs *(Euripedes Rocha Filho - 1283fd3)*
+- **gitlab**: add extra_jobs_jinja hook for test pipelines *(Euripedes Rocha Filho - 02ae2c5)*
+
+### 🐛 Bug Fixes
+
+- **pytest**: reject test cases marked with multiple emulators *(Mahavir Jain - 2c185c9)*
+
+
 ## v1.2.3 (2026-08-27)
 
 ### 🐛 Bug Fixes
