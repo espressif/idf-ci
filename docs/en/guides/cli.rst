@@ -97,7 +97,29 @@ The tool supports shell autocompletion for Bash, Zsh, and Fish. Use ``idf-ci com
  Command Groups
 ****************
 
-For detailed guides about specific command groups:
+The CLI is organized into four main command groups:
+
+.. list-table::
+    :header-rows: 1
+    :widths: 15 35 50
+
+    - - Group
+      - Commands
+      - Purpose
+    - - ``build``
+      - ``run``, ``init``, ``collect``
+      - Build ESP-IDF applications and manage ``.idf_build_apps.toml``.
+    - - ``test``
+      - ``collect``, ``init``
+      - Collect pytest test cases and manage ``pytest.ini``.
+    - - ``gitlab``
+      - ``pipeline-variables``, ``build-child-pipeline``, ``test-child-pipeline``, ``download-artifacts``, ``upload-artifacts``, ``generate-presigned-json``, ``download-known-failure-cases-file``
+      - Generate dynamic GitLab CI pipelines and manage S3 artifacts.
+    - - ``config``
+      - ``show``, ``explain``, ``get-modified-components``
+      - Inspect settings, explain keys, and map modified files to components.
+
+For detailed guides about each command group:
 
 .. toctree::
     :maxdepth: 1

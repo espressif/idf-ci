@@ -8,27 +8,25 @@ Reference for the ``idf-ci build`` command group, which builds applications and 
  build run
 ***********
 
-To execute the build process for applications, use the ``run`` command:
+Build applications based on paths and filter options:
 
 .. code-block:: bash
 
     idf-ci build run [OPTIONS]
 
-This command builds applications based on the specified options and paths.
-
 Options:
 
-- ``--paths PATHS`` - Paths to process (defaults to the current directory)
-- ``--target TARGET`` - Target to process (default: all)
-- ``--parallel-count COUNT`` - Number of parallel builds
-- ``--parallel-index INDEX`` - Index of parallel build (1-based)
-- ``--modified-files FILES`` - List of modified files
-- ``--only-test-related`` - Run build only for test-related apps
-- ``--only-non-test-related`` - Run build only for non-test-related apps
-- ``--dry-run`` - Run build in dry-run mode
-- ``--build-system SYSTEM`` - Filter apps by build system. Can be "cmake", "make", or a custom App class path (default: cmake)
-- ``--marker-expr EXPR`` - Pytest marker expression
-- ``--filter-expr EXPR`` - Pytest filter expression
+- ``-p, --paths PATHS`` - Directories to process (can pass multiple times; default: current directory)
+- ``-t, --target TARGET`` - Target chip to process (default: all)
+- ``--parallel-count COUNT`` - Total number of parallel build jobs
+- ``--parallel-index INDEX`` - Index of this parallel build job (1-based)
+- ``--modified-files FILES`` - Semicolon-separated list of modified files
+- ``--only-test-related`` - Build only applications needed by tests
+- ``--only-non-test-related`` - Build only applications not needed by tests
+- ``--dry-run`` - Print which apps would build without compiling them
+- ``--build-system SYSTEM`` - Filter apps by build system ("cmake", "make", or a custom App class)
+- ``-m, --marker-expr EXPR`` - Pytest marker expression to select test apps
+- ``-k, --filter-expr EXPR`` - Pytest filter expression to select test apps
 
 Examples:
 
@@ -37,8 +35,8 @@ Examples:
     # Build all applications
     idf-ci build run
 
-    # Build specific applications
-    idf-ci build run --paths /path/to/app1 /path/to/app2
+    # Build applications in specific directories
+    idf-ci build run -p app1 -p app2
 
     # Build for a specific target
     idf-ci build run --target esp32
@@ -46,17 +44,17 @@ Examples:
     # Build only test-related applications
     idf-ci build run --only-test-related
 
-    # Build applications using make build system
-    idf-ci build run --build-system make
+    # Preview build list without compiling (dry-run)
+    idf-ci build run --dry-run
 
-    # Build with parallel processing
+    # Build using parallel jobs (job 1 of 4)
     idf-ci build run --parallel-count 4 --parallel-index 1
 
 ************
  build init
 ************
 
-To create a build configuration file with default values (``.idf_build_apps.toml``), use the ``init`` command:
+Create a starter build configuration file (``.idf_build_apps.toml``) with default settings:
 
 .. code-block:: bash
 
@@ -64,23 +62,23 @@ To create a build configuration file with default values (``.idf_build_apps.toml
 
 Options:
 
-- ``--path PATH`` - Path to create the config file
+- ``--path PATH`` - Directory or file path where the config file is created
 
-Example:
+Examples:
 
 .. code-block:: bash
 
-    # Create build configuration file in current directory
+    # Create .idf_build_apps.toml in current directory
     idf-ci build init
 
-    # Create build configuration file in specific directory
-    idf-ci build init --path /path/to/config
+    # Create config file in a specific directory
+    idf-ci build init --path /path/to/project
 
 ***************
  build collect
 ***************
 
-This command collects all applications and their test cases, and outputs the result in JSON format.
+Collect all applications and their test cases, and output the report in JSON or HTML format:
 
 .. code-block:: bash
 
@@ -88,12 +86,12 @@ This command collects all applications and their test cases, and outputs the res
 
 Options:
 
-- ``--paths PATHS`` - Paths to search for applications (defaults to the current directory)
-- ``--output OUTPUT`` - Output destination (defaults to stdout)
-- ``--format [json|html]`` - Output format (default: json)
-- ``--include-only-enabled`` - Include only enabled applications
+- ``-p, --paths PATHS`` - Directories to search for applications (default: current directory)
+- ``-o, --output OUTPUT`` - File path to write the output to (default: print to stdout)
+- ``--format [json|html]`` - Output format (default: ``json``)
+- ``--include-only-enabled-apps`` - Include only enabled applications
 
-Output format:
+Output format (JSON):
 
 .. code-block:: json
 
@@ -163,13 +161,13 @@ Examples:
     idf-ci build collect
 
     # Collect applications in specified directories
-    idf-ci build collect --paths /path/to/dir1 /path/to/dir2
+    idf-ci build collect -p dir1 -p dir2
 
-    # Collect applications and output to a file
-    idf-ci build collect --output /path/to/output.json
+    # Save report to a JSON file
+    idf-ci build collect -o output.json
 
-    # Collect applications and output in HTML format
-    idf-ci build collect --format html --output /path/to/output.html
+    # Generate an HTML report
+    idf-ci build collect --format html -o report.html
 
     # Collect only enabled applications
-    idf-ci build collect --include-only-enabled
+    idf-ci build collect --include-only-enabled-apps

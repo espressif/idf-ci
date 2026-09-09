@@ -19,7 +19,7 @@ from idf_ci.settings import get_ci_settings
 
 @click.group()
 def gitlab():
-    """Group of gitlab related commands"""
+    """GitLab related commands."""
     pass
 
 

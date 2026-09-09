@@ -248,10 +248,10 @@ This command uploads to S3 only; GitLab built-in storage is not supported. If th
 
 Options:
 
-- ``--type [debug|flash]`` - Type of artifacts to upload
-- ``--commit-sha COMMIT_SHA`` - Commit SHA to upload artifacts to
-- ``--branch BRANCH`` - Git branch to use (if not provided, will use current git branch)
-- ``--build-dir BUILD_DIR`` - Upload from a specific build directory instead of discovering directories from ``build_dir_pattern``
+- ``--type TYPE`` - Type of S3 artifacts to upload (default: all configured types, such as ``debug``, ``flash``, or custom types)
+- ``--commit-sha COMMIT_SHA`` - Commit SHA to store artifacts under
+- ``--branch BRANCH`` - Git branch to use (defaults to current Git branch)
+- ``--build-dir BUILD_DIR`` - Upload from a specific build directory instead of discovering directories via ``build_dir_pattern``
 
 Example:
 
@@ -263,44 +263,48 @@ Example:
     # Upload flash artifacts from a specific directory
     idf-ci gitlab upload-artifacts --type flash --commit-sha abc123 /path/to/build
 
-    # Upload only one discovered build directory
+    # Upload only one specific build directory
     idf-ci gitlab upload-artifacts --type flash --commit-sha abc123 --build-dir app/build_esp32_build
 
 Generate Presigned URLs
 -----------------------
 
-Generate presigned URLs for S3 artifacts with ``generate-presigned-json``:
+Generate presigned GET URLs for S3 artifacts with ``generate-presigned-json``:
 
 .. code-block:: bash
 
     idf-ci gitlab generate-presigned-json [OPTIONS] [FOLDER]
 
-This command generates presigned URLs for artifacts that would be uploaded to S3 storage. The URLs can be used to download the artifacts directly from S3.
+This command generates presigned URLs for artifacts stored in S3. Downstream jobs without S3 credentials can then download artifacts directly through these URLs.
 
 Options:
 
 - ``--commit-sha COMMIT_SHA`` - Commit SHA to generate presigned URLs for
-- ``--branch BRANCH`` - Git branch to use (if not provided, will use current git branch)
-- ``--type [debug|flash]`` - Type of artifacts to generate URLs for
-- ``--expire-in-days DAYS`` - Expiration time in days for the presigned URLs (default: 4 days)
+- ``--branch BRANCH`` - Git branch to use (defaults to current Git branch)
+- ``--type TYPE`` - Type of S3 artifacts to generate URLs for (default: all configured types)
+- ``--expire-in-days DAYS`` - Expiration time in days for presigned URLs (default: 4)
+- ``-o, --output OUTPUT`` - File path to save the presigned JSON (default: print to stdout)
 
 Example:
 
 .. code-block:: bash
 
-    # Generate presigned URLs for debug artifacts
+    # Generate presigned URLs for debug artifacts and print to stdout
     idf-ci gitlab generate-presigned-json --type debug --commit-sha abc123
+
+    # Save presigned URLs for all artifacts to a file
+    idf-ci gitlab generate-presigned-json --commit-sha abc123 -o presigned.json
 
 Download Known Failure Cases
 ----------------------------
 
-Download a known failure cases file from S3 with ``download-known-failure-cases-file``:
+Download a known failure cases file from S3 storage with ``download-known-failure-cases-file``:
 
 .. code-block:: bash
 
     idf-ci gitlab download-known-failure-cases-file FILENAME
 
-S3 storage must be configured for this command to work.
+This command downloads the specified file from the S3 bucket defined by ``gitlab.known_failure_cases_bucket_name`` (default: ``ignore-test-result-files``). This file lists tests that are known to fail or are flaky, allowing CI runs to skip or record them appropriately. Direct S3 access must be configured for this command.
 
 Implementation Details
 ----------------------

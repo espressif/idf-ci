@@ -8,49 +8,61 @@ Reference for the ``idf-ci test`` command group, which collects test cases and m
  test collect
 **************
 
-To collect and process pytest cases, use the ``collect`` command:
+Collect and process pytest cases based on target, markers, and paths:
 
 .. code-block:: bash
 
-    idf-ci test collect [OPTIONS] [PATHS]
+    idf-ci test collect [OPTIONS] [PATHS...]
 
-This command collects pytest cases from the specified paths (defaults to the current directory) and processes them according to the options.
+If ``PATHS`` are not specified, tests are collected from the current directory.
 
 Options:
 
-- ``--target TARGET`` - Target to process (default: all)
-- ``--marker-expr EXPR`` - Pytest marker expression
-- ``--filter-expr EXPR`` - Pytest filter expression
-- ``--format FORMAT`` - Output format (raw or github, default: raw)
-- ``--output OUTPUT`` - Output destination (defaults to stdout)
+- ``-t, --target TARGET`` - Target chip to filter by, or ``all`` for all targets (default: ``all``)
+- ``-m, --marker-expr EXPR`` - Pytest marker expression (e.g. ``"not slow"``, ``"qemu"``)
+- ``-k, --filter-expr EXPR`` - Pytest filter expression matching test names
+- ``--format [raw|github]`` - Output format: ``raw`` (space-separated test node IDs) or ``github`` (GitHub Actions workflow outputs; default: ``raw``)
+- ``-o, --output OUTPUT`` - File path to save output to (default: print to stdout)
+
+Emulator Markers
+================
+
+Cases marked with an emulator marker (such as ``qemu`` or ``espemu``):
+
+- Automatically configure pytest-embedded services (``idf,qemu`` or ``idf,espemu``).
+- Run as host tests, so they are kept separate from target hardware test jobs.
+- Include the emulator name in their case ID (for example, ``esp32c3_espemu.default.test_foo``) so that emulator results stay distinct from real-target runs.
 
 Examples:
 
 .. code-block:: bash
 
-    # Collect all test cases
+    # Collect all test cases in current directory
     idf-ci test collect
 
     # Collect test cases from specific paths
-    idf-ci test collect /path/to/test1 /path/to/test2
+    idf-ci test collect path/to/tests1 path/to/tests2
 
     # Collect test cases for a specific target
-    idf-ci test collect --target esp32
+    idf-ci test collect -t esp32
 
-    # Collect test cases with specific markers
-    idf-ci test collect --marker-expr "not slow"
+    # Collect test cases with marker filter
+    idf-ci test collect -m "not host_test"
 
-    # Output in GitHub format
+    # Collect test cases running on QEMU
+    idf-ci test collect -m "qemu"
+
+    # Format output for GitHub Actions
     idf-ci test collect --format github
 
-    # Save output to file
-    idf-ci test collect --output test_cases.txt
+    # Save collected node IDs to a file
+    idf-ci test collect -o test_nodes.txt
 
 ***********
  test init
 ***********
 
-To create a test configuration file with default values (``pytest.ini``), use the ``init`` command:
+Create a starter test configuration file (``pytest.ini``) with default settings:
 
 .. code-block:: bash
 
@@ -58,14 +70,14 @@ To create a test configuration file with default values (``pytest.ini``), use th
 
 Options:
 
-- ``--path PATH`` - Path to create the config file
+- ``--path PATH`` - Directory or file path where ``pytest.ini`` is created
 
 Examples:
 
 .. code-block:: bash
 
-    # Create test configuration file in current directory
+    # Create pytest.ini in current directory
     idf-ci test init
 
-    # Create test configuration file in specific directory
-    idf-ci test init --path /path/to/config
+    # Create pytest.ini in a specific directory
+    idf-ci test init --path /path/to/project

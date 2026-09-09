@@ -14,11 +14,11 @@ Add the following to your ``.pre-commit-config.yaml``:
 
     repos:
       - repo: https://github.com/espressif/idf-ci
-        rev: v0.7.0  # Use the latest version
+        rev: v1.3.0  # Use the latest version
         hooks:
           - id: check-tests-missing-config
 
-Run manually:
+Run the hook manually:
 
 .. code-block:: bash
 

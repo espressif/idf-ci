@@ -14,7 +14,7 @@ Show a resolved value and its source (default, config file, or CLI override):
 
 .. code-block:: bash
 
-    idf-ci config show gitlab.project_name
+    idf-ci config show gitlab.project
 
 *************************
  Understand a config key
@@ -36,7 +36,7 @@ Use dot-separated paths for nested keys:
  Put overrides in a TOML file
 ******************************
 
-Create or edit ``.idf_ci.toml`` at your repo root:
+Create or edit ``.idf_ci.toml`` at your repository root:
 
 .. code-block:: toml
 
@@ -51,6 +51,36 @@ You can also generate a starter file with:
     idf-ci init
 
 If the file lives elsewhere, point to it with ``--config-file``.
+
+**************************************
+ Component Mapping and Modified Files
+**************************************
+
+``idf-ci`` determines which ESP-IDF components are affected by modified files so CI pipelines only build what changed.
+
+Configure component extraction rules and ignored extensions in ``.idf_ci.toml``:
+
+.. code-block:: toml
+
+    component_mapping_regexes = [
+        "/components/(.+)/",
+        "/common_components/(.+)/",
+    ]
+
+    component_ignored_file_extensions = [
+        ".md",
+        ".rst",
+        ".yaml",
+        ".yml",
+        ".py",
+    ]
+
+Test how your rules map changed files to components with ``get-modified-components``:
+
+.. code-block:: bash
+
+    idf-ci config get-modified-components \
+      --modified-files "components/esp_wifi/src/wifi.c;docs/index.rst"
 
 ******************************
  Override values from the CLI

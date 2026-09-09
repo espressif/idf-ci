@@ -37,9 +37,22 @@ Preview only the non-test-related build:
  Test Stage
 ************
 
-The test stage runs pytest. Because idf-ci integrates as a pytest plugin, you can use standard pytest options to inspect what would run. Pytest settings live in ``pytest.ini``; see :doc:`../references/test-config-file`.
+The test stage runs pytest. Because idf-ci integrates as a pytest plugin, you can preview tests using either ``idf-ci test collect`` or standard ``pytest`` options. Pytest settings live in ``pytest.ini``; see :doc:`../references/test-config-file`.
 
-Preview test collection:
+Preview test collection with idf-ci:
+
+.. code-block:: bash
+
+    # Collect all tests
+    idf-ci test collect
+
+    # Collect tests for a specific target
+    idf-ci test collect -t esp32
+
+    # Collect tests matching a marker (e.g. QEMU emulator tests)
+    idf-ci test collect -m "qemu"
+
+You can also use standard pytest collection options:
 
 .. code-block:: bash
 
