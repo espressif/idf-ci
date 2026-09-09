@@ -15,10 +15,10 @@ import subprocess
 
 project = 'idf-ci'
 project_homepage = 'https://github.com/espressif/idf-ci'
-copyright = '2025, Espressif Systems (Shanghai) Co., Ltd.'  # noqa: A001
+copyright = '2026, Espressif Systems (Shanghai) Co., Ltd.'  # noqa: A001
 author = 'Fu Hanxi'
 languages = ['en']
-version = '0.x'
+version = '1.x'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
