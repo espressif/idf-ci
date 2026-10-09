@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import logging
+import os
 import typing as t
+from functools import lru_cache
 
 from pydantic_settings import (
     BaseSettings,
@@ -114,3 +116,18 @@ class GitlabEnvVars(BaseSettings):
             return targets
 
         return None
+
+
+@lru_cache(maxsize=1)
+def _load_env_vars(_snapshot: t.Tuple[t.Tuple[str, str], ...]) -> GitlabEnvVars:
+    return GitlabEnvVars()
+
+
+def get_env_vars() -> GitlabEnvVars:
+    """Reuse one snapshot until a supported environment variable changes."""
+    # The environment scan still runs on every call; only Pydantic construction
+    # is cached. The key changes when the CLI injects runtime envs or a caller
+    # temporarily overrides a supported variable.
+    return _load_env_vars(
+        tuple(sorted((key, value) for key, value in os.environ.items() if key.upper() in GitlabEnvVars.model_fields))
+    )

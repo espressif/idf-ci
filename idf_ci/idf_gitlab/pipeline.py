@@ -10,7 +10,7 @@ import yaml
 from idf_build_apps import App
 from jinja2 import Environment
 
-from idf_ci.envs import GitlabEnvVars
+from idf_ci.envs import get_env_vars
 from idf_ci.idf_pytest import GroupedPytestCases, get_pytest_cases
 from idf_ci.scripts import get_all_apps
 from idf_ci.settings import CiSettings, get_ci_settings
@@ -100,7 +100,7 @@ def build_child_pipeline(
     yaml_output: t.Optional[str] = None,
 ) -> None:
     """Generate build child pipeline."""
-    envs = GitlabEnvVars()
+    envs = get_env_vars()
     settings = get_ci_settings()
 
     if compare_manifest_sha_filepath and not os.path.isfile(compare_manifest_sha_filepath):

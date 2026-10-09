@@ -12,7 +12,7 @@ from idf_build_apps.manifest import DEFAULT_BUILD_TARGETS
 from idf_build_apps.utils import get_parallel_start_stop
 
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
-from .envs import GitlabEnvVars
+from .envs import get_env_vars
 from .filters.component_targets import should_skip_build_for_components
 from .settings import get_ci_settings
 
@@ -113,7 +113,7 @@ def preprocess_args(
     :returns: Processed arguments as a ProcessedArgs object
     """
     settings = get_ci_settings()
-    envs = GitlabEnvVars()
+    envs = get_env_vars()
 
     processed_targets = DEFAULT_BUILD_TARGETS.get() if default_build_targets is None else default_build_targets
     if settings.extra_default_build_targets:
@@ -198,7 +198,7 @@ def get_all_apps(
     :returns: Tuple of (test_related_apps, non_test_related_apps)
     """
     settings = get_ci_settings()
-    envs = GitlabEnvVars()
+    envs = get_env_vars()
     processed_args = preprocess_args(
         modified_files=modified_files,
         modified_components=modified_components,
@@ -394,7 +394,7 @@ def build(
 
     :returns: Tuple of (built apps, build return code)
     """
-    envs = GitlabEnvVars()
+    envs = get_env_vars()
     settings = get_ci_settings()
 
     # Preprocess arguments
