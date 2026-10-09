@@ -14,7 +14,7 @@ from idf_build_apps.utils import get_parallel_start_stop
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
 from .envs import get_env_vars
 from .filters.component_targets import should_skip_build_for_components
-from .settings import get_ci_settings
+from .settings import get_ci_settings, toolchain_app_list_path
 
 if t.TYPE_CHECKING:
     from .idf_pytest import PytestCase
@@ -147,8 +147,14 @@ def preprocess_args(
         non_test_related_apps: t.Optional[t.List[App]] = None
     else:
         logger.debug('Running in CI, reading test-related and non-test-related apps from files if available')
-        test_related_apps = settings.read_apps_from_files([settings.collected_test_related_apps_filepath])
-        non_test_related_apps = settings.read_apps_from_files([settings.collected_non_test_related_apps_filepath])
+        app_list_suffix = envs.IDF_CI_APP_LIST_SUFFIX
+        test_related_path = settings.collected_test_related_apps_filepath
+        non_test_related_path = settings.collected_non_test_related_apps_filepath
+        if app_list_suffix:
+            test_related_path = toolchain_app_list_path(test_related_path, app_list_suffix)
+            non_test_related_path = toolchain_app_list_path(non_test_related_path, app_list_suffix)
+        test_related_apps = settings.read_apps_from_files([test_related_path])
+        non_test_related_apps = settings.read_apps_from_files([non_test_related_path])
 
         # if one of the two is None, it should be empty list
         if test_related_apps is None and non_test_related_apps is not None:

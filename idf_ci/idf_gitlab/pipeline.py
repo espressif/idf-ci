@@ -5,6 +5,8 @@
 import logging
 import os
 import typing as t
+from contextlib import nullcontext
+from unittest.mock import patch
 
 import yaml
 from idf_build_apps import App
@@ -98,36 +100,55 @@ def build_child_pipeline(
     modified_files: t.Optional[t.List[str]] = None,
     compare_manifest_sha_filepath: t.Optional[str] = None,
     yaml_output: t.Optional[str] = None,
+    toolchain: t.Optional[str] = None,
+    app_list_suffix: str = '',
+    legacy_default: bool = False,
 ) -> None:
     """Generate build child pipeline."""
-    envs = get_env_vars()
     settings = get_ci_settings()
-
+    # Unconfigured calls keep their original environment and byte-identical YAML.
+    # CLI selection takes precedence over TOML / --config settings.
+    explicit_toolchain = not legacy_default and (
+        toolchain is not None or settings.gitlab.build_pipeline.toolchain != 'gcc'
+    )
+    toolchain = toolchain or settings.gitlab.build_pipeline.toolchain
+    if toolchain not in settings.gitlab.build_enabled_toolchains:
+        raise ValueError(f'Toolchain {toolchain} is not enabled for builds')
+    if toolchain != 'gcc':
+        settings = settings.model_copy(deep=True)
+        settings.gitlab.build_pipeline.workflow_name = f'{settings.gitlab.build_pipeline.workflow_name} ({toolchain})'
+    filter_expr = get_env_vars().select_by_filter_expr
     if compare_manifest_sha_filepath and not os.path.isfile(compare_manifest_sha_filepath):
         compare_manifest_sha_filepath = None
 
     if yaml_output is None:
         yaml_output = settings.gitlab.build_pipeline.yaml_filename
 
-    # Check if we should run quick pipeline
-    if envs.select_by_filter_expr:
-        # we only build test related apps
-        test_related_apps, _ = get_all_apps(
-            paths=paths,
-            marker_expr='not host_test',
-            filter_expr=envs.select_by_filter_expr,
-        )
-        non_test_related_apps: t.List[App] = []
-        dump_apps_to_txt(test_related_apps, settings.collected_test_related_apps_filepath)
-    else:
-        test_related_apps, non_test_related_apps = get_all_apps(
-            paths=paths,
-            modified_files=modified_files,
-            marker_expr='not host_test',
-            compare_manifest_sha_filepath=compare_manifest_sha_filepath,
-        )
-        dump_apps_to_txt(test_related_apps, settings.collected_test_related_apps_filepath)
-        dump_apps_to_txt(non_test_related_apps, settings.collected_non_test_related_apps_filepath)
+    # idf-build-apps manifest rules read IDF_TOOLCHAIN directly from os.environ,
+    # not from idf-ci settings. Expose an explicit selection only during discovery;
+    # patch.dict restores the previous value, and omission preserves legacy behavior.
+    with patch.dict(os.environ, {'IDF_TOOLCHAIN': toolchain}) if explicit_toolchain else nullcontext():
+        if filter_expr:
+            # we only build test related apps
+            test_related_apps, _ = get_all_apps(
+                paths=paths,
+                marker_expr='not host_test',
+                filter_expr=filter_expr,
+            )
+            non_test_related_apps: t.List[App] = []
+            dump_apps_to_txt(test_related_apps, settings.collected_test_related_apps_filepath)
+            # The shared generator publishes both app-list filenames for each toolchain.
+            if len(settings.gitlab.build_enabled_toolchains) > 1:
+                dump_apps_to_txt(non_test_related_apps, settings.collected_non_test_related_apps_filepath)
+        else:
+            test_related_apps, non_test_related_apps = get_all_apps(
+                paths=paths,
+                modified_files=modified_files,
+                marker_expr='not host_test',
+                compare_manifest_sha_filepath=compare_manifest_sha_filepath,
+            )
+            dump_apps_to_txt(test_related_apps, settings.collected_test_related_apps_filepath)
+            dump_apps_to_txt(non_test_related_apps, settings.collected_non_test_related_apps_filepath)
 
     apps_total = len(test_related_apps) + len(non_test_related_apps)
     test_related_parallel_count = _parallel_count(
@@ -162,6 +183,13 @@ def build_child_pipeline(
     yaml_template = Environment().from_string(settings.gitlab.build_pipeline.yaml_jinja)
 
     with open(yaml_output, 'w') as fw:
+        if explicit_toolchain:
+            fw.write(f'variables:\n  IDF_TOOLCHAIN: "{toolchain}"\n')
+            if toolchain != 'gcc':
+                fw.write(f'  IDF_CI_ARTIFACT_NAMESPACE: "{toolchain}"\n')
+            if app_list_suffix:
+                fw.write(f'  IDF_CI_APP_LIST_SUFFIX: "{app_list_suffix}"\n')
+            fw.write('\n')
         fw.write(
             yaml_template.render(
                 job_template=job_template.render(
@@ -176,6 +204,7 @@ def build_child_pipeline(
                 ),
                 settings=settings,
                 test_related_apps_count=len(test_related_apps),
+                toolchain=toolchain,
             )
         )
 
@@ -186,6 +215,7 @@ def test_child_pipeline(
     yaml_output: str,
     *,
     cases: t.Optional[GroupedPytestCases] = None,
+    toolchain: t.Optional[str] = None,
 ) -> None:
     """This function is used to generate the child pipeline for test jobs.
 
@@ -230,12 +260,34 @@ def test_child_pipeline(
                 nodes: "'nodeid1' 'nodeid2'"
     """
     settings = get_ci_settings()
+    explicit_toolchain = toolchain is not None or settings.gitlab.test_pipeline.toolchain != 'gcc'
+    toolchain = toolchain or settings.gitlab.test_pipeline.toolchain
+    # Legacy callers may set IDF_TOOLCHAIN directly; do not change their YAML.
+    # A generated non-GCC build pipeline identifies its matching test generator
+    # through the artifact namespace, even when no CLI option is passed.
+    envs = get_env_vars()
+    namespace = envs.IDF_CI_ARTIFACT_NAMESPACE
+    if namespace and envs.IDF_TOOLCHAIN == namespace:
+        if explicit_toolchain and toolchain != namespace:
+            raise ValueError(
+                f'{namespace.capitalize()} build pipeline cannot generate {toolchain.upper()} target tests'
+            )
+        toolchain = namespace
+        explicit_toolchain = True
+    if toolchain not in settings.gitlab.test_enabled_toolchains:
+        raise ValueError(f'Toolchain {toolchain} is not enabled for target tests')
+    if toolchain != 'gcc':
+        settings = settings.model_copy(deep=True)
+        settings.gitlab.test_pipeline.workflow_name = f'{settings.gitlab.test_pipeline.workflow_name} ({toolchain})'
 
     if yaml_output is None:
         yaml_output = settings.gitlab.test_pipeline.yaml_filename
 
     if cases is None:
-        cases = GroupedPytestCases(get_pytest_cases())
+        # pytest collection also evaluates manifest rules from os.environ;
+        # scope the settings value to this call and restore the caller's environment.
+        with patch.dict(os.environ, {'IDF_TOOLCHAIN': toolchain}) if explicit_toolchain else nullcontext():
+            cases = GroupedPytestCases(get_pytest_cases())
 
     if not cases.grouped_cases:
         logger.info('No test cases found, generating fake_pass job to skip the entire test child pipeline')
@@ -269,6 +321,11 @@ def test_child_pipeline(
     yaml_template = env.from_string(settings.gitlab.test_pipeline.yaml_jinja)
 
     with open(yaml_output, 'w') as fw:
+        if explicit_toolchain:
+            fw.write(f'variables:\n  IDF_TOOLCHAIN: "{toolchain}"\n')
+            if toolchain != 'gcc':
+                fw.write(f'  IDF_CI_ARTIFACT_NAMESPACE: "{toolchain}"\n')
+            fw.write('\n')
         fw.write(
             yaml_template.render(
                 default_template=job_template.render(
