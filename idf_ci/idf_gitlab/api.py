@@ -26,7 +26,7 @@ from minio import Minio
 
 from .._compat import UNDEF, is_undefined
 from .._vendor import translate
-from ..envs import GitlabEnvVars
+from ..envs import get_env_vars
 from ..settings import get_ci_settings
 from ..utils import get_current_branch
 
@@ -105,8 +105,9 @@ class ArtifactParams:
             return commit_sha
 
         # 2. Environment variable PIPELINE_COMMIT_SHA
-        if os.getenv('PIPELINE_COMMIT_SHA'):
-            return os.environ['PIPELINE_COMMIT_SHA']
+        pipeline_commit_sha = get_env_vars().PIPELINE_COMMIT_SHA
+        if pipeline_commit_sha:
+            return pipeline_commit_sha
 
         # 3. Latest commit from branch
         try:
@@ -140,7 +141,7 @@ class PresignedUrlError(ArtifactError):
 
 class ArtifactManager:
     def __init__(self):
-        self.envs = GitlabEnvVars()
+        self.envs = get_env_vars()
         self.settings = get_ci_settings()
         self.project_root = self.settings.project_root
 
@@ -277,6 +278,9 @@ class ArtifactManager:
         return self.project_root / object_name.replace(prefix, '', 1)
 
     def _build_s3_prefix(self, commit_sha: str) -> str:
+        namespace = get_env_vars().IDF_CI_ARTIFACT_NAMESPACE  # load dynamicly
+        if namespace:
+            return f'{self.settings.gitlab.project}/{commit_sha}_{namespace}/'
         return f'{self.settings.gitlab.project}/{commit_sha}/'
 
     def _relative_to_project_root(self, path: Path) -> Path:

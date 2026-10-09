@@ -14,6 +14,7 @@ import pytest
 from _pytest.python import Metafunc
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
+from ..envs import get_env_vars
 from ..settings import get_ci_settings
 from ..utils import setup_logging
 from .models import EMULATOR_MARKER_SERVICES, PytestCase, get_emulator_marker
@@ -258,11 +259,12 @@ class IdfPytestPlugin:
         deselected_items: t.List[pytest.Function] = []
 
         # Filter by nightly_run marker
-        if os.getenv('INCLUDE_NIGHTLY_RUN') == '1':
+        envs = get_env_vars()
+        if envs.INCLUDE_NIGHTLY_RUN == '1':
             # Include both nightly_run and non-nightly_run cases
             pass
         else:  # Determine if we should select nightly_run tests or non-nightly_run tests
-            nightly_or_not = os.getenv('NIGHTLY_RUN') == '1'
+            nightly_or_not = envs.NIGHTLY_RUN == '1'
             filtered_items = []
             for item in items:
                 case = self.get_case_by_item(item)

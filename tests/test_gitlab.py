@@ -5,14 +5,18 @@ import os
 
 import pytest
 import yaml
+from idf_build_apps import App, CMakeApp
 from jinja2 import Environment
 
+from idf_ci.cli import click_cli
 from idf_ci.idf_gitlab import ArtifactManager
-from idf_ci.idf_gitlab.pipeline import _parallel_count
+from idf_ci.idf_gitlab.api import ArtifactError
+from idf_ci.idf_gitlab.pipeline import _parallel_count, build_child_pipeline
 from idf_ci.idf_gitlab.pipeline import test_child_pipeline as generate_test_child_pipeline
 from idf_ci.idf_gitlab.scripts import pipeline_variables
 from idf_ci.idf_pytest.models import GroupedPytestCases
-from idf_ci.settings import CiSettings, _refresh_ci_settings
+from idf_ci.scripts import preprocess_args
+from idf_ci.settings import CiSettings, _refresh_ci_settings, scoped_ci_settings
 
 
 class TestPipelineVariables:
@@ -177,6 +181,7 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
         job_template='',
         jobs=build_jobs,
         test_related_apps_count=1,
+        toolchain='gcc',
     )
     build_pipeline = yaml.safe_load(build_rendered)
 
@@ -259,6 +264,7 @@ def test_generate_test_child_pipeline_forwards_empty_suffixes():
         job_template='',
         jobs='',
         test_related_apps_count=1,
+        toolchain='gcc',
     )
     generate_script = '\n'.join(yaml.safe_load(build_rendered)['generate_test_child_pipeline']['script'])
 
@@ -515,3 +521,288 @@ ONLY_ESP32: "1"
 )
 def test_parallel_count(item_count, runs_per_job, expected):
     assert _parallel_count(item_count, runs_per_job) == expected
+
+
+@pytest.mark.parametrize('toolchain', ['gcc', 'clang'])
+def test_build_child_pipeline_toolchain_discovery_and_artifact_namespace(monkeypatch, tmp_path, toolchain):
+    settings = CiSettings.model_validate({'gitlab': {'build_enabled_toolchains': ['gcc', 'clang']}})
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', lambda: settings)
+    monkeypatch.delenv('IDF_TOOLCHAIN', raising=False)
+    found = []
+
+    def get_apps(**kwargs):
+        found.append(os.getenv('IDF_TOOLCHAIN'))
+        return [App(str(tmp_path / 'hello_world'), 'esp32', config_name='default')], []
+
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_all_apps', get_apps)
+    output = tmp_path / f'build_{toolchain}.yml'
+    build_child_pipeline(yaml_output=str(output), toolchain=toolchain)
+
+    pipeline = yaml.safe_load(output.read_text())
+    assert found == [toolchain]
+    assert os.getenv('IDF_TOOLCHAIN') is None
+    assert pipeline['variables']['IDF_TOOLCHAIN'] == toolchain
+    assert pipeline['variables'].get('IDF_CI_ARTIFACT_NAMESPACE') == ('clang' if toolchain == 'clang' else None)
+    assert pipeline['workflow']['name'] == (
+        'Build Child Pipeline (clang)' if toolchain == 'clang' else 'Build Child Pipeline'
+    )
+    assert 'build_non_test_related_apps' not in pipeline
+    assert pipeline['build_test_related_apps']['variables']['IDF_CI_BUILD_ONLY_TEST_RELATED_APPS'] == '1'
+    assert pipeline['build_test_related_apps']['needs'] == [
+        {'pipeline': '$PARENT_PIPELINE_ID', 'job': 'generate_build_child_pipeline'},
+        {'pipeline': '$PARENT_PIPELINE_ID', 'job': 'pipeline_variables'},
+    ]
+    assert (tmp_path / settings.collected_test_related_apps_filepath).exists()
+
+
+def test_artifact_prefix_isolated_by_namespace(monkeypatch):
+    monkeypatch.delenv('IDF_CI_ARTIFACT_NAMESPACE', raising=False)
+    manager = ArtifactManager()
+    assert manager._build_s3_prefix('abc') == 'espressif/esp-idf/abc/'
+    monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', 'clang')
+    assert manager._build_s3_prefix('abc') == 'espressif/esp-idf/abc_clang/'
+    monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', '../other')
+    with pytest.raises(ArtifactError, match='Invalid artifact namespace'):
+        manager._build_s3_prefix('abc')
+
+
+@pytest.mark.parametrize('legacy_toolchain', [None, 'clang'])
+def test_omitted_toolchain_preserves_legacy_build_yaml(monkeypatch, tmp_path, runner, legacy_toolchain):
+    monkeypatch.delenv('IDF_CI_ARTIFACT_NAMESPACE', raising=False)
+    if legacy_toolchain:
+        monkeypatch.setenv('IDF_TOOLCHAIN', legacy_toolchain)
+    else:
+        monkeypatch.delenv('IDF_TOOLCHAIN', raising=False)
+    found = []
+
+    def get_apps(**kwargs):
+        found.append(os.getenv('IDF_TOOLCHAIN'))
+        return [App(str(tmp_path / 'hello_world'), 'esp32', config_name='default')], []
+
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_all_apps', get_apps)
+    output = tmp_path / 'build_child_pipeline.yml'
+    result = runner.invoke(click_cli, ['gitlab', 'build-child-pipeline', str(output)])
+    assert result.exit_code == 0, result.output
+    pipeline = yaml.safe_load(output.read_text())
+
+    assert found == [legacy_toolchain]
+    assert 'variables' not in pipeline
+    assert pipeline['workflow']['name'] == 'Build Child Pipeline'
+    assert pipeline['build_test_related_apps']['needs'] == [
+        {'pipeline': '$PARENT_PIPELINE_ID', 'job': 'generate_build_child_pipeline'},
+        {'pipeline': '$PARENT_PIPELINE_ID', 'job': 'pipeline_variables'},
+    ]
+    assert 'generate_test_child_pipeline' in pipeline
+    assert 'test-child-pipeline' in pipeline
+
+
+@pytest.mark.parametrize('legacy_toolchain', [None, 'clang'])
+def test_omitted_toolchain_preserves_legacy_test_yaml(monkeypatch, tmp_path, legacy_toolchain):
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', CiSettings)
+    monkeypatch.delenv('IDF_CI_ARTIFACT_NAMESPACE', raising=False)
+    if legacy_toolchain:
+        monkeypatch.setenv('IDF_TOOLCHAIN', legacy_toolchain)
+    else:
+        monkeypatch.delenv('IDF_TOOLCHAIN', raising=False)
+    output = tmp_path / 'test_child_pipeline.yml'
+    generate_test_child_pipeline(
+        str(output),
+        cases=_grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'test_hello.py::test_hello')),
+    )
+    pipeline = yaml.safe_load(output.read_text())
+
+    assert 'variables' not in pipeline
+    assert pipeline['workflow']['name'] == 'Test Child Pipeline'
+    assert 'esp32 - generic' in pipeline
+
+
+def test_clang_build_automatically_namespaces_its_test_pipeline(monkeypatch, tmp_path):
+    settings = CiSettings.model_validate({'gitlab': {'test_enabled_toolchains': ['gcc', 'clang']}})
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', lambda: settings)
+    monkeypatch.setenv('IDF_TOOLCHAIN', 'clang')
+    monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', 'clang')
+    output = tmp_path / 'test_clang.yml'
+    generate_test_child_pipeline(
+        str(output),
+        cases=_grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'test_hello.py::test_hello')),
+    )
+    test_pipeline = yaml.safe_load(output.read_text())
+    assert test_pipeline['workflow']['name'] == 'Test Child Pipeline (clang)'
+    assert test_pipeline['variables'] == {
+        'IDF_TOOLCHAIN': 'clang',
+        'IDF_CI_ARTIFACT_NAMESPACE': 'clang',
+    }
+
+
+def test_clang_test_generator_rejects_gcc_override(monkeypatch, tmp_path):
+    monkeypatch.setenv('IDF_TOOLCHAIN', 'clang')
+    monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', 'clang')
+    settings = CiSettings.model_validate({'gitlab': {'test_enabled_toolchains': ['gcc', 'clang']}})
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', lambda: settings)
+    with pytest.raises(ValueError, match='cannot generate GCC target tests'):
+        generate_test_child_pipeline(str(tmp_path / 'test.yml'), cases=GroupedPytestCases([]), toolchain='gcc')
+
+
+def test_build_child_pipelines_share_parent_job_and_isolate_app_lists(monkeypatch, tmp_path, runner):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv('CI', '1')
+    monkeypatch.delenv('IDF_CI_APP_LIST_SUFFIX', raising=False)
+    settings = CiSettings.model_validate({'gitlab': {'build_enabled_toolchains': ['gcc', 'clang']}})
+    found = []
+
+    def get_apps(**kwargs):
+        selected = os.getenv('IDF_TOOLCHAIN')
+        found.append(selected)
+        return [], [CMakeApp(str(tmp_path / 'hello_world'), 'esp32', config_name=selected)]
+
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_all_apps', get_apps)
+    result = runner.invoke(
+        click_cli,
+        [
+            '--config',
+            "gitlab.build_enabled_toolchains=['gcc', 'clang']",
+            'gitlab',
+            'build-child-pipeline',
+            'build_child_pipeline.yml',
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    with scoped_ci_settings(settings):
+        gcc = yaml.safe_load((tmp_path / 'build_child_pipeline.yml').read_text())
+        clang = yaml.safe_load((tmp_path / 'build_child_pipeline_clang.yml').read_text())
+        assert found == ['gcc', 'clang']
+        assert gcc['workflow']['name'] == 'Build Child Pipeline'
+        assert clang['workflow']['name'] == 'Build Child Pipeline (clang)'
+        assert gcc['build_non_test_related_apps']['needs'] == clang['build_non_test_related_apps']['needs']
+        assert gcc['build_non_test_related_apps']['needs'][0]['job'] == 'generate_build_child_pipeline'
+        assert clang['variables']['IDF_CI_APP_LIST_SUFFIX'] == 'clang'
+        assert 'IDF_CI_APP_LIST_SUFFIX' not in gcc['variables']
+        assert settings.collected_non_test_related_apps_filepath == 'non_test_related_apps.txt'
+        assert [a.config_name for a in settings.read_apps_from_files(['non_test_related_apps.txt'])] == ['gcc']
+        assert [a.config_name for a in settings.read_apps_from_files(['non_test_related_apps_clang.txt'])] == ['clang']
+        assert (tmp_path / 'test_related_apps.txt').exists()
+        assert (tmp_path / 'test_related_apps_clang.txt').exists()
+
+        monkeypatch.setenv('IDF_CI_APP_LIST_SUFFIX', 'clang')
+        assert [a.config_name for a in preprocess_args().non_test_related_apps] == ['clang']
+        monkeypatch.delenv('IDF_CI_APP_LIST_SUFFIX')
+        assert [a.config_name for a in preprocess_args().non_test_related_apps] == ['gcc']
+
+
+@pytest.mark.parametrize(
+    'test_toolchains,gcc_tests,clang_tests',
+    [(['gcc'], True, False), (['gcc', 'clang'], True, True), ([], False, False)],
+)
+def test_two_build_pipelines_select_test_toolchains(
+    monkeypatch, tmp_path, runner, test_toolchains, gcc_tests, clang_tests
+):
+    monkeypatch.chdir(tmp_path)
+    settings = CiSettings.model_validate(
+        {
+            'gitlab': {
+                'build_enabled_toolchains': ['gcc', 'clang'],
+                'test_enabled_toolchains': test_toolchains,
+            }
+        }
+    )
+    monkeypatch.setattr(
+        'idf_ci.idf_gitlab.pipeline.get_all_apps',
+        lambda **kwargs: ([CMakeApp(str(tmp_path / 'hello_world'), 'esp32')], []),
+    )
+    result = runner.invoke(
+        click_cli,
+        [
+            '--config',
+            "gitlab.build_enabled_toolchains=['gcc', 'clang']",
+            '--config',
+            f'gitlab.test_enabled_toolchains={test_toolchains!r}',
+            'gitlab',
+            'build-child-pipeline',
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    with scoped_ci_settings(settings):
+        for name, tests_enabled in (
+            ('build_child_pipeline.yml', gcc_tests),
+            ('build_child_pipeline_clang.yml', clang_tests),
+        ):
+            pipeline = yaml.safe_load((tmp_path / name).read_text())
+            assert 'build_test_related_apps' in pipeline
+            assert ('generate_test_child_pipeline' in pipeline) is tests_enabled
+            assert ('test-child-pipeline' in pipeline) is tests_enabled
+            assert pipeline['build_test_related_apps']['needs'] == [
+                {'pipeline': '$PARENT_PIPELINE_ID', 'job': 'generate_build_child_pipeline'},
+                {'pipeline': '$PARENT_PIPELINE_ID', 'job': 'pipeline_variables'},
+            ]
+        assert (tmp_path / 'test_related_apps.txt').exists()
+        assert (tmp_path / 'test_related_apps_clang.txt').exists()
+
+
+def test_filtered_generator_publishes_lists_for_multi_toolchain(monkeypatch, tmp_path, runner):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'test_hello')
+    monkeypatch.delenv('IDF_TOOLCHAIN', raising=False)
+    monkeypatch.setattr(
+        'idf_ci.idf_gitlab.pipeline.get_all_apps',
+        lambda **kwargs: ([CMakeApp(str(tmp_path / 'hello_world'), 'esp32')], []),
+    )
+    result = runner.invoke(
+        click_cli,
+        ['--config', "gitlab.build_enabled_toolchains=['gcc', 'clang']", 'gitlab', 'build-child-pipeline'],
+    )
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / 'test_related_apps.txt').exists()
+    assert (tmp_path / 'test_related_apps_clang.txt').exists()
+    assert (tmp_path / 'non_test_related_apps_clang.txt').read_text() == ''
+    assert (tmp_path / 'non_test_related_apps.txt').read_text() == ''
+
+
+def test_build_toolchain_from_settings(monkeypatch, tmp_path):
+    settings = CiSettings.model_validate(
+        {'gitlab': {'build_enabled_toolchains': ['gcc', 'clang'], 'build_pipeline': {'toolchain': 'clang'}}}
+    )
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', lambda: settings)
+    monkeypatch.delenv('IDF_TOOLCHAIN', raising=False)
+    found = []
+
+    def get_apps(**kwargs):
+        found.append(os.getenv('IDF_TOOLCHAIN'))
+        return [App(str(tmp_path / 'hello_world'), 'esp32', config_name='default')], []
+
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_all_apps', get_apps)
+    output = tmp_path / 'build_clang.yml'
+    build_child_pipeline(yaml_output=str(output))
+    assert found == ['clang']
+    assert os.getenv('IDF_TOOLCHAIN') is None
+    assert yaml.safe_load(output.read_text())['variables'] == {
+        'IDF_TOOLCHAIN': 'clang',
+        'IDF_CI_ARTIFACT_NAMESPACE': 'clang',
+    }
+
+    build_child_pipeline(yaml_output=str(output), toolchain='gcc')
+    assert found == ['clang', 'gcc']
+    assert yaml.safe_load(output.read_text())['variables'] == {'IDF_TOOLCHAIN': 'gcc'}
+
+
+def test_test_toolchain_from_settings(monkeypatch, tmp_path):
+    settings = CiSettings.model_validate(
+        {'gitlab': {'test_enabled_toolchains': ['gcc', 'clang'], 'test_pipeline': {'toolchain': 'clang'}}}
+    )
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', lambda: settings)
+    monkeypatch.delenv('IDF_TOOLCHAIN', raising=False)
+    found = []
+    monkeypatch.setattr(
+        'idf_ci.idf_gitlab.pipeline.get_pytest_cases',
+        lambda: (
+            found.append(os.getenv('IDF_TOOLCHAIN'))
+            or [_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'test_hello.py::test_hello')]
+        ),
+    )
+    output = tmp_path / 'test_clang.yml'
+    generate_test_child_pipeline(str(output))
+    assert found == ['clang']
+    assert os.getenv('IDF_TOOLCHAIN') is None
+    assert yaml.safe_load(output.read_text())['variables'] == {
+        'IDF_TOOLCHAIN': 'clang',
+        'IDF_CI_ARTIFACT_NAMESPACE': 'clang',
+    }

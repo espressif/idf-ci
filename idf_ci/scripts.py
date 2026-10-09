@@ -12,9 +12,9 @@ from idf_build_apps.manifest import DEFAULT_BUILD_TARGETS
 from idf_build_apps.utils import get_parallel_start_stop
 
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
-from .envs import GitlabEnvVars
+from .envs import get_env_vars
 from .filters.component_targets import should_skip_build_for_components
-from .settings import get_ci_settings
+from .settings import get_ci_settings, toolchain_app_list_path
 
 if t.TYPE_CHECKING:
     from .idf_pytest import PytestCase
@@ -112,8 +112,8 @@ def preprocess_args(
 
     :returns: Processed arguments as a ProcessedArgs object
     """
-    envs = GitlabEnvVars()
     settings = get_ci_settings()
+    envs = get_env_vars()
 
     processed_targets = DEFAULT_BUILD_TARGETS.get() if default_build_targets is None else default_build_targets
     if settings.extra_default_build_targets:
@@ -147,8 +147,14 @@ def preprocess_args(
         non_test_related_apps: t.Optional[t.List[App]] = None
     else:
         logger.debug('Running in CI, reading test-related and non-test-related apps from files if available')
-        test_related_apps = settings.read_apps_from_files([settings.collected_test_related_apps_filepath])
-        non_test_related_apps = settings.read_apps_from_files([settings.collected_non_test_related_apps_filepath])
+        app_list_suffix = envs.IDF_CI_APP_LIST_SUFFIX
+        test_related_path = settings.collected_test_related_apps_filepath
+        non_test_related_path = settings.collected_non_test_related_apps_filepath
+        if app_list_suffix:
+            test_related_path = toolchain_app_list_path(test_related_path, app_list_suffix)
+            non_test_related_path = toolchain_app_list_path(non_test_related_path, app_list_suffix)
+        test_related_apps = settings.read_apps_from_files([test_related_path])
+        non_test_related_apps = settings.read_apps_from_files([non_test_related_path])
 
         # if one of the two is None, it should be empty list
         if test_related_apps is None and non_test_related_apps is not None:
@@ -197,8 +203,8 @@ def get_all_apps(
 
     :returns: Tuple of (test_related_apps, non_test_related_apps)
     """
-    envs = GitlabEnvVars()
     settings = get_ci_settings()
+    envs = get_env_vars()
     processed_args = preprocess_args(
         modified_files=modified_files,
         modified_components=modified_components,
@@ -330,7 +336,7 @@ def get_all_apps(
     if (
         settings.filter_non_test_related_apps_by_modified_files
         and processed_args.modified_files
-        and os.getenv('CI_MERGE_REQUEST_IID') is not None
+        and envs.CI_MERGE_REQUEST_IID is not None
     ):
         non_test_apps = set(_filter_apps_by_modified_files(non_test_apps, processed_args.modified_files))
     for app in modified_test_apps:
@@ -343,7 +349,7 @@ def get_all_apps(
     if (
         settings.filter_apps_by_component_target
         and processed_args.modified_files
-        and os.getenv('CI_MERGE_REQUEST_IID') is not None
+        and envs.CI_MERGE_REQUEST_IID is not None
     ):
         # Build all targets apps for modified folders
         full_target_apps = set(_filter_apps_by_modified_files(test_apps, processed_args.modified_files))
@@ -394,7 +400,7 @@ def build(
 
     :returns: Tuple of (built apps, build return code)
     """
-    envs = GitlabEnvVars()
+    envs = get_env_vars()
     settings = get_ci_settings()
 
     # Preprocess arguments
