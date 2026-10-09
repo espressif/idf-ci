@@ -3,10 +3,12 @@
 
 import os
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Union
 
 import pytest
 
-from idf_ci.cli import click_cli
+from idf_ci.cli import click_cli, config_group
 from idf_ci.settings import CiSettings, DeprecatedConfigWarning
 
 
@@ -60,6 +62,15 @@ def test_init_but_already_exists(runner, tmp_dir):
 
     result = runner.invoke(click_cli, ['test', 'init', '--path', tmp_dir])
     assert result.exit_code == 0
+
+
+def test_config_explain_without_python_38_typing_attributes(monkeypatch, runner):
+    # Python 3.7 lacks typing.Literal, get_origin, and get_args.
+    monkeypatch.setattr(config_group, 't', SimpleNamespace(Union=Union))
+
+    result = runner.invoke(click_cli, ['config', 'explain', 'gitlab.build_pipeline.job_tags'])
+    assert result.exit_code == 0, result.output
+    assert 'Type: list[str]' in result.output
 
 
 class TestConfig:
