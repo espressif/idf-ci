@@ -52,6 +52,15 @@ class GitlabEnvVars(BaseSettings):
     IDF_PATH: str = ''
     """Path to the ESP-IDF directory."""
 
+    IDF_TOOLCHAIN: t.Optional[str] = None
+    """Toolchain selected for manifest discovery and build jobs."""
+
+    IDF_CI_ARTIFACT_NAMESPACE: t.Optional[str] = None
+    """Opt-in namespace isolating non-default toolchain artifacts in S3."""
+
+    IDF_CI_APP_LIST_SUFFIX: t.Optional[str] = None
+    """Suffix identifying the selected toolchain's generated app lists."""
+
     # Possibly Set by `idf-ci gitlab dynamic-pipeline-variables`
     IDF_CI_IS_DEBUG_PIPELINE: t.Optional[bool] = None
     """Flag indicating whether this is a debug pipeline."""

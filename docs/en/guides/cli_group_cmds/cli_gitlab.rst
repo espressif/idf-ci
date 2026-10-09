@@ -109,7 +109,7 @@ For more details about the generated variables, please refer to the API document
 Build Child Pipeline
 --------------------
 
-Generate a build child pipeline YAML file. If ``YAML_OUTPUT`` is omitted, the YAML is written to stdout:
+Generate build child pipeline YAML and app lists. With the default ``gitlab.build_enabled_toolchains = ["gcc"]``, this writes the original GCC pipeline without a filename or workflow suffix. Add any supported toolchain name to the list to generate another build pipeline from the same parent job (see :doc:`../../explanations/dynamic-gitlab-pipeline`). In multi-toolchain mode, if ``YAML_OUTPUT`` is omitted, the GCC file is named by ``gitlab.build_pipeline.yaml_filename``; each non-GCC file adds ``_<toolchain>`` before the extension and its workflow name adds `` (<toolchain>)``. With ``--toolchain``, just the selected pipeline is written to ``YAML_OUTPUT`` (or the configured default filename), without automatic filename suffixing. The ESP-IDF consumer currently publishes and triggers the GCC and Clang files only.
 
 .. code-block:: bash
 
@@ -120,15 +120,18 @@ Options:
 - ``--paths PATHS`` - Paths to process
 - ``--modified-files MODIFIED_FILES`` - List of modified files
 - ``--compare-manifest-sha-filepath PATH`` - Path to the recorded manifest sha file (default: .manifest_sha)
+- ``--toolchain TOOLCHAIN`` - Generate only the selected toolchain; it must appear in ``gitlab.build_enabled_toolchains``
 
 Test Child Pipeline
 -------------------
 
-Generate a test child pipeline YAML file. If ``YAML_OUTPUT`` is omitted, the YAML is written to stdout:
+Generate a test child pipeline YAML file. If ``YAML_OUTPUT`` is omitted, the file is named by ``gitlab.test_pipeline.yaml_filename``. The build child pipeline creates this job only for toolchains selected by ``gitlab.test_enabled_toolchains`` (default ``["gcc"]``) when test-related apps exist. Its workflow retains the configured name for GCC and adds `` (<toolchain>)`` for other toolchains.
 
 .. code-block:: bash
 
     idf-ci gitlab test-child-pipeline [YAML_OUTPUT]
+
+Use ``--toolchain TOOLCHAIN`` to select an entry in ``gitlab.test_enabled_toolchains`` explicitly; generated build child pipelines otherwise pass their toolchain through inherited pipeline variables.
 
 Download S3 Artifacts
 ---------------------

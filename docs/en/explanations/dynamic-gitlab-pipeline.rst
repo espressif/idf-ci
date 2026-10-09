@@ -4,11 +4,11 @@
 
 ``idf-ci`` generates GitLab CI as a small pipeline hierarchy.
 
-It has three parts at minimum:
+A typical flow has these levels:
 
-- the parent pipeline prepares inputs and generates the build child pipeline YAML
-- the build child pipeline builds apps and, when needed, generates the test child pipeline YAML
-- the test child pipeline runs grouped pytest jobs
+- the parent pipeline prepares inputs and generates one or more build child pipeline YAML files
+- each build child pipeline builds apps and, when the toolchain is enabled for target tests, generates a test child pipeline YAML
+- each generated test child pipeline runs grouped pytest jobs
 
 ************************************
  What the generated flow looks like
@@ -65,7 +65,7 @@ From those buckets, the generated pipeline can contain up to four jobs.
     Builds the remaining selected apps.
 
 ``generate_test_child_pipeline``
-    Runs only when there are test-related apps. It depends on ``build_test_related_apps`` and produces ``test_child_pipeline.yml``.
+    Runs only when there are test-related apps and the toolchain is listed in ``gitlab.test_enabled_toolchains``. It depends on ``build_test_related_apps`` and produces ``test_child_pipeline.yml``.
 
 ``test-child-pipeline``
     Trigger job that starts the downstream test child pipeline from ``test_child_pipeline.yml``.
@@ -89,10 +89,10 @@ Build work is sharded with GitLab ``parallel`` when the selected app count is la
 
 The result has two independent build branches:
 
-- one branch that feeds tests
+- one branch that builds test-related apps (and can feed tests when enabled)
 - one branch that exists only to build the rest of the requested app set
 
-Only the test-related branch continues into test pipeline generation.
+Only the test-related branch can continue into test pipeline generation, and only for an enabled test toolchain.
 
 *********************
  Test child pipeline
@@ -117,3 +117,24 @@ All generated test jobs extend ``.default_test_settings``.
 Each test job depends on ``generate_test_child_pipeline`` so it can download the build artifacts needed for execution.
 
 If no test cases are selected, the generated test child pipeline also falls back to ``fake_pass``.
+
+************************************
+ Toolchain-specific child pipelines
+************************************
+
+``gitlab.build_enabled_toolchains`` and ``gitlab.test_enabled_toolchains`` are independent lists under ``[gitlab]``. Both default to ``["gcc"]``. The single parent ``generate_build_child_pipeline`` job generates a build child pipeline for each enabled build toolchain. For example:
+
+.. code-block:: shell
+
+    idf-ci --config 'gitlab.build_enabled_toolchains=["gcc", "clang"]' \
+      gitlab build-child-pipeline -p examples/get-started/hello_world build_child_pipeline.yml
+
+The GCC pipeline keeps the configured workflow name, ``build_child_pipeline.yml``, the original app-list filenames, job names, and artifact prefix. With only GCC enabled and no explicit override, its YAML and environment behavior remain unchanged. In multi-toolchain mode it sets ``IDF_TOOLCHAIN=gcc`` for discovery and jobs, but **never** adds a GCC filename or workflow suffix.
+
+In multi-toolchain generation, every enabled non-GCC toolchain ``<name>`` adds ``_<name>`` before the build YAML and app-list filename extensions (for example, ``build_child_pipeline_clang.yml`` and ``test_related_apps_clang.txt``). It appends `` (<name>)`` to the configured build and test workflow names, preserving the supplied name's spelling; it does not add a toolchain-specific suffix to job names. It sets ``IDF_TOOLCHAIN=<name>``, ``IDF_CI_APP_LIST_SUFFIX=<name>`` for build jobs, and ``IDF_CI_ARTIFACT_NAMESPACE=<name>``. The artifact prefix becomes ``<project>/<commit>_<name>/``; GCC keeps ``<project>/<commit>/``. Use identifiers safe for filenames and artifact namespaces (letters, digits, underscores, or hyphens).
+
+With GCC and Clang enabled, the parent job publishes both YAML files and four app lists (the original two plus ``*_clang.txt``). Each child pipeline still refers to the same ``generate_build_child_pipeline`` and ``pipeline_variables`` parent jobs. The consuming project's parent job must publish the additional files and trigger each extra YAML with ``PARENT_PIPELINE_ID: $CI_PIPELINE_ID``. The ESP-IDF consumer's ``ci/support-toolchain`` branch wires **GCC and Clang** specifically; enabling another name in ``idf-ci`` does not automatically add a trigger or artifacts to that consumer.
+
+Test-related apps are built for every enabled build toolchain. Only a toolchain listed in ``gitlab.test_enabled_toolchains`` generates a target-test child pipeline when test-related apps exist. Keep the default to test only GCC, use ``["gcc", "clang"]`` to test both in the example, or ``[]`` to generate no target-test pipelines. A non-GCC test pipeline inherits its build pipeline's artifact namespace, so it cannot fetch GCC firmware. Build jobs use ``gitlab.build_pipeline.job_image`` for every toolchain; that image must contain the selected compiler. ``--toolchain`` generates just one selected build pipeline at the requested output path and requires that name in ``gitlab.build_enabled_toolchains``.
+
+For custom ``gitlab.build_pipeline.yaml_jinja`` or ``gitlab.test_pipeline.yaml_jinja`` templates, explicit toolchain selections add a top-level ``variables:`` mapping before rendering. Do not declare another top-level ``variables:`` mapping there. Run GitLab CI lint on the full included configuration before enabling extra triggers.

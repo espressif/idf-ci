@@ -278,6 +278,11 @@ class ArtifactManager:
         return self.project_root / object_name.replace(prefix, '', 1)
 
     def _build_s3_prefix(self, commit_sha: str) -> str:
+        namespace = get_env_vars().IDF_CI_ARTIFACT_NAMESPACE  # load dynamicly
+        if namespace:
+            if not re.fullmatch(r'[a-zA-Z0-9_-]+', namespace):
+                raise ArtifactError(f'Invalid artifact namespace: {namespace}')
+            return f'{self.settings.gitlab.project}/{commit_sha}_{namespace}/'
         return f'{self.settings.gitlab.project}/{commit_sha}/'
 
     def _relative_to_project_root(self, path: Path) -> Path:

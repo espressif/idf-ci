@@ -310,6 +310,9 @@ class BuildPipelineSettings(BaseModel):
     runs_per_job: int = 60
     """Maximum number of apps to build in a single job."""
 
+    toolchain: str = 'gcc'
+    """Toolchain for app discovery and jobs. Default retains the existing GCC pipeline."""
+
     job_name_suffix: str = ''
     """Suffix to append while generating build child pipeline job names."""
 
@@ -367,7 +370,7 @@ workflow:
 
 {{ jobs }}
 
-{%- if test_related_apps_count > 0 %}
+{%- if test_related_apps_count > 0 and toolchain in settings.gitlab.test_enabled_toolchains %}
 generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
   extends: "{{ settings.gitlab.build_pipeline.job_template_name }}"
   needs:
@@ -518,6 +521,12 @@ class GitlabSettings(BaseModel):
     project: str = 'espressif/esp-idf'
     """GitLab project path in the format 'owner/repo'."""
 
+    build_enabled_toolchains: t.List[str] = ['gcc']
+    """Build toolchains to generate; GCC alone retains the existing pipeline filenames."""
+
+    test_enabled_toolchains: t.List[str] = ['gcc']
+    """Toolchains whose build pipelines also generate target-test child pipelines."""
+
     known_failure_cases_bucket_name: str = 'ignore-test-result-files'
     """Bucket name for storing known failure cases."""
 
@@ -526,6 +535,16 @@ class GitlabSettings(BaseModel):
     build_pipeline: BuildPipelineSettings = BuildPipelineSettings()
 
     test_pipeline: TestPipelineSettings = TestPipelineSettings()
+
+    @model_validator(mode='after')
+    def validate_enabled_toolchains(self) -> 'GitlabSettings':
+        if not self.build_enabled_toolchains or len(self.build_enabled_toolchains) != len(
+            set(self.build_enabled_toolchains)
+        ):
+            raise ValueError('build_enabled_toolchains must contain distinct toolchains and cannot be empty')
+        if len(self.test_enabled_toolchains) != len(set(self.test_enabled_toolchains)):
+            raise ValueError('test_enabled_toolchains must contain distinct toolchains')
+        return self
 
 
 class CiSettings(BaseSettings):
@@ -808,6 +827,12 @@ def get_ci_settings() -> 'CiSettings':
         settings = CiSettings()
         _ci_settings_context.set(settings)
     return settings
+
+
+def toolchain_app_list_path(filepath: str, toolchain: str) -> str:
+    """Place one toolchain's app list beside the original without overwriting it."""
+    path = Path(filepath)
+    return str(path.with_name(f'{path.stem}_{toolchain}{path.suffix}'))
 
 
 @contextmanager
