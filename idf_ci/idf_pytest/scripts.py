@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from idf_ci._compat import UNDEF, UndefinedOr, is_undefined
-from idf_ci.envs import GitlabEnvVars
+from idf_ci.envs import get_env_vars
 from idf_ci.settings import get_ci_settings
 
 from ..utils import remove_subfolders, setup_logging
@@ -43,15 +43,13 @@ def get_pytest_cases(
 
     :raises RuntimeError: If pytest collection fails
     """
-    envs = GitlabEnvVars()
-
     paths = paths or ['.']
 
     if is_undefined(marker_expr):
         marker_expr = 'host_test' if 'linux' in target else 'not host_test'
 
     if filter_expr is None:
-        filter_expr = envs.IDF_CI_SELECT_BY_FILTER_EXPR
+        filter_expr = get_env_vars().IDF_CI_SELECT_BY_FILTER_EXPR
 
     plugin = IdfPytestPlugin(
         cli_target=target,

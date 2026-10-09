@@ -8,7 +8,71 @@ import pytest
 from esp_bool_parser.constants import ALL_TARGETS
 
 from idf_ci.cli import click_cli
-from idf_ci.settings import CiSettings, DeprecatedConfigWarning
+from idf_ci.envs import get_env_vars
+from idf_ci.settings import (
+    CiSettings,
+    DeprecatedConfigWarning,
+    _ci_settings_context,
+    get_ci_settings,
+    scoped_ci_settings,
+)
+
+
+def test_env_vars_reuse_snapshot_until_supported_value_changes(monkeypatch):
+    monkeypatch.delenv('PIPELINE_COMMIT_SHA', raising=False)
+    envs = get_env_vars()
+    assert envs.PIPELINE_COMMIT_SHA is None
+
+    monkeypatch.setenv('PIPELINE_COMMIT_SHA', 'abc123')
+    assert get_env_vars().PIPELINE_COMMIT_SHA == 'abc123'
+    assert get_env_vars() is not envs  # changed
+
+    monkeypatch.delenv('PIPELINE_COMMIT_SHA')
+    assert get_env_vars() == envs  # values same
+
+
+def test_settings_load_lazily_and_restore_scope(monkeypatch):
+    original_init = CiSettings.__init__
+    loads = []
+
+    def count_loads(self, *args, **kwargs):
+        loads.append(None)
+        original_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(CiSettings, '__init__', count_loads)
+    token = _ci_settings_context.set(None)
+    try:
+        settings = get_ci_settings()
+        assert get_ci_settings() is settings
+        assert len(loads) == 1
+
+        with scoped_ci_settings(settings.model_copy(deep=True)):
+            assert get_ci_settings() is not settings
+        assert get_ci_settings() is settings
+        assert len(loads) == 1
+    finally:
+        _ci_settings_context.reset(token)
+
+
+def test_cli_loads_config_only_once(monkeypatch, runner, tmp_path):
+    config_file = tmp_path / '.idf_ci.toml'
+    config_file.write_text('exclude_dirs = ["from-config"]\n')
+    original_init = CiSettings.__init__
+    loads = []
+
+    def count_loads(self, *args, **kwargs):
+        loads.append(None)
+        original_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(CiSettings, '__init__', count_loads)
+    token = _ci_settings_context.set(None)
+    try:
+        result = runner.invoke(click_cli, ['--config-file', str(config_file), 'config', 'show', 'exclude_dirs'])
+        assert result.exit_code == 0, result.output
+        assert get_ci_settings().exclude_dirs == ['from-config']
+        assert len(loads) == 1
+    finally:
+        _ci_settings_context.reset(token)
 
 
 def test_test_pipeline_job_before_script_extra_default():

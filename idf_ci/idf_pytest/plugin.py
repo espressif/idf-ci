@@ -14,7 +14,7 @@ import pytest
 from _pytest.python import Metafunc
 from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
 
-from ..envs import GitlabEnvVars
+from ..envs import get_env_vars
 from ..settings import get_ci_settings
 from ..utils import setup_logging
 from .models import EMULATOR_MARKER_SERVICES, PytestCase, get_emulator_marker
@@ -259,7 +259,7 @@ class IdfPytestPlugin:
         deselected_items: t.List[pytest.Function] = []
 
         # Filter by nightly_run marker
-        envs = GitlabEnvVars()
+        envs = get_env_vars()
         if envs.INCLUDE_NIGHTLY_RUN == '1':
             # Include both nightly_run and non-nightly_run cases
             pass

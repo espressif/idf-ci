@@ -6,7 +6,7 @@ import typing as t
 
 import yaml
 
-from idf_ci.envs import GitlabEnvVars
+from idf_ci.envs import get_env_vars
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def pipeline_variables() -> t.Dict[str, str]:
       `nightly_run` marker are skipped
     """
     res: t.Dict[str, str] = {}
-    envs = GitlabEnvVars()
+    envs = get_env_vars()
 
     # non-MR pipelines
     if envs.CI_MERGE_REQUEST_IID is None:
@@ -79,10 +79,9 @@ def pipeline_variables() -> t.Dict[str, str]:
             res['IDF_CI_SELECT_ALL_PYTEST_CASES'] = '1'
             logger.info('Setting `IDF_CI_SELECT_ALL_PYTEST_CASES=1` since MR label `BUILD_AND_TEST_ALL_APPS` is set')
         else:
-            description = envs.CI_MERGE_REQUEST_DESCRIPTION or ''
-            if description:
+            if envs.CI_MERGE_REQUEST_DESCRIPTION:
                 pattern = r'^## Dynamic Pipeline Configuration(?:[^`]*?)```(?:\w+)(.*?)```'
-                result = re.search(pattern, description, re.DOTALL | re.MULTILINE)
+                result = re.search(pattern, envs.CI_MERGE_REQUEST_DESCRIPTION, re.DOTALL | re.MULTILINE)
                 if result:
                     data = yaml.safe_load(result.group(1))
                     if 'Test Case Filters' in data:
