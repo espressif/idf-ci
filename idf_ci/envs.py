@@ -11,9 +11,20 @@ logger = logging.getLogger(__name__)
 
 
 class GitlabEnvVars(BaseSettings):
+    # Gitlab Predefined Varaibles
+    CI_COMMIT_SHA: t.Optional[str] = None
+    CI_MERGE_REQUEST_IID: t.Optional[str] = None
+    CI_MERGE_REQUEST_SOURCE_BRANCH_SHA: t.Optional[str] = None
+    CI_MERGE_REQUEST_LABELS: t.Optional[str] = None
+    CI_MERGE_REQUEST_DESCRIPTION: t.Optional[str] = None
+    CI_PYTHON_CONSTRAINT_BRANCH: t.Optional[str] = None
+
     # Pipeline Control Variables
     CHANGED_FILES_SEMICOLON_SEPARATED: t.Optional[str] = None
     """Semicolon-separated list of changed files in the pipeline."""
+
+    PIPELINE_COMMIT_SHA: t.Optional[str] = None
+    """Commit SHA of the source branch rather than the merge result."""
 
     # GitLab API Authentication
     GITLAB_HTTPS_SERVER: str = 'https://gitlab.com'
@@ -57,6 +68,9 @@ class GitlabEnvVars(BaseSettings):
 
     IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS: t.Optional[bool] = None
     """Flag indicating whether to build only non-test-related apps."""
+
+    INCLUDE_NIGHTLY_RUN: t.Optional[str] = None
+    NIGHTLY_RUN: t.Optional[str] = None
 
     def model_post_init(self, __context: t.Any) -> None:
         if self.IDF_CI_BUILD_ONLY_TEST_RELATED_APPS and self.IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS:

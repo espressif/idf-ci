@@ -24,6 +24,7 @@ from pydantic_settings import (
 from tomlkit import load
 
 from idf_ci._compat import PathLike
+from idf_ci.envs import GitlabEnvVars
 
 logger = logging.getLogger(__name__)
 
@@ -669,8 +670,9 @@ class CiSettings(BaseSettings):
         if config_file:
             return config_file.parent.resolve()
 
-        if os.getenv('IDF_PATH'):
-            return Path(os.environ['IDF_PATH']).resolve()
+        idf_path = GitlabEnvVars().IDF_PATH
+        if idf_path:
+            return Path(idf_path).resolve()
 
         return Path.cwd().resolve()
 
