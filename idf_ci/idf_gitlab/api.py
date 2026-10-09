@@ -105,8 +105,9 @@ class ArtifactParams:
             return commit_sha
 
         # 2. Environment variable PIPELINE_COMMIT_SHA
-        if os.getenv('PIPELINE_COMMIT_SHA'):
-            return os.environ['PIPELINE_COMMIT_SHA']
+        pipeline_commit_sha = GitlabEnvVars().PIPELINE_COMMIT_SHA
+        if pipeline_commit_sha:
+            return pipeline_commit_sha
 
         # 3. Latest commit from branch
         try:
