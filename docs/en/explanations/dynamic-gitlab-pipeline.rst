@@ -40,6 +40,7 @@ It has three parts at minimum:
         GBCP --> BTRA
         PV --> BNTRA
         GBCP --> BNTRA
+        PV --> GTCP
         BTRA --> GTCP
         GTCP --> TCP
         GTCP --> TJ1
@@ -65,7 +66,7 @@ From those buckets, the generated pipeline can contain up to four jobs.
     Builds the remaining selected apps.
 
 ``generate_test_child_pipeline``
-    Runs only when there are test-related apps. It depends on ``build_test_related_apps`` and produces ``test_child_pipeline.yml``.
+    Runs only when there are test-related apps. It depends on ``build_test_related_apps`` and the parent ``pipeline_variables`` job, then produces ``test_child_pipeline.yml``. The direct parent dependency makes exported variables available during test discovery; a dependency on the build job alone does not pass them through.
 
 ``test-child-pipeline``
     Trigger job that starts the downstream test child pipeline from ``test_child_pipeline.yml``.
