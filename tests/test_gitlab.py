@@ -197,7 +197,10 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
         },
     ]
     assert build_non_test_job['extends'] == settings.gitlab.build_pipeline.job_template_name
-    assert generate_test_pipeline_job['needs'] == ['build_test_related_apps:build-sfx']
+    assert generate_test_pipeline_job['needs'] == [
+        'build_test_related_apps:build-sfx',
+        {'pipeline': '$PARENT_PIPELINE_ID', 'job': 'pipeline_variables'},
+    ]
     assert generate_test_pipeline_job['artifacts']['paths'] == [
         *settings.gitlab.artifacts.native.build_job_filepatterns,
         settings.gitlab.test_pipeline.yaml_filename,
