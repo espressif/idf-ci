@@ -294,6 +294,16 @@ def test_child_pipeline(
             ),
             **cases.additional_dict.get(key, {}),
         }
+        job['extra_extends'] = list(
+            dict.fromkeys(
+                job.get('extra_extends', [])
+                + [
+                    template
+                    for marker in key.env_selector.split(',')
+                    for template in settings.gitlab.test_pipeline.extra_extends_by_env_marker.get(marker, [])
+                ]
+            )
+        )
         job['extra_variables'] = _extra_variables_for_job(settings, job, env)
         jobs.append(job)
 

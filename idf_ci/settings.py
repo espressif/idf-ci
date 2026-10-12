@@ -472,6 +472,9 @@ class TestPipelineSettings(BuildPipelineSettings):
     exclude_runner_tags: t.List[str] = []
     """Runner-tag sets to exclude; a trailing * matches any additional tags."""
 
+    extra_extends_by_env_marker: t.Dict[str, t.List[str]] = {}
+    """Additional GitLab templates extended by jobs with the given environment marker."""
+
     job_variables_jinja: str = ''
     """Jinja2 fragment rendered per generated test job as extra CI variables."""
 

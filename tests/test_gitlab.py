@@ -296,6 +296,24 @@ def _write_test_pipeline(monkeypatch, settings, tmp_path, cases):
     return yaml.safe_load(yaml_output.read_text())
 
 
+def test_test_jobs_extend_templates_for_environment_markers(monkeypatch, tmp_path):
+    settings = CiSettings.model_validate(
+        {'gitlab': {'test_pipeline': {'extra_extends_by_env_marker': {'ethernet_stress': ['.timeout_4h_template']}}}}
+    )
+    pipeline = _write_test_pipeline(
+        monkeypatch,
+        settings,
+        tmp_path,
+        _grouped_cases(
+            _FakeCase('esp32', 'ethernet_stress', ['esp32', 'ethernet_stress'], 'test_ethernet.py::test_stress'),
+            _FakeCase('esp32', 'generic', ['esp32', 'generic'], 'test_ethernet.py::test_generic'),
+        ),
+    )
+
+    assert pipeline['esp32 - ethernet_stress']['extends'] == ['.default_test_settings', '.timeout_4h_template']
+    assert pipeline['esp32 - generic']['extends'] == ['.default_test_settings']
+
+
 class TestExtraJobsJinja:
     def test_empty_fragment_keeps_generated_jobs_only(self, monkeypatch, tmp_path):
         settings = CiSettings()
