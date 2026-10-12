@@ -371,6 +371,8 @@ generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}
   extends: "{{ settings.gitlab.build_pipeline.job_template_name }}"
   needs:
     - "build_test_related_apps{{ settings.gitlab.build_pipeline.job_name_suffix }}"
+    - pipeline: "$PARENT_PIPELINE_ID"
+      job: "pipeline_variables{{ settings.gitlab.build_pipeline.parent_pipeline_job_suffix }}"
   artifacts:
     paths:
     {%- for path in settings.gitlab.artifacts.native.build_job_filepatterns %}
