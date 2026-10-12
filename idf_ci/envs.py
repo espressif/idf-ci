@@ -58,6 +58,9 @@ class GitlabEnvVars(BaseSettings):
     IDF_PATH: str = ''
     """Path to the ESP-IDF directory."""
 
+    EXCLUDE_RUNNER_TAGS: t.Optional[str] = None
+    """Semicolon-separated runner-tag exclusions for target tests."""
+
     # Possibly Set by `idf-ci gitlab dynamic-pipeline-variables`
     IDF_CI_IS_DEBUG_PIPELINE: t.Optional[bool] = None
     """Flag indicating whether this is a debug pipeline."""
