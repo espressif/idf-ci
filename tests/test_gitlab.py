@@ -7,6 +7,7 @@ import pytest
 import yaml
 from jinja2 import Environment
 
+from idf_ci.cli import click_cli
 from idf_ci.idf_gitlab import ArtifactManager
 from idf_ci.idf_gitlab.pipeline import _parallel_count
 from idf_ci.idf_gitlab.pipeline import test_child_pipeline as generate_test_child_pipeline
@@ -515,3 +516,21 @@ ONLY_ESP32: "1"
 )
 def test_parallel_count(item_count, runs_per_job, expected):
     assert _parallel_count(item_count, runs_per_job) == expected
+
+
+def test_configured_mr_label_skips_test_collection(monkeypatch, tmp_path, runner):
+    monkeypatch.setenv('CI_MERGE_REQUEST_LABELS', 'other, For Maintainers: Only Build Tests')
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_pytest_cases', lambda: pytest.fail('collected tests'))
+    output = tmp_path / 'test_child_pipeline.yml'
+    result = runner.invoke(
+        click_cli,
+        [
+            '--config',
+            "gitlab.test_pipeline.skip_mr_labels=['For Maintainers: Only Build Tests']",
+            'gitlab',
+            'test-child-pipeline',
+            str(output),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert 'fake_pass' in yaml.safe_load(output.read_text())

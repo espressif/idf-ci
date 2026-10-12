@@ -234,7 +234,12 @@ def test_child_pipeline(
     if yaml_output is None:
         yaml_output = settings.gitlab.test_pipeline.yaml_filename
 
-    if cases is None:
+    if set(settings.gitlab.test_pipeline.skip_mr_labels) & {
+        label.strip() for label in (get_env_vars().CI_MERGE_REQUEST_LABELS or '').split(',')
+    }:
+        logger.info('Skipping target tests because a configured MR label is present')
+        cases = GroupedPytestCases([])
+    elif cases is None:
         cases = GroupedPytestCases(get_pytest_cases())
 
     if not cases.grouped_cases:

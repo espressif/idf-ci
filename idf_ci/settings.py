@@ -464,6 +464,9 @@ class TestPipelineSettings(BuildPipelineSettings):
     runs_per_job: int = 30
     """Maximum number of test cases to run in a single job."""
 
+    skip_mr_labels: t.List[str] = []
+    """MR labels that generate a skip pipeline instead of collecting target tests."""
+
     job_variables_jinja: str = ''
     """Jinja2 fragment rendered per generated test job as extra CI variables."""
 

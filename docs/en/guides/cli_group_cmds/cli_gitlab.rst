@@ -130,6 +130,8 @@ Generate a test child pipeline YAML file. If ``YAML_OUTPUT`` is omitted, the YAM
 
     idf-ci gitlab test-child-pipeline [YAML_OUTPUT]
 
+Set ``gitlab.test_pipeline.skip_mr_labels`` to a list of MR labels to generate a skip pipeline without collecting tests when any label matches. The default is an empty list; label names are configured by the consuming project.
+
 Download S3 Artifacts
 ---------------------
 
