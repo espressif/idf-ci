@@ -13,6 +13,9 @@ The ``show`` command prints the value for a dot-path key and reports where that 
 .. code-block:: bash
 
     idf-ci config show gitlab.build_pipeline.runs_per_job
+    idf-ci --config-file path/to/.idf_ci.toml config show exclude_dirs
+
+Each invocation uses its selected config file; values from a previous invocation are not carried over.
 
 Expected output includes:
 
