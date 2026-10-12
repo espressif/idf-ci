@@ -134,6 +134,15 @@ Set ``gitlab.test_pipeline.skip_mr_labels`` to a list of MR labels to generate a
 
 Set ``gitlab.test_pipeline.exclude_runner_tags`` to a list of comma-separated runner-tag rules, or pass semicolon-separated rules via ``EXCLUDE_RUNNER_TAGS``. For example, ``esp32,ip101`` excludes only groups whose complete tag set is exactly those two tags (order does not matter). ``esp32,ip101,*`` excludes groups containing **both** tags, with or without additional tags. ``*`` must be the final entry and must follow at least one specific tag. Rules from the configuration and environment are combined; neither changes pytest collection itself.
 
+Set ``gitlab.test_pipeline.extra_extends_by_env_marker`` to add GitLab templates to jobs grouped by environment marker. For example, a job containing the ``ethernet_stress`` marker can extend a longer timeout template:
+
+.. code-block:: toml
+
+    [gitlab.test_pipeline.extra_extends_by_env_marker]
+    ethernet_stress = [".timeout_4h_template"]
+
+These templates are appended after the configured test job template in ``extends``. The default mapping is empty.
+
 Download S3 Artifacts
 ---------------------
 
