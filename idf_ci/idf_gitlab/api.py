@@ -26,7 +26,7 @@ from minio import Minio
 
 from .._compat import UNDEF, is_undefined
 from .._vendor import translate
-from ..envs import GitlabEnvVars
+from ..envs import get_env_vars
 from ..settings import get_ci_settings
 from ..utils import get_current_branch
 
@@ -105,8 +105,9 @@ class ArtifactParams:
             return commit_sha
 
         # 2. Environment variable PIPELINE_COMMIT_SHA
-        if os.getenv('PIPELINE_COMMIT_SHA'):
-            return os.environ['PIPELINE_COMMIT_SHA']
+        pipeline_commit_sha = get_env_vars().PIPELINE_COMMIT_SHA
+        if pipeline_commit_sha:
+            return pipeline_commit_sha
 
         # 3. Latest commit from branch
         try:
@@ -140,7 +141,7 @@ class PresignedUrlError(ArtifactError):
 
 class ArtifactManager:
     def __init__(self):
-        self.envs = GitlabEnvVars()
+        self.envs = get_env_vars()
         self.settings = get_ci_settings()
         self.project_root = self.settings.project_root
 

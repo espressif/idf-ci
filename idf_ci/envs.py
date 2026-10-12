@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import logging
+import os
 import typing as t
+from functools import lru_cache
 
 from pydantic_settings import (
     BaseSettings,
@@ -11,9 +13,26 @@ logger = logging.getLogger(__name__)
 
 
 class GitlabEnvVars(BaseSettings):
+    # Gitlab Predefined Varaibles
+    CI_COMMIT_SHA: t.Optional[str] = None
+    CI_MERGE_REQUEST_IID: t.Optional[str] = None
+    CI_MERGE_REQUEST_SOURCE_BRANCH_SHA: t.Optional[str] = None
+    CI_MERGE_REQUEST_LABELS: t.Optional[str] = None
+    CI_MERGE_REQUEST_DESCRIPTION: t.Optional[str] = None
+    CI_PYTHON_CONSTRAINT_BRANCH: t.Optional[str] = None
+
     # Pipeline Control Variables
     CHANGED_FILES_SEMICOLON_SEPARATED: t.Optional[str] = None
     """Semicolon-separated list of changed files in the pipeline."""
+
+    PIPELINE_COMMIT_SHA: t.Optional[str] = None
+    """Commit SHA of the source branch rather than the merge result."""
+
+    INCLUDE_NIGHTLY_RUN: t.Optional[str] = None
+    """Include nightly run jobs and test cases."""
+
+    NIGHTLY_RUN: t.Optional[str] = None
+    """Only run nightly jobs and test cases."""
 
     # GitLab API Authentication
     GITLAB_HTTPS_SERVER: str = 'https://gitlab.com'
@@ -100,3 +119,18 @@ class GitlabEnvVars(BaseSettings):
             return targets
 
         return None
+
+
+@lru_cache(maxsize=1)
+def _load_env_vars(_snapshot: t.Tuple[t.Tuple[str, str], ...]) -> GitlabEnvVars:
+    return GitlabEnvVars()
+
+
+def get_env_vars() -> GitlabEnvVars:
+    """Reuse one snapshot until a supported environment variable changes."""
+    # The environment scan still runs on every call; only Pydantic construction
+    # is cached. The key changes when the CLI injects runtime envs or a caller
+    # temporarily overrides a supported variable.
+    return _load_env_vars(
+        tuple(sorted((key, value) for key, value in os.environ.items() if key.upper() in GitlabEnvVars.model_fields))
+    )

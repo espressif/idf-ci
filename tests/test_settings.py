@@ -8,7 +8,35 @@ import pytest
 from esp_bool_parser.constants import ALL_TARGETS
 
 from idf_ci.cli import click_cli
+from idf_ci.envs import get_env_vars
 from idf_ci.settings import CiSettings, DeprecatedConfigWarning
+
+
+def test_env_vars_follow_runtime_changes(monkeypatch):
+    monkeypatch.delenv('PIPELINE_COMMIT_SHA', raising=False)
+    assert get_env_vars().PIPELINE_COMMIT_SHA is None
+
+    monkeypatch.setenv('PIPELINE_COMMIT_SHA', 'abc123')
+    assert get_env_vars().PIPELINE_COMMIT_SHA == 'abc123'
+
+    monkeypatch.setenv('PIPELINE_COMMIT_SHA', 'def456')
+    assert get_env_vars().PIPELINE_COMMIT_SHA == 'def456'
+
+
+def test_cli_uses_each_config_file_without_leaking_previous_values(runner, tmp_path):
+    first = tmp_path / 'first.toml'
+    second = tmp_path / 'second.toml'
+    first.write_text('exclude_dirs = ["from-first"]\n')
+    second.write_text('exclude_dirs = ["from-second"]\n')
+
+    result = runner.invoke(click_cli, ['--config-file', str(first), 'config', 'show', 'exclude_dirs'])
+    assert result.exit_code == 0, result.output
+    assert 'from-first' in result.output
+
+    result = runner.invoke(click_cli, ['--config-file', str(second), 'config', 'show', 'exclude_dirs'])
+    assert result.exit_code == 0, result.output
+    assert 'from-second' in result.output
+    assert 'from-first' not in result.output
 
 
 def test_test_pipeline_job_before_script_extra_default():

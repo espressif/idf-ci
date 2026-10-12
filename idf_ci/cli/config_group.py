@@ -8,6 +8,7 @@ import click
 from pydantic import BaseModel
 from tomlkit import TOMLDocument, load
 from tomlkit import dumps as toml_dumps
+from typing_extensions import Literal, get_args, get_origin
 
 from idf_ci.scripts import preprocess_args
 from idf_ci.settings import CiSettings, get_ci_settings, pick_toml_file
@@ -40,28 +41,28 @@ def _complete_config_key(ctx, param, incomplete: str) -> t.List[str]:  # noqa: A
 
 
 def _format_type(annotation: t.Any) -> str:
-    origin = t.get_origin(annotation)
+    origin = get_origin(annotation)
     if origin is None:
         if isinstance(annotation, type):
             return annotation.__name__
         return repr(annotation)
 
-    if origin is t.Literal:
-        return f'Literal[{", ".join(repr(a) for a in t.get_args(annotation))}]'
+    if origin is Literal:
+        return f'Literal[{", ".join(repr(a) for a in get_args(annotation))}]'
 
     if origin is t.Union:
-        return f'Union[{", ".join(_format_type(a) for a in t.get_args(annotation))}]'
+        return f'Union[{", ".join(_format_type(a) for a in get_args(annotation))}]'
 
-    return f'{origin.__name__}[{", ".join(_format_type(a) for a in t.get_args(annotation))}]'
+    return f'{origin.__name__}[{", ".join(_format_type(a) for a in get_args(annotation))}]'
 
 
 def _get_model_class(annotation: t.Any) -> t.Optional[t.Type[BaseModel]]:
     if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
         return annotation
 
-    origin = t.get_origin(annotation)
+    origin = get_origin(annotation)
     if origin is t.Union:
-        for arg in t.get_args(annotation):
+        for arg in get_args(annotation):
             if inspect.isclass(arg) and issubclass(arg, BaseModel):
                 return arg
 
@@ -163,9 +164,9 @@ def explain(config_key: str):
             click.echo(_format_toml_value(config_key, field.default))
             click.echo('```')
 
-    origin = t.get_origin(field.annotation)
-    if origin is t.Literal:
-        values = ', '.join(repr(v) for v in t.get_args(field.annotation))
+    origin = get_origin(field.annotation)
+    if origin is Literal:
+        values = ', '.join(repr(v) for v in get_args(field.annotation))
         click.echo(f'Choices: {values}')
 
 

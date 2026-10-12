@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import logging
-import os
 import re
 import typing as t
 
 import yaml
+
+from idf_ci.envs import get_env_vars
 
 logger = logging.getLogger(__name__)
 
@@ -41,28 +42,29 @@ def pipeline_variables() -> t.Dict[str, str]:
       `nightly_run` marker are skipped
     """
     res: t.Dict[str, str] = {}
+    envs = get_env_vars()
 
     # non-MR pipelines
-    if os.getenv('CI_MERGE_REQUEST_IID') is None:
+    if envs.CI_MERGE_REQUEST_IID is None:
         res['IDF_CI_SELECT_ALL_PYTEST_CASES'] = '1'
         logger.info('Setting `IDF_CI_SELECT_ALL_PYTEST_CASES=1` since running in a non-MR pipeline')
 
-        if os.getenv('CI_COMMIT_SHA'):
-            res['PIPELINE_COMMIT_SHA'] = os.environ['CI_COMMIT_SHA']
+        if envs.CI_COMMIT_SHA:
+            res['PIPELINE_COMMIT_SHA'] = envs.CI_COMMIT_SHA
             logger.info('Setting `PIPELINE_COMMIT_SHA` to `CI_COMMIT_SHA` since running in a non-MR pipeline')
         return res
 
-    if os.getenv('CI_MERGE_REQUEST_SOURCE_BRANCH_SHA'):
-        res['PIPELINE_COMMIT_SHA'] = os.environ['CI_MERGE_REQUEST_SOURCE_BRANCH_SHA']
+    if envs.CI_MERGE_REQUEST_SOURCE_BRANCH_SHA:
+        res['PIPELINE_COMMIT_SHA'] = envs.CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
         logger.info('Setting `PIPELINE_COMMIT_SHA` to `CI_MERGE_REQUEST_SOURCE_BRANCH_SHA`')
 
-    if os.getenv('CI_PYTHON_CONSTRAINT_BRANCH'):
+    if envs.CI_PYTHON_CONSTRAINT_BRANCH:
         res['IDF_CI_SELECT_ALL_PYTEST_CASES'] = '1'
         logger.info(
             'Setting `IDF_CI_SELECT_ALL_PYTEST_CASES=1` since pipeline is triggered with a python constraint branch'
         )
     else:
-        mr_labels = os.getenv('CI_MERGE_REQUEST_LABELS', '').split(',')
+        mr_labels = (envs.CI_MERGE_REQUEST_LABELS or '').split(',')
         if 'include_nightly_run' in mr_labels:
             res['INCLUDE_NIGHTLY_RUN'] = '1'
             logger.info('Setting `INCLUDE_NIGHTLY_RUN=1` since MR label `include_nightly_run` is set')
@@ -77,10 +79,9 @@ def pipeline_variables() -> t.Dict[str, str]:
             res['IDF_CI_SELECT_ALL_PYTEST_CASES'] = '1'
             logger.info('Setting `IDF_CI_SELECT_ALL_PYTEST_CASES=1` since MR label `BUILD_AND_TEST_ALL_APPS` is set')
         else:
-            description = os.getenv('CI_MERGE_REQUEST_DESCRIPTION', '')
-            if description:
+            if envs.CI_MERGE_REQUEST_DESCRIPTION:
                 pattern = r'^## Dynamic Pipeline Configuration(?:[^`]*?)```(?:\w+)(.*?)```'
-                result = re.search(pattern, description, re.DOTALL | re.MULTILINE)
+                result = re.search(pattern, envs.CI_MERGE_REQUEST_DESCRIPTION, re.DOTALL | re.MULTILINE)
                 if result:
                     data = yaml.safe_load(result.group(1))
                     if 'Test Case Filters' in data:

@@ -24,6 +24,7 @@ from pydantic_settings import (
 from tomlkit import load
 
 from idf_ci._compat import PathLike
+from idf_ci.envs import get_env_vars
 
 logger = logging.getLogger(__name__)
 
@@ -669,8 +670,9 @@ class CiSettings(BaseSettings):
         if config_file:
             return config_file.parent.resolve()
 
-        if os.getenv('IDF_PATH'):
-            return Path(os.environ['IDF_PATH']).resolve()
+        idf_path = get_env_vars().IDF_PATH
+        if idf_path:
+            return Path(idf_path).resolve()
 
         return Path.cwd().resolve()
 
@@ -793,12 +795,18 @@ class CiSettings(BaseSettings):
         return built_apps
 
 
-_ci_settings_context: ContextVar['CiSettings'] = ContextVar('ci_settings', default=CiSettings())
+_ci_settings_context: ContextVar[t.Optional['CiSettings']] = ContextVar('ci_settings', default=None)
 
 
 def get_ci_settings() -> 'CiSettings':
-    """Get the current CiSettings instance from the context."""
-    return _ci_settings_context.get()
+    """Load settings on first use outside the CLI; reuse the current context thereafter."""
+    # The CLI calls _refresh_ci_settings() after parsing its options, so eager
+    # construction here would read the config once before CLI overrides are known.
+    settings = _ci_settings_context.get()
+    if settings is None:
+        settings = CiSettings()
+        _ci_settings_context.set(settings)
+    return settings
 
 
 def _refresh_ci_settings(
