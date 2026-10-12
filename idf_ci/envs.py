@@ -5,6 +5,7 @@ import os
 import typing as t
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import (
     BaseSettings,
 )
@@ -27,6 +28,9 @@ class GitlabEnvVars(BaseSettings):
 
     PIPELINE_COMMIT_SHA: t.Optional[str] = None
     """Commit SHA of the source branch rather than the merge result."""
+
+    IDF_CI_ARTIFACT_NAMESPACE: t.Optional[str] = Field(default=None, pattern=r'^[A-Za-z0-9_-]+$')
+    """Optional S3 namespace for a build variant of the same commit."""
 
     INCLUDE_NIGHTLY_RUN: t.Optional[str] = None
     """Include nightly run jobs and test cases."""

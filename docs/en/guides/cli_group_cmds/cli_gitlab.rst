@@ -257,7 +257,7 @@ Upload artifacts to S3 storage with ``upload-artifacts``:
 
     idf-ci gitlab upload-artifacts [OPTIONS] [FOLDER]
 
-This command uploads to S3 only; GitLab built-in storage is not supported. If the commit SHA is omitted, it is resolved from ``PIPELINE_COMMIT_SHA`` or the latest commit on the selected branch. If you provide a folder, only artifacts under that folder are uploaded. If no folder is specified, artifacts under the current directory are uploaded.
+This command uploads to S3 only; GitLab built-in storage is not supported. If the commit SHA is omitted, it is resolved from ``PIPELINE_COMMIT_SHA`` or the latest commit on the selected branch. Set ``IDF_CI_ARTIFACT_NAMESPACE`` to store a separate build variant without modifying that SHA; use the same namespace when downloading or generating presigned URLs. If you provide a folder, only artifacts under that folder are uploaded. If no folder is specified, artifacts under the current directory are uploaded.
 
 Options:
 
