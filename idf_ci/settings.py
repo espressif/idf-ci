@@ -467,6 +467,9 @@ class TestPipelineSettings(BuildPipelineSettings):
     skip_mr_labels: t.List[str] = []
     """MR labels that generate a skip pipeline instead of collecting target tests."""
 
+    exclude_runner_tags: t.List[str] = []
+    """Runner-tag sets to exclude; a trailing * matches any additional tags."""
+
     job_variables_jinja: str = ''
     """Jinja2 fragment rendered per generated test job as extra CI variables."""
 

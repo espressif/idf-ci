@@ -242,6 +242,38 @@ def test_child_pipeline(
     elif cases is None:
         cases = GroupedPytestCases(get_pytest_cases())
 
+    envs = get_env_vars()
+    exact_exclusions = set()
+    wildcard_exclusions = []
+    for rule in settings.gitlab.test_pipeline.exclude_runner_tags + (
+        (envs.EXCLUDE_RUNNER_TAGS or '').split(';') if envs.EXCLUDE_RUNNER_TAGS else []
+    ):
+        tags = [tag.strip() for tag in rule.split(',')]
+        if (
+            not all(tags)
+            or any('*' in tag and tag != '*' for tag in tags)
+            or ('*' in tags and (tags[-1] != '*' or len(tags) < 2 or tags.count('*') != 1))
+        ):
+            raise ValueError(f'Invalid runner-tag exclusion: {rule!r}')
+        if tags[-1] == '*':
+            wildcard_exclusions.append(frozenset(tags[:-1]))
+        else:
+            exact_exclusions.add(frozenset(tags))
+
+    if exact_exclusions or wildcard_exclusions:
+        excluded_keys = {
+            key
+            for key in cases.grouped_cases
+            if frozenset(key.runner_tags) in exact_exclusions
+            or any(tags <= frozenset(key.runner_tags) for tags in wildcard_exclusions)
+        }
+        for key in excluded_keys:
+            logger.warning('Excluding test cases with runner tags: %s', key.runner_tags)
+        cases = GroupedPytestCases(
+            [case for key, grouped in cases.grouped_cases.items() if key not in excluded_keys for case in grouped],
+            additional_dict=cases.additional_dict,
+        )
+
     if not cases.grouped_cases:
         logger.info('No test cases found, generating fake_pass job to skip the entire test child pipeline')
         with open(yaml_output, 'w') as fw:

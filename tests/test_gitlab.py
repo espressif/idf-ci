@@ -534,3 +534,23 @@ def test_configured_mr_label_skips_test_collection(monkeypatch, tmp_path, runner
     )
     assert result.exit_code == 0, result.output
     assert 'fake_pass' in yaml.safe_load(output.read_text())
+
+
+def test_exclude_exact_and_wildcard_runner_tags(monkeypatch, tmp_path):
+    monkeypatch.setenv('EXCLUDE_RUNNER_TAGS', 'esp32,jtag')
+    settings = CiSettings.model_validate(
+        {'gitlab': {'test_pipeline': {'exclude_runner_tags': ['esp32,ip101', 'esp32,wifi,*']}}}
+    )
+    cases = _grouped_cases(
+        _FakeCase('exact', 'generic', ['esp32', 'ip101'], 'exact'),
+        _FakeCase('extra', 'generic', ['esp32', 'ip101', 'fast'], 'extra'),
+        _FakeCase('wildcard', 'generic', ['wifi', 'fast', 'esp32'], 'wildcard'),
+        _FakeCase('partial', 'generic', ['esp32', 'fast'], 'partial'),
+        _FakeCase('dynamic', 'generic', ['esp32', 'jtag'], 'dynamic'),
+    )
+    pipeline = _write_test_pipeline(monkeypatch, settings, tmp_path, cases)
+    assert 'exact - generic' not in pipeline
+    assert 'wildcard - generic' not in pipeline
+    assert 'dynamic - generic' not in pipeline
+    assert 'extra - generic' in pipeline
+    assert 'partial - generic' in pipeline

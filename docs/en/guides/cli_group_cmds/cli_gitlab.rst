@@ -132,6 +132,8 @@ Generate a test child pipeline YAML file. If ``YAML_OUTPUT`` is omitted, the YAM
 
 Set ``gitlab.test_pipeline.skip_mr_labels`` to a list of MR labels to generate a skip pipeline without collecting tests when any label matches. The default is an empty list; label names are configured by the consuming project.
 
+Set ``gitlab.test_pipeline.exclude_runner_tags`` to a list of comma-separated runner-tag rules, or pass semicolon-separated rules via ``EXCLUDE_RUNNER_TAGS``. For example, ``esp32,ip101`` excludes only groups whose complete tag set is exactly those two tags (order does not matter). ``esp32,ip101,*`` excludes groups containing **both** tags, with or without additional tags. ``*`` must be the final entry and must follow at least one specific tag. Rules from the configuration and environment are combined; neither changes pytest collection itself.
+
 Download S3 Artifacts
 ---------------------
 
