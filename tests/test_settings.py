@@ -23,6 +23,18 @@ def test_env_vars_follow_runtime_changes(monkeypatch):
     assert get_env_vars().PIPELINE_COMMIT_SHA == 'def456'
 
 
+def test_artifact_namespace_must_be_nonempty_when_set(monkeypatch):
+    monkeypatch.delenv('IDF_CI_ARTIFACT_NAMESPACE', raising=False)
+    assert get_env_vars().IDF_CI_ARTIFACT_NAMESPACE is None
+
+    monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', 'buildv2')
+    assert get_env_vars().IDF_CI_ARTIFACT_NAMESPACE == 'buildv2'
+
+    monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', '')
+    with pytest.raises(ValueError, match='IDF_CI_ARTIFACT_NAMESPACE'):
+        get_env_vars()
+
+
 def test_cli_uses_each_config_file_without_leaking_previous_values(runner, tmp_path):
     first = tmp_path / 'first.toml'
     second = tmp_path / 'second.toml'

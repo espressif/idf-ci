@@ -167,6 +167,23 @@ class TestUploadDownloadArtifacts:
             'test.bin',
         ]
 
+    def test_namespaced_upload_and_download(self, runner, s3_client, sample_artifacts_dir, monkeypatch):
+        monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', 'buildv2')
+        commit_sha = 'cli_test_namespaced_sha_123'
+
+        result = runner.invoke(click_cli, ['gitlab', 'upload-artifacts', '--type', 'flash', '--commit-sha', commit_sha])
+        assert result.exit_code == 0, result.output
+        assert [obj.object_name for obj in s3_client.list_objects('private', recursive=True)] == [
+            f'espressif/esp-idf/{commit_sha}_buildv2/app/build_esp32_build/flash.zip'
+        ]
+
+        shutil.rmtree(sample_artifacts_dir)
+        result = runner.invoke(
+            click_cli, ['gitlab', 'download-artifacts', '--type', 'flash', '--commit-sha', commit_sha]
+        )
+        assert result.exit_code == 0, result.output
+        assert (sample_artifacts_dir / 'test.bin').read_text() == 'Binary content'
+
     def test_all_with_optional(self, runner, s3_client, sample_artifacts_dir, tmp_path, monkeypatch):
         commit_sha = 'cli_test_sha_123'
 

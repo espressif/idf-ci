@@ -305,6 +305,8 @@ def test_child_pipeline(
             )
         )
         job['extra_variables'] = _extra_variables_for_job(settings, job, env)
+        if envs.IDF_CI_ARTIFACT_NAMESPACE:
+            job['extra_variables']['IDF_CI_ARTIFACT_NAMESPACE'] = _yaml_flow(envs.IDF_CI_ARTIFACT_NAMESPACE)
         jobs.append(job)
 
     extra_jobs = env.from_string(settings.gitlab.test_pipeline.extra_jobs_jinja).render(

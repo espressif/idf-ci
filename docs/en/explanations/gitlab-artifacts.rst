@@ -116,6 +116,10 @@ All S3 object keys begin with this prefix:
 
     <gitlab.project>/<commit_sha>/
 
+Set ``IDF_CI_ARTIFACT_NAMESPACE`` to separate build variants under the same commit without changing ``PIPELINE_COMMIT_SHA``. For example, ``IDF_CI_ARTIFACT_NAMESPACE=buildv2`` stores and retrieves artifacts under ``<gitlab.project>/<commit_sha>_buildv2/``. The namespace may contain only letters, digits, ``_``, and ``-``, and cannot be empty. When unset, the original prefix above is unchanged.
+
+Set the namespace on the trigger job that starts the build child pipeline, not just on its sibling YAML-generator job. GitLab passes that trigger variable to build, presigned-URL, and test-generator jobs. The test generator writes it into generated target-test jobs so it survives a nested trigger. For standalone artifact commands, set the same namespace in their environment.
+
 The remainder of the object key is derived from the artifact path relative to the effective project root:
 
 - if ``from_path`` is relative, paths are stored relative to that relative path
