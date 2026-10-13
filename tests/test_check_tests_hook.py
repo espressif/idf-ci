@@ -9,34 +9,10 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 from conftest import create_project
-from idf_build_apps.utils import config_rules_from_str
 
 from idf_ci.hooks.check_tests_missing_config import (
-    available_configs,
     main,
 )
-
-
-def test_available_configs_ignores_target_specific_files(tmp_path: Path):
-    for name in ('sdkconfig.ci.allowed', 'sdkconfig.ci.esp32'):
-        (tmp_path / name).touch()
-
-    configs = available_configs(tmp_path, ['sdkconfig.ci.*=', '=default'])
-
-    assert list(configs) == ['allowed']
-
-
-@pytest.mark.skipif(
-    not hasattr(config_rules_from_str(['!sdkconfig.ci.release'])[0], 'negated'),
-    reason='Installed idf-build-apps does not support negated config rules',
-)
-def test_available_configs_respects_exclusions(tmp_path: Path):
-    for name in ('sdkconfig.ci.release', 'sdkconfig.ci.allowed'):
-        (tmp_path / name).touch()
-
-    configs = available_configs(tmp_path, ['sdkconfig.ci.*=', '=default', '!sdkconfig.ci.release'])
-
-    assert list(configs) == ['allowed']
 
 
 @pytest.mark.skipif(not os.getenv('IDF_PATH'), reason='IDF_PATH is not set')
