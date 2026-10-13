@@ -80,6 +80,47 @@ This gives each build job the generated YAML context and exported pipeline varia
 
 If no apps are selected, ``idf-ci`` emits a single ``fake_pass`` job.
 
+***********************************
+ Building with multiple toolchains
+***********************************
+
+Configure the toolchains in ``.idf_ci.toml`` (GCC is the only implicit default):
+
+::
+
+    [gitlab]
+    build_enabled_toolchains = ["gcc", "clang"]
+    test_enabled_toolchains = ["gcc"]
+
+One invocation of ``idf-ci gitlab build-child-pipeline`` discovers apps separately for each toolchain and writes ``build_child_pipeline.yml`` for GCC and ``build_child_pipeline_clang.yml`` for Clang. It also writes separate app lists (``test_related_apps.txt`` / ``test_related_apps_clang.txt`` and their ``non_test_related_apps`` counterparts). Include **all** these files in the parent generation job's artifacts; no second discovery job is required.
+
+Create one parent trigger job for each desired build YAML, each with an ``include:artifact`` pointing at the corresponding file from the **same** generation job. For example:
+
+::
+
+    generate_build_child_pipeline:
+      script: idf-ci gitlab build-child-pipeline
+      artifacts:
+        paths:
+          - build_child_pipeline.yml
+          - build_child_pipeline_clang.yml
+          - test_related_apps.txt
+          - test_related_apps_clang.txt
+          - non_test_related_apps.txt
+          - non_test_related_apps_clang.txt
+
+    build-clang:
+      needs: [generate_build_child_pipeline]
+      variables:
+        PARENT_PIPELINE_ID: "$CI_PIPELINE_ID"
+      trigger:
+        include:
+          - artifact: build_child_pipeline_clang.yml
+            job: generate_build_child_pipeline
+        strategy: depend
+
+The generated build jobs set ``IDF_TOOLCHAIN`` and read only their toolchain's app lists. Non-GCC jobs also use the toolchain as their ``IDF_CI_ARTIFACT_NAMESPACE`` to keep S3 artifacts separate; GCC retains the existing artifact namespace behavior (unnamespaced by default). Only toolchains in ``test_enabled_toolchains`` create a test generation/trigger pair. When Clang tests are enabled, the Clang build pipeline generates and triggers ``test_child_pipeline_clang.yml``. The test-generation command can also be called directly with ``idf-ci gitlab test-child-pipeline --toolchain clang``.
+
 *****************************
  What the build jobs contain
 *****************************
