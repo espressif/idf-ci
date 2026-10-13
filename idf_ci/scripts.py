@@ -14,7 +14,7 @@ from idf_build_apps.utils import get_parallel_start_stop
 from ._compat import UNDEF, UndefinedOr, is_defined_and_satisfies, is_undefined
 from .envs import get_env_vars
 from .filters.component_targets import should_skip_build_for_components
-from .settings import IDF_CI_DEFAULT_TOOLCHAIN, get_ci_settings, toolchain_filename
+from .settings import IDF_CI_DEFAULT_TOOLCHAIN, get_ci_settings, suffix_filename
 
 if t.TYPE_CHECKING:
     from .idf_pytest import PytestCase
@@ -148,11 +148,12 @@ def preprocess_args(
     else:
         logger.debug('Running in CI, reading test-related and non-test-related apps from files if available')
         toolchain = envs.IDF_TOOLCHAIN or IDF_CI_DEFAULT_TOOLCHAIN
+        app_list_suffix = envs.IDF_CI_ARTIFACT_NAMESPACE or ('' if toolchain == IDF_CI_DEFAULT_TOOLCHAIN else toolchain)
         test_related_apps = settings.read_apps_from_files(
-            [toolchain_filename(settings.collected_test_related_apps_filepath, toolchain)]
+            [suffix_filename(settings.collected_test_related_apps_filepath, app_list_suffix)]
         )
         non_test_related_apps = settings.read_apps_from_files(
-            [toolchain_filename(settings.collected_non_test_related_apps_filepath, toolchain)]
+            [suffix_filename(settings.collected_non_test_related_apps_filepath, app_list_suffix)]
         )
 
         # if one of the two is None, it should be empty list

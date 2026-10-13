@@ -15,7 +15,7 @@ from jinja2 import Environment
 from idf_ci.envs import get_env_vars
 from idf_ci.idf_pytest import GroupedPytestCases, get_pytest_cases
 from idf_ci.scripts import get_all_apps
-from idf_ci.settings import IDF_CI_DEFAULT_TOOLCHAIN, CiSettings, get_ci_settings, toolchain_filename
+from idf_ci.settings import IDF_CI_DEFAULT_TOOLCHAIN, CiSettings, get_ci_settings, suffix_filename, toolchain_filename
 
 logger = logging.getLogger(__name__)
 
@@ -140,11 +140,14 @@ def build_child_pipeline(
                     compare_manifest_sha_filepath=compare_manifest_sha_filepath,
                 )
 
+        app_list_suffix = envs.IDF_CI_ARTIFACT_NAMESPACE or ('' if toolchain == IDF_CI_DEFAULT_TOOLCHAIN else toolchain)
         dump_apps_to_txt(
-            test_related_apps, toolchain_filename(settings.collected_test_related_apps_filepath, toolchain)
+            test_related_apps,
+            suffix_filename(settings.collected_test_related_apps_filepath, app_list_suffix),
         )
         dump_apps_to_txt(
-            non_test_related_apps, toolchain_filename(settings.collected_non_test_related_apps_filepath, toolchain)
+            non_test_related_apps,
+            suffix_filename(settings.collected_non_test_related_apps_filepath, app_list_suffix),
         )
 
         output = toolchain_filename(yaml_output, toolchain)

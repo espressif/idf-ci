@@ -32,10 +32,15 @@ IDF_CI_DEFAULT_TOOLCHAIN = 'gcc'
 
 def toolchain_filename(filename: str, toolchain: str) -> str:
     """Keep GCC's filename unchanged; suffix other toolchains before the extension."""
-    if toolchain == IDF_CI_DEFAULT_TOOLCHAIN:
+    return suffix_filename(filename, '' if toolchain == IDF_CI_DEFAULT_TOOLCHAIN else toolchain)
+
+
+def suffix_filename(filename: str, suffix: str) -> str:
+    """Append an explicit suffix, including when it happens to equal a toolchain name."""
+    if not suffix:
         return filename
     path = Path(filename)
-    return str(path.with_name(f'{path.stem}_{toolchain}{path.suffix}'))
+    return str(path.with_name(f'{path.stem}_{suffix}{path.suffix}'))
 
 
 LEGACY_ARTIFACT_NATIVE_FIELD_ALIASES = [

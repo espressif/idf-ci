@@ -126,6 +126,45 @@ def test_build_reads_only_selected_toolchain_lists(monkeypatch, tmp_path):
     assert args.non_test_related_apps == []
 
 
+def test_namespace_keeps_gcc_variant_app_lists_separate(monkeypatch, tmp_path, runner):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / '.idf_ci.toml').write_text('')
+    monkeypatch.setattr(
+        'idf_ci.idf_gitlab.pipeline.get_all_apps',
+        lambda **kwargs: (
+            [CMakeApp(app_dir='examples/buildv2' if os.getenv('IDF_BUILD_V2') else 'examples/gcc', target='esp32')],
+            [],
+        ),
+    )
+    for variant in ('gcc', 'buildv2'):
+        if variant == 'buildv2':
+            monkeypatch.setenv('IDF_BUILD_V2', '1')
+            monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', 'buildv2')
+        result = runner.invoke(click_cli, ['gitlab', 'build-child-pipeline', f'{variant}.yml'])
+        assert result.exit_code == 0, result.output
+
+    assert (tmp_path / 'test_related_apps.txt').is_file()
+    assert (tmp_path / 'test_related_apps_buildv2.txt').is_file()
+    assert (tmp_path / 'non_test_related_apps_buildv2.txt').is_file()
+    monkeypatch.delenv('IDF_BUILD_V2')
+    monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', 'gcc')
+    result = runner.invoke(click_cli, ['gitlab', 'build-child-pipeline', 'explicit_gcc.yml'])
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / 'test_related_apps_gcc.txt').is_file()
+    assert (tmp_path / 'non_test_related_apps_gcc.txt').is_file()
+    monkeypatch.setenv('CI', 'true')
+    monkeypatch.setenv('IDF_TOOLCHAIN', 'gcc')
+    _refresh_ci_settings()
+    apps = preprocess_args().test_related_apps
+    assert apps and apps[0].app_dir == 'examples/gcc'
+    monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', 'buildv2')
+    apps = preprocess_args().test_related_apps
+    assert apps and apps[0].app_dir == 'examples/buildv2'
+    monkeypatch.delenv('IDF_CI_ARTIFACT_NAMESPACE')
+    apps = preprocess_args().test_related_apps
+    assert apps and apps[0].app_dir == 'examples/gcc'
+
+
 def test_manifest_is_evaluated_again_for_each_toolchain(monkeypatch, tmp_path, runner):
     create_project('hello', tmp_path)
     monkeypatch.chdir(tmp_path)
