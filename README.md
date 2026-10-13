@@ -76,6 +76,19 @@ pytest --collect-only
 pytest --target esp32
 ```
 
+## Agent skill
+
+For an AI agent **using `idf-ci` in another ESP-IDF project**, install the
+[`idf-ci` skill](skills/idf-ci/SKILL.md). It includes a command map, runnable
+examples, environment-variable formats, and safety checks for CI and artifacts.
+The agent should still check the installed CLI's `--help` before running a command.
+
+- Hermes Agent: `hermes skills install espressif/idf-ci/skills/idf-ci`
+- Agents supported by the skills CLI: `npx skills add espressif/idf-ci --skill idf-ci`
+
+The skill is self-contained in `skills/idf-ci/`; it is not automatically loaded
+by installing the Python package.
+
 ## Documentation
 
 For detailed usage and configuration options, please refer to the [documentation](https://espressif-idf-ci.readthedocs-hosted.com/en/latest/).
