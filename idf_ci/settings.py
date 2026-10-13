@@ -27,6 +27,16 @@ from idf_ci._compat import PathLike
 from idf_ci.envs import get_env_vars
 
 logger = logging.getLogger(__name__)
+IDF_CI_DEFAULT_TOOLCHAIN = 'gcc'
+
+
+def toolchain_filename(filename: str, toolchain: str) -> str:
+    """Keep GCC's filename unchanged; suffix other toolchains before the extension."""
+    if toolchain == IDF_CI_DEFAULT_TOOLCHAIN:
+        return filename
+    path = Path(filename)
+    return str(path.with_name(f'{path.stem}_{toolchain}{path.suffix}'))
+
 
 LEGACY_ARTIFACT_NATIVE_FIELD_ALIASES = [
     'build_job_filepatterns',
@@ -359,6 +369,13 @@ workflow:
   name: "{{ settings.gitlab.build_pipeline.workflow_name }}"
   rules:
     - when: "always"
+{% if toolchain is defined %}
+variables:
+  IDF_TOOLCHAIN: "{{ toolchain }}"
+{%- if toolchain != default_toolchain %}
+  IDF_CI_ARTIFACT_NAMESPACE: "{{ toolchain }}"
+{%- endif %}
+{% endif %}
 
 {% if settings.gitlab.build_pipeline.job_template_jinja %}
 {{ job_template }}
@@ -366,7 +383,7 @@ workflow:
 
 {{ jobs }}
 
-{%- if test_related_apps_count > 0 %}
+{%- if test_related_apps_count > 0 and generate_tests|default(true) %}
 generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
   extends: "{{ settings.gitlab.build_pipeline.job_template_name }}"
   needs:
@@ -378,7 +395,7 @@ generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}
     {%- for path in settings.gitlab.artifacts.native.build_job_filepatterns %}
       - "{{ path }}"
     {%- endfor %}
-      - "{{ settings.gitlab.test_pipeline.yaml_filename }}"
+      - "{{ test_yaml_filename|default(settings.gitlab.test_pipeline.yaml_filename) }}"
   script:
     - idf-ci
       --config 'gitlab.build_pipeline.job_name_suffix="{{ settings.gitlab.build_pipeline.job_name_suffix }}"'
@@ -386,6 +403,8 @@ generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}
       --config 'gitlab.test_pipeline.job_name_suffix="{{ settings.gitlab.test_pipeline.job_name_suffix }}"'
       --config 'gitlab.test_pipeline.job_image="{{ settings.gitlab.test_pipeline.job_image }}"'
       gitlab test-child-pipeline
+      --toolchain "{{ toolchain|default(settings.gitlab.build_enabled_toolchains[0]) }}"
+      "{{ test_yaml_filename|default(settings.gitlab.test_pipeline.yaml_filename) }}"
 
 test-child-pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
   stage: ".post"
@@ -395,7 +414,7 @@ test-child-pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
     PARENT_PIPELINE_ID: "$CI_PIPELINE_ID"
   trigger:
     include:
-      - artifact: "{{ settings.gitlab.test_pipeline.yaml_filename }}"
+      - artifact: "{{ test_yaml_filename|default(settings.gitlab.test_pipeline.yaml_filename) }}"
         job: "generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}"
     strategy: "depend"
 {%- endif %}
@@ -509,6 +528,13 @@ workflow:
   name: "{{ settings.gitlab.test_pipeline.workflow_name }}"
   rules:
     - when: "always"
+{% if toolchain is defined %}
+variables:
+  IDF_TOOLCHAIN: "{{ toolchain }}"
+{%- if toolchain != default_toolchain %}
+  IDF_CI_ARTIFACT_NAMESPACE: "{{ toolchain }}"
+{%- endif %}
+{% endif %}
 
 {% if settings.gitlab.test_pipeline.job_template_jinja %}
 {{ default_template }}
@@ -536,6 +562,28 @@ class GitlabSettings(BaseModel):
     build_pipeline: BuildPipelineSettings = BuildPipelineSettings()
 
     test_pipeline: TestPipelineSettings = TestPipelineSettings()
+
+    build_enabled_toolchains: t.List[str] = [IDF_CI_DEFAULT_TOOLCHAIN]
+    """Toolchains for which one invocation generates separate build child YAML files."""
+
+    test_enabled_toolchains: t.List[str] = [IDF_CI_DEFAULT_TOOLCHAIN]
+    """Build toolchains which also generate test child pipelines."""
+
+    @model_validator(mode='after')
+    def validate_toolchains(self) -> 'GitlabSettings':
+        for name, toolchains in (
+            ('build_enabled_toolchains', self.build_enabled_toolchains),
+            ('test_enabled_toolchains', self.test_enabled_toolchains),
+        ):
+            if (
+                (name == 'build_enabled_toolchains' and not toolchains)
+                or len(toolchains) != len(set(toolchains))
+                or any(not re.fullmatch(r'[A-Za-z0-9_-]+', toolchain) for toolchain in toolchains)
+            ):
+                raise ValueError(f'gitlab.{name} must contain unique, nonempty filename-safe toolchains')
+        if not set(self.test_enabled_toolchains) <= set(self.build_enabled_toolchains):
+            raise ValueError('gitlab.test_enabled_toolchains must be a subset of gitlab.build_enabled_toolchains')
+        return self
 
 
 class CiSettings(BaseSettings):

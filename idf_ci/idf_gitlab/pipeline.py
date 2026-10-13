@@ -4,7 +4,9 @@
 
 import logging
 import os
+import re
 import typing as t
+from contextlib import contextmanager
 
 import yaml
 from idf_build_apps import App
@@ -13,9 +15,22 @@ from jinja2 import Environment
 from idf_ci.envs import get_env_vars
 from idf_ci.idf_pytest import GroupedPytestCases, get_pytest_cases
 from idf_ci.scripts import get_all_apps
-from idf_ci.settings import CiSettings, get_ci_settings
+from idf_ci.settings import IDF_CI_DEFAULT_TOOLCHAIN, CiSettings, get_ci_settings, toolchain_filename
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def set_env(key: str, value: str) -> t.Iterator[None]:
+    original = os.environ.get(key)
+    os.environ[key] = value
+    try:
+        yield
+    finally:
+        if original is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = original
 
 
 def _parallel_count(item_count: int, runs_per_job: int) -> int:
@@ -100,8 +115,8 @@ def build_child_pipeline(
     yaml_output: t.Optional[str] = None,
 ) -> None:
     """Generate build child pipeline."""
-    envs = get_env_vars()
     settings = get_ci_settings()
+    envs = get_env_vars()
 
     if compare_manifest_sha_filepath and not os.path.isfile(compare_manifest_sha_filepath):
         compare_manifest_sha_filepath = None
@@ -109,83 +124,78 @@ def build_child_pipeline(
     if yaml_output is None:
         yaml_output = settings.gitlab.build_pipeline.yaml_filename
 
-    # Check if we should run quick pipeline
-    if envs.select_by_filter_expr:
-        # we only build test related apps
-        test_related_apps, _ = get_all_apps(
-            paths=paths,
-            marker_expr='not host_test',
-            filter_expr=envs.select_by_filter_expr,
+    for toolchain in settings.gitlab.build_enabled_toolchains:
+        # Manifest conditions are evaluated during discovery, not at build time.
+        with set_env('IDF_TOOLCHAIN', toolchain):
+            if envs.select_by_filter_expr:
+                test_related_apps, _ = get_all_apps(
+                    paths=paths, marker_expr='not host_test', filter_expr=envs.select_by_filter_expr
+                )
+                non_test_related_apps: t.List[App] = []
+            else:
+                test_related_apps, non_test_related_apps = get_all_apps(
+                    paths=paths,
+                    modified_files=modified_files,
+                    marker_expr='not host_test',
+                    compare_manifest_sha_filepath=compare_manifest_sha_filepath,
+                )
+
+        dump_apps_to_txt(
+            test_related_apps, toolchain_filename(settings.collected_test_related_apps_filepath, toolchain)
         )
-        non_test_related_apps: t.List[App] = []
-        dump_apps_to_txt(test_related_apps, settings.collected_test_related_apps_filepath)
-    else:
-        test_related_apps, non_test_related_apps = get_all_apps(
-            paths=paths,
-            modified_files=modified_files,
-            marker_expr='not host_test',
-            compare_manifest_sha_filepath=compare_manifest_sha_filepath,
+        dump_apps_to_txt(
+            non_test_related_apps, toolchain_filename(settings.collected_non_test_related_apps_filepath, toolchain)
         )
-        dump_apps_to_txt(test_related_apps, settings.collected_test_related_apps_filepath)
-        dump_apps_to_txt(non_test_related_apps, settings.collected_non_test_related_apps_filepath)
 
-    apps_total = len(test_related_apps) + len(non_test_related_apps)
-    test_related_parallel_count = _parallel_count(
-        len(test_related_apps),
-        settings.gitlab.build_pipeline.runs_per_job,
-    )
-    non_test_related_parallel_count = _parallel_count(
-        len(non_test_related_apps),
-        settings.gitlab.build_pipeline.runs_per_job,
-    )
+        output = toolchain_filename(yaml_output, toolchain)
+        if not test_related_apps and not non_test_related_apps:
+            logger.info('No apps found for %s, generating fake_pass job', toolchain)
+            with open(output, 'w') as fw:
+                yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.build_pipeline.workflow_name), fw)
+            continue
 
-    if not apps_total:
-        logger.info('No apps found, generating fake_pass job to skip the entire build child pipeline')
-        with open(yaml_output, 'w') as fw:
-            yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.build_pipeline.workflow_name), fw)
-            return
-
-    logger.info(
-        'Found %d apps, %d test related apps, %d non-test related apps',
-        apps_total,
-        len(test_related_apps),
-        len(non_test_related_apps),
-    )
-    logger.info(
-        'Test related parallel count: %d, Non-test related parallel count: %d',
-        test_related_parallel_count,
-        non_test_related_parallel_count,
-    )
-
-    job_template = Environment().from_string(settings.gitlab.build_pipeline.job_template_jinja)
-    jobs_template = Environment().from_string(settings.gitlab.build_pipeline.jobs_jinja)
-    yaml_template = Environment().from_string(settings.gitlab.build_pipeline.yaml_jinja)
-
-    with open(yaml_output, 'w') as fw:
-        fw.write(
-            yaml_template.render(
-                job_template=job_template.render(
+        logger.info(
+            'Toolchain %s: %d test related apps, %d non-test related apps',
+            toolchain,
+            len(test_related_apps),
+            len(non_test_related_apps),
+        )
+        environment = Environment()
+        with open(output, 'w') as fw:
+            fw.write(
+                environment.from_string(settings.gitlab.build_pipeline.yaml_jinja).render(
+                    job_template=environment.from_string(settings.gitlab.build_pipeline.job_template_jinja).render(
+                        settings=settings,
+                        toolchain=toolchain,
+                    ),
+                    jobs=environment.from_string(settings.gitlab.build_pipeline.jobs_jinja).render(
+                        settings=settings,
+                        toolchain=toolchain,
+                        test_related_apps_count=len(test_related_apps),
+                        test_related_parallel_count=_parallel_count(
+                            len(test_related_apps), settings.gitlab.build_pipeline.runs_per_job
+                        ),
+                        non_test_related_apps_count=len(non_test_related_apps),
+                        non_test_related_parallel_count=_parallel_count(
+                            len(non_test_related_apps), settings.gitlab.build_pipeline.runs_per_job
+                        ),
+                    ),
                     settings=settings,
-                ),
-                jobs=jobs_template.render(
-                    settings=settings,
+                    toolchain=toolchain,
+                    default_toolchain=IDF_CI_DEFAULT_TOOLCHAIN,
+                    test_yaml_filename=toolchain_filename(settings.gitlab.test_pipeline.yaml_filename, toolchain),
+                    generate_tests=toolchain in settings.gitlab.test_enabled_toolchains,
                     test_related_apps_count=len(test_related_apps),
-                    test_related_parallel_count=test_related_parallel_count,
-                    non_test_related_apps_count=len(non_test_related_apps),
-                    non_test_related_parallel_count=non_test_related_parallel_count,
-                ),
-                settings=settings,
-                test_related_apps_count=len(test_related_apps),
+                )
             )
-        )
-
-    logger.info('Build child pipeline generated successfully in %s', yaml_output)
+        logger.info('Build child pipeline generated successfully in %s', output)
 
 
 def test_child_pipeline(
-    yaml_output: str,
+    yaml_output: t.Optional[str] = None,
     *,
     cases: t.Optional[GroupedPytestCases] = None,
+    toolchain: str = IDF_CI_DEFAULT_TOOLCHAIN,
 ) -> None:
     """This function is used to generate the child pipeline for test jobs.
 
@@ -231,8 +241,11 @@ def test_child_pipeline(
     """
     settings = get_ci_settings()
 
+    if not re.fullmatch(r'[A-Za-z0-9_-]+', toolchain):
+        raise ValueError('toolchain must be a nonempty filename-safe name')
+
     if yaml_output is None:
-        yaml_output = settings.gitlab.test_pipeline.yaml_filename
+        yaml_output = toolchain_filename(settings.gitlab.test_pipeline.yaml_filename, toolchain)
 
     if set(settings.gitlab.test_pipeline.skip_mr_labels) & {
         label.strip() for label in (get_env_vars().CI_MERGE_REQUEST_LABELS or '').split(',')
@@ -240,7 +253,8 @@ def test_child_pipeline(
         logger.info('Skipping target tests because a configured MR label is present')
         cases = GroupedPytestCases([])
     elif cases is None:
-        cases = GroupedPytestCases(get_pytest_cases())
+        with set_env('IDF_TOOLCHAIN', toolchain):
+            cases = GroupedPytestCases(get_pytest_cases())
 
     envs = get_env_vars()
     exact_exclusions = set()
@@ -329,6 +343,8 @@ def test_child_pipeline(
                 ),
                 extra_jobs=extra_jobs,
                 settings=settings,
+                toolchain=toolchain,
+                default_toolchain=IDF_CI_DEFAULT_TOOLCHAIN,
             )
         )
 

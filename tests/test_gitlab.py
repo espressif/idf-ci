@@ -296,6 +296,27 @@ def _write_test_pipeline(monkeypatch, settings, tmp_path, cases):
     return yaml.safe_load(yaml_output.read_text())
 
 
+def test_clang_test_jobs_use_matching_toolchain_and_artifact_namespace(monkeypatch, tmp_path):
+    settings = CiSettings.model_validate(
+        {
+            'gitlab': {
+                'build_enabled_toolchains': ['gcc', 'clang'],
+                'test_enabled_toolchains': ['gcc', 'clang'],
+            }
+        }
+    )
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_ci_settings', lambda: settings)
+    output = tmp_path / 'test_child_pipeline_clang.yml'
+    generate_test_child_pipeline(
+        str(output),
+        toolchain='clang',
+        cases=_grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')),
+    )
+    pipeline = yaml.safe_load(output.read_text())
+    assert pipeline['variables'] == {'IDF_TOOLCHAIN': 'clang', 'IDF_CI_ARTIFACT_NAMESPACE': 'clang'}
+    assert pipeline['esp32 - generic']['variables']['nodes'] == "'tests/test_example.py::test_case'"
+
+
 def test_test_jobs_extend_templates_for_environment_markers(monkeypatch, tmp_path):
     settings = CiSettings.model_validate(
         {'gitlab': {'test_pipeline': {'extra_extends_by_env_marker': {'ethernet_stress': ['.timeout_4h_template']}}}}
@@ -327,6 +348,7 @@ class TestExtraJobsJinja:
         assert 'esp32 - generic' in pipeline
         assert list(pipeline) == [
             'workflow',
+            'variables',
             settings.gitlab.test_pipeline.job_template_name,
             'esp32 - generic',
         ]

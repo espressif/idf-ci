@@ -60,10 +60,14 @@ def build_child_pipeline(paths, modified_files, compare_manifest_sha_filepath, y
 
 
 @gitlab.command()
+@click.option('--toolchain', default=None, help='Toolchain for the test YAML (defaults to the configured default).')
 @click.argument('yaml_output', required=False)
-def test_child_pipeline(yaml_output):
+def test_child_pipeline(yaml_output, toolchain):
     """Generate test child pipeline yaml file."""
-    test_child_pipeline_cmd(yaml_output)
+    if toolchain is None:
+        test_child_pipeline_cmd(yaml_output)
+    else:
+        test_child_pipeline_cmd(yaml_output, toolchain=toolchain)
 
 
 def validate_artifact_type(

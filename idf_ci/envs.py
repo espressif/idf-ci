@@ -32,6 +32,9 @@ class GitlabEnvVars(BaseSettings):
     IDF_CI_ARTIFACT_NAMESPACE: t.Optional[str] = Field(default=None, pattern=r'^[A-Za-z0-9_-]+$')
     """Optional S3 namespace for a build variant of the same commit."""
 
+    IDF_TOOLCHAIN: t.Optional[str] = None
+    """Toolchain used by build manifests and for selecting collected app lists."""
+
     INCLUDE_NIGHTLY_RUN: t.Optional[str] = None
     """Include nightly run jobs and test cases."""
 
