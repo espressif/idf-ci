@@ -10,6 +10,7 @@ from contextlib import contextmanager
 
 import yaml
 from idf_build_apps import App
+from idf_build_apps.args import FindArguments
 from jinja2 import Environment
 
 from idf_ci.envs import get_env_vars
@@ -257,7 +258,25 @@ def test_child_pipeline(
         cases = GroupedPytestCases([])
     elif cases is None:
         with set_env('IDF_TOOLCHAIN', toolchain):
-            cases = GroupedPytestCases(get_pytest_cases())
+            # Pytest collection does not load idf-build-apps manifests. Load the
+            # same rules as app discovery before deciding which cases can run.
+            previous_manifest = App.MANIFEST
+            try:
+                manifest_args = FindArguments()
+                manifest = App.MANIFEST if manifest_args.manifest_files else None
+                cases = GroupedPytestCases(
+                    [
+                        case
+                        for case in get_pytest_cases()
+                        if manifest is None
+                        or all(
+                            app.target in manifest.enable_test_targets(app.path, config_name=app.config)
+                            for app in case.apps
+                        )
+                    ]
+                )
+            finally:
+                App.MANIFEST = previous_manifest
 
     envs = get_env_vars()
     exact_exclusions = set()
