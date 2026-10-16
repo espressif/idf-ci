@@ -78,6 +78,9 @@ class GitlabEnvVars(BaseSettings):
     IDF_CI_SELECT_ALL_PYTEST_CASES: t.Optional[bool] = None
     """Flag indicating whether to select all pytest cases."""
 
+    IDF_CI_FILTER_PYTEST_CASES_BY_MANIFEST_TEST_TARGETS: bool = False
+    """Opt in to filtering generated pytest jobs with build-test rules."""
+
     IDF_CI_SELECT_BY_TARGETS: t.Optional[str] = None
     """comma-separated list of targets to be built and tested."""
 
@@ -111,6 +114,10 @@ class GitlabEnvVars(BaseSettings):
 
         :returns: The filter expression if set, None otherwise
         """
+        if self.IDF_CI_SELECT_ALL_PYTEST_CASES:
+            if self.IDF_CI_SELECT_BY_FILTER_EXPR:
+                logger.warning('Ignoring `IDF_CI_SELECT_BY_FILTER_EXPR` because `IDF_CI_SELECT_ALL_PYTEST_CASES=1`')
+            return None
         if self.IDF_CI_SELECT_BY_FILTER_EXPR:
             logger.info('Selecting pytest cases with filter expression: %s', self.IDF_CI_SELECT_BY_FILTER_EXPR)
             return self.IDF_CI_SELECT_BY_FILTER_EXPR
