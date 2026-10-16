@@ -49,7 +49,7 @@ def get_pytest_cases(
         marker_expr = 'host_test' if 'linux' in target else 'not host_test'
 
     if filter_expr is None:
-        filter_expr = get_env_vars().IDF_CI_SELECT_BY_FILTER_EXPR
+        filter_expr = get_env_vars().select_by_filter_expr
 
     plugin = IdfPytestPlugin(
         cli_target=target,

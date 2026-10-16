@@ -3,6 +3,7 @@
 
 import textwrap
 from pathlib import Path
+from typing import List
 
 import pytest
 
@@ -106,6 +107,28 @@ class TestGetPytestCases:
 
         assert cases[3].name == 'test_foo_multi'
         assert cases[3].targets == ['esp32s2', 'esp32s2', 'esp32s3']
+
+    def test_env_filter_expr_still_selects_cases_without_select_all(self, monkeypatch, tmp_path: Path) -> None:
+        monkeypatch.delenv('IDF_CI_SELECT_ALL_PYTEST_CASES', raising=False)
+        monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'foo_single')
+        (tmp_path / 'test_env_filter_only.py').write_text(self.TEMPLATE_SCRIPT)
+
+        cases = get_pytest_cases(paths=[str(tmp_path)])
+
+        assert len(cases) == 2
+        assert all(case.name == 'test_foo_single' for case in cases)
+
+    def test_select_all_ignores_filter_expr(self, monkeypatch, tmp_path: Path) -> None:
+        warnings: List[str] = []
+        monkeypatch.setattr('idf_ci.envs.logger.warning', warnings.append)
+        monkeypatch.setenv('IDF_CI_SELECT_ALL_PYTEST_CASES', '1')
+        monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'nonexistent_case')
+        (tmp_path / 'test_all_overrides_filter.py').write_text(self.TEMPLATE_SCRIPT)
+
+        cases = get_pytest_cases(paths=[str(tmp_path)])
+
+        assert len(cases) == 4
+        assert any('Ignoring `IDF_CI_SELECT_BY_FILTER_EXPR`' in warning for warning in warnings)
 
     def test_filter_with_sdkconfig_name(self, tmp_path: Path) -> None:
         script = tmp_path / 'test_filter_with_sdkconfig_name.py'

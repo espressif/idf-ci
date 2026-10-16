@@ -68,6 +68,25 @@ def test_one_command_generates_isolated_build_yamls_and_app_lists(monkeypatch, t
     assert os.path.exists('non_test_related_apps_clang.txt')
 
 
+def test_select_all_takes_priority_over_filter_expr_in_build_pipeline(monkeypatch, tmp_path):
+    warnings = []
+    monkeypatch.setattr('idf_ci.envs.logger.warning', warnings.append)
+    monkeypatch.setenv('IDF_CI_SELECT_ALL_PYTEST_CASES', '1')
+    monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'nonexistent_case')
+    observed = []
+
+    def collect(**kwargs):
+        observed.append(kwargs)
+        return [CMakeApp(app_dir='examples/hello', target='esp32')], []
+
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_all_apps', collect)
+    build_child_pipeline(yaml_output=str(tmp_path / 'build.yml'))
+
+    assert observed
+    assert all(kwargs.get('filter_expr') is None for kwargs in observed)
+    assert any('Ignoring `IDF_CI_SELECT_BY_FILTER_EXPR`' in warning for warning in warnings)
+
+
 def test_build_discovery_restores_unset_toolchain_on_failure(monkeypatch):
     monkeypatch.delenv('IDF_TOOLCHAIN', raising=False)
     monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_all_apps', lambda **kwargs: 1 / 0)
@@ -195,10 +214,12 @@ def test_manifest_is_evaluated_again_for_each_toolchain(monkeypatch, tmp_path, r
 def test_full_test_pipeline_manifest_filter_is_opt_in(monkeypatch, tmp_path, apply_rules):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv('IDF_TOOLCHAIN', raising=False)
-    monkeypatch.delenv('IDF_CI_APPLY_BUILD_TEST_RULES_TO_PYTEST', raising=False)
+    monkeypatch.delenv('IDF_CI_FILTER_PYTEST_CASES_BY_MANIFEST_TEST_TARGETS', raising=False)
     if apply_rules is not None:
-        monkeypatch.setenv('IDF_CI_APPLY_BUILD_TEST_RULES_TO_PYTEST', apply_rules)
+        monkeypatch.setenv('IDF_CI_FILTER_PYTEST_CASES_BY_MANIFEST_TEST_TARGETS', apply_rules)
     monkeypatch.setenv('IDF_CI_SELECT_ALL_PYTEST_CASES', '1')
+    if apply_rules == '1':
+        monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'nonexistent_case')
     (tmp_path / '.idf_build_apps.toml').write_text('manifest_filepatterns = ["**/.build-test-rules.yml"]\n')
     (tmp_path / '.build-test-rules.yml').write_text(
         'unsupported:\n  disable_test:\n    - if: IDF_TOOLCHAIN == "clang"\n'

@@ -258,7 +258,7 @@ def test_child_pipeline(
         cases = GroupedPytestCases([])
     elif cases is None:
         with set_env('IDF_TOOLCHAIN', toolchain):
-            if get_env_vars().IDF_CI_APPLY_BUILD_TEST_RULES_TO_PYTEST:
+            if get_env_vars().IDF_CI_FILTER_PYTEST_CASES_BY_MANIFEST_TEST_TARGETS:
                 # Pytest collection does not load idf-build-apps manifests. Load the
                 # same rules as app discovery before deciding which cases can run.
                 previous_manifest = App.MANIFEST
