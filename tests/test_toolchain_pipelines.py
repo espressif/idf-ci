@@ -191,6 +191,43 @@ def test_manifest_is_evaluated_again_for_each_toolchain(monkeypatch, tmp_path, r
     assert 'fake_pass' in yaml.safe_load((tmp_path / 'build_child_pipeline_clang.yml').read_text())
 
 
+def test_full_test_pipeline_respects_toolchain_manifest_rules(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv('IDF_TOOLCHAIN', raising=False)
+    monkeypatch.setenv('IDF_CI_SELECT_ALL_PYTEST_CASES', '1')
+    (tmp_path / '.idf_build_apps.toml').write_text('manifest_filepatterns = ["**/.build-test-rules.yml"]\n')
+    (tmp_path / '.build-test-rules.yml').write_text(
+        'unsupported:\n  disable_test:\n    - if: IDF_TOOLCHAIN == "clang"\n'
+        'unsupported_build:\n  disable:\n    - if: IDF_TOOLCHAIN == "clang"\n'
+    )
+    for name in ('unsupported', 'unsupported_build', 'supported'):
+        create_project(name, tmp_path)
+    (tmp_path / 'test_toolchains.py').write_text(
+        'import pytest\n'
+        '@pytest.mark.parametrize("target, app_path", [\n'
+        '    ("esp32", "unsupported"),\n'
+        '    ("esp32", "unsupported_build"),\n'
+        '    ("esp32", "supported"),\n'
+        '], indirect=True)\n'
+        'def test_single(dut): pass\n'
+        '@pytest.mark.parametrize("count, target, app_path", [\n'
+        '    (2, "esp32|esp32", "unsupported|supported"),\n'
+        '], indirect=True)\n'
+        'def test_multi(dut): pass\n'
+    )
+    _refresh_ci_settings()
+
+    generate_test_child_pipeline(str(tmp_path / 'gcc.yml'), toolchain='gcc')
+    generate_test_child_pipeline(str(tmp_path / 'clang.yml'), toolchain='clang')
+
+    gcc = (tmp_path / 'gcc.yml').read_text()
+    clang = (tmp_path / 'clang.yml').read_text()
+    assert gcc.count('test_single[') == 3 and gcc.count('test_multi[') == 1
+    assert clang.count('test_single[') == 1 and 'test_multi[' not in clang
+    assert 'supported' in clang and 'unsupported' not in clang
+    assert 'IDF_TOOLCHAIN' not in os.environ
+
+
 def test_toolchain_config_rejects_invalid_or_unbuilt_test_variants():
     for build, test in [(['gcc'], ['clang']), (['gcc', '../clang'], []), (['gcc', 'gcc'], []), ([], [])]:
         with pytest.raises(ValidationError):
