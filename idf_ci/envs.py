@@ -78,6 +78,9 @@ class GitlabEnvVars(BaseSettings):
     IDF_CI_SELECT_ALL_PYTEST_CASES: t.Optional[bool] = None
     """Flag indicating whether to select all pytest cases."""
 
+    IDF_CI_APPLY_BUILD_TEST_RULES_TO_PYTEST: bool = False
+    """Opt in to filtering generated pytest jobs with build-test rules."""
+
     IDF_CI_SELECT_BY_TARGETS: t.Optional[str] = None
     """comma-separated list of targets to be built and tested."""
 
