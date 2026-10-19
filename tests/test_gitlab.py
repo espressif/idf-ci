@@ -297,7 +297,6 @@ def _write_test_pipeline(monkeypatch, settings, tmp_path, cases):
 
 
 def test_clang_test_jobs_use_matching_toolchain_and_artifact_namespace(monkeypatch, tmp_path):
-    monkeypatch.setenv('IDF_CI_FILTER_PYTEST_CASES_BY_MANIFEST_TEST_TARGETS', '1')
     monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.FindArguments', lambda: 1 / 0)
     settings = CiSettings.model_validate(
         {
