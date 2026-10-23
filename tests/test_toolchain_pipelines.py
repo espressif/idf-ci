@@ -101,6 +101,9 @@ def test_test_enabled_clang_uses_matching_artifact_and_namespace(monkeypatch, tm
             'gitlab': {
                 'build_enabled_toolchains': ['gcc', 'clang'],
                 'test_enabled_toolchains': ['clang'],
+                'build_pipeline': {
+                    'additional_include_yaml_files': ['common.yml', 'additional_jobs.yml'],
+                },
                 'test_pipeline': {'yaml_filename': 'target.yml'},
             }
         }
@@ -113,8 +116,11 @@ def test_test_enabled_clang_uses_matching_artifact_and_namespace(monkeypatch, tm
     build_child_pipeline(yaml_output=str(tmp_path / 'build.yml'))
     gcc = yaml.safe_load((tmp_path / 'build.yml').read_text())
     clang = yaml.safe_load((tmp_path / 'build_clang.yml').read_text())
+    assert gcc['include'] == ['common.yml', 'additional_jobs.yml']
+    assert clang['include'] == ['common.yml', 'additional_jobs.yml']
     assert 'test-child-pipeline' not in gcc
     assert clang['test-child-pipeline']['trigger']['include'][0]['artifact'] == 'target_clang.yml'
+    assert clang['test-child-pipeline']['variables'] == {'PARENT_PIPELINE_ID': '$CI_PIPELINE_ID'}
     assert 'gitlab test-child-pipeline --toolchain "clang"' in '\n'.join(
         clang['generate_test_child_pipeline']['script']
     )
