@@ -221,9 +221,11 @@ def test_full_test_pipeline_manifest_filter_is_opt_in(monkeypatch, tmp_path, app
     if apply_rules == '1':
         monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'nonexistent_case')
     (tmp_path / '.idf_build_apps.toml').write_text('manifest_filepatterns = ["**/.build-test-rules.yml"]\n')
+    # Toolchain admission is separate from the per-toolchain disable/disable_test rules.
     (tmp_path / '.build-test-rules.yml').write_text(
-        'unsupported:\n  disable_test:\n    - if: IDF_TOOLCHAIN == "clang"\n'
-        'unsupported_build:\n  disable:\n    - if: IDF_TOOLCHAIN == "clang"\n'
+        'unsupported:\n  supported_toolchains: [gcc, clang]\n  disable_test:\n    - if: IDF_TOOLCHAIN == "clang"\n'
+        'unsupported_build:\n  supported_toolchains: [gcc, clang]\n  disable:\n    - if: IDF_TOOLCHAIN == "clang"\n'
+        'supported:\n  supported_toolchains: [gcc, clang]\n'
     )
     for name in ('unsupported', 'unsupported_build', 'supported'):
         create_project(name, tmp_path)
