@@ -122,3 +122,60 @@ class TestCheckTestsHookIntegration:
 
         assert result.exit_code == 0
         assert result.output == ''
+
+    def test_default_is_missing_when_another_config_matches(self, tmp_path: Path):
+        (tmp_path / 'foo' / 'sdkconfig.ci.release').write_text('CONFIG_EXAMPLE=y\n')
+        (tmp_path / 'foo' / 'test_default.py').write_text(
+            textwrap.dedent("""
+                import pytest
+
+                @pytest.mark.parametrize('target', ['esp32'], indirect=True)
+                def test_default(dut):
+                    pass
+            """)
+        )
+
+        result = self.run([str(tmp_path / 'foo' / 'test_default.py')])
+        assert result.exit_code == 1
+        assert 'Sdkconfig file "default" is missing' in result.output
+
+    def test_config_for_another_target_is_missing(self, tmp_path: Path):
+        (tmp_path / 'foo' / 'sdkconfig.ci.release').write_text('CONFIG_IDF_TARGET="esp32"\n')
+        (tmp_path / 'foo' / 'test_target.py').write_text(
+            textwrap.dedent("""
+                import pytest
+
+                @pytest.mark.parametrize('config,target', [('release', 'esp32')], indirect=True)
+                def test_supported_target(dut):
+                    pass
+
+                @pytest.mark.parametrize('config,target', [('release', 'esp32c3')], indirect=True)
+                def test_other_target(dut):
+                    pass
+            """)
+        )
+
+        result = self.run([str(tmp_path / 'foo' / 'test_target.py')])
+        assert result.exit_code == 1
+        assert 'Sdkconfig file "release" is missing for test case "test_other_target"' in result.output
+        assert 'test_supported_target' not in result.output
+
+    def test_hook_does_not_construct_build_apps(self, tmp_path: Path, monkeypatch):
+        from idf_build_apps.app import CMakeApp
+
+        def fail_if_constructed(*args, **kwargs):
+            raise AssertionError('The hook should only inspect sdkconfig files')
+
+        monkeypatch.setattr(CMakeApp, '__init__', fail_if_constructed)
+        (tmp_path / 'foo' / 'test_no_build_app.py').write_text(
+            textwrap.dedent("""
+                import pytest
+
+                @pytest.mark.parametrize('target', ['esp32'], indirect=True)
+                def test_no_build_app(dut):
+                    pass
+            """)
+        )
+
+        result = self.run([str(tmp_path / 'foo' / 'test_no_build_app.py')])
+        assert result.exit_code == 0, result.output

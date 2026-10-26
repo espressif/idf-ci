@@ -36,7 +36,7 @@ Validates that test cases reference existing sdkconfig files.
 What It Checks
 --------------
 
-The hook scans modified files, collects test cases from their parent directories, and verifies that each test case's ``config`` parameter corresponds to an actual sdkconfig file in the project.
+The hook collects test cases from the parent directories of modified files, then checks only their referenced app directories against the ``idf-build-apps`` config rules. It does not enumerate buildable apps for every target. A config named ``default`` is available only when its sdkconfig file matches a rule, or when no sdkconfig rule matches any file in that app directory.
 
 For example, if a test case specifies ``release`` config, the hook checks that a file like ``sdkconfig.ci.release`` exists.
 
