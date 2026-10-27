@@ -59,6 +59,7 @@ def test_one_command_generates_isolated_build_yamls_and_app_lists(monkeypatch, t
     assert 'generate_test_child_pipeline' not in clang
     assert 'test-child-pipeline' not in clang
     assert gcc['test-child-pipeline']['trigger']['include'][0]['artifact'] == 'test_child_pipeline.yml'
+    assert gcc['test-child-pipeline']['variables'] == {'PARENT_PIPELINE_ID': '$CI_PIPELINE_ID'}
     assert (tmp_path / 'build_clang.yml').is_file()
     assert (tmp_path / 'build.yml').is_file()
     # App lists are written in the command's working directory, not next to the YAML output.
@@ -104,7 +105,7 @@ def test_test_enabled_clang_uses_matching_artifact_and_namespace(monkeypatch, tm
                 'build_pipeline': {
                     'additional_include_yaml_files': ['common.yml', 'additional_jobs.yml'],
                 },
-                'test_pipeline': {'yaml_filename': 'target.yml'},
+                'test_pipeline': {'yaml_filename': 'target.yml', 'parent_pipeline_id': '$PARENT_PIPELINE_ID'},
             }
         }
     )
@@ -120,6 +121,7 @@ def test_test_enabled_clang_uses_matching_artifact_and_namespace(monkeypatch, tm
     assert clang['include'] == ['common.yml', 'additional_jobs.yml']
     assert 'test-child-pipeline' not in gcc
     assert clang['test-child-pipeline']['trigger']['include'][0]['artifact'] == 'target_clang.yml'
+    assert clang['test-child-pipeline']['variables'] == {'PARENT_PIPELINE_ID': '$PARENT_PIPELINE_ID'}
     assert 'gitlab test-child-pipeline --toolchain "clang"' in '\n'.join(
         clang['generate_test_child_pipeline']['script']
     )

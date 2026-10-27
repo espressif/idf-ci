@@ -123,6 +123,8 @@ The generated build jobs set ``IDF_TOOLCHAIN`` and read only their toolchain's a
 
 Use ``gitlab.build_pipeline.additional_include_yaml_files`` (also available via CLI ``--config`` overrides) to include local GitLab CI files in a generated build pipeline. Invoke the generator separately per toolchain if their includes differ: both need common templates, but only GCC might need extra reporting jobs. Do not also set a top-level ``include`` in ``pre_yaml_jinja``, which would duplicate the YAML key. Generated test jobs and their trigger belong to ``idf-ci``; project includes should supply only additional jobs and templates.
 
+The nested trigger normally forwards its build pipeline ID as ``PARENT_PIPELINE_ID``. Projects whose test jobs need the original upstream pipeline instead can set ``gitlab.test_pipeline.parent_pipeline_id = '$PARENT_PIPELINE_ID'``.
+
 *****************************
  What the build jobs contain
 *****************************

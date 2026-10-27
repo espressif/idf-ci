@@ -423,7 +423,7 @@ test-child-pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
   needs:
     - "generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}"
   variables:
-    PARENT_PIPELINE_ID: "$CI_PIPELINE_ID"
+    PARENT_PIPELINE_ID: "{{ settings.gitlab.test_pipeline.parent_pipeline_id }}"
   trigger:
     include:
       - artifact: "{{ test_yaml_filename|default(settings.gitlab.test_pipeline.yaml_filename) }}"
@@ -440,6 +440,9 @@ test-child-pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
 class TestPipelineSettings(BuildPipelineSettings):
     workflow_name: str = 'Test Child Pipeline'
     """Name for the GitLab CI workflow."""
+
+    parent_pipeline_id: str = '$CI_PIPELINE_ID'
+    """Pipeline ID forwarded to target tests; projects can retain an upstream parent ID."""
 
     job_template_name: str = '.default_test_settings'
     """Default template name for CI test jobs."""
