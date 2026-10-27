@@ -424,6 +424,10 @@ test-child-pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
     - "generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}"
   variables:
     PARENT_PIPELINE_ID: "{{ settings.gitlab.test_pipeline.parent_pipeline_id }}"
+  # Re-evaluate shared defaults (notably CI_REGISTRY-based images) in the test
+  # pipeline instead of forwarding their expanded values from this pipeline.
+  inherit:
+    variables: false
   trigger:
     include:
       - artifact: "{{ test_yaml_filename|default(settings.gitlab.test_pipeline.yaml_filename) }}"
