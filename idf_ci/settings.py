@@ -367,9 +367,16 @@ build_non_test_related_apps{{ settings.gitlab.build_pipeline.job_name_suffix }}:
     pre_yaml_jinja: str = ''
     """yaml content to be injected before the yaml template."""
 
+    additional_include_yaml_files: t.List[str] = []
+    """Local GitLab CI files to include in the generated build pipeline."""
+
     yaml_jinja: str = """
 {{ settings.gitlab.build_pipeline.pre_yaml_jinja }}
-
+{% if settings.gitlab.build_pipeline.additional_include_yaml_files %}include:
+{%- for path in settings.gitlab.build_pipeline.additional_include_yaml_files %}
+  - "{{ path }}"
+{%- endfor %}
+{% endif %}
 workflow:
   name: "{{ settings.gitlab.build_pipeline.workflow_name }}"
   rules:
