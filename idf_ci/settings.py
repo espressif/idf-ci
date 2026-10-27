@@ -418,10 +418,26 @@ generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}
       --toolchain "{{ toolchain|default(settings.gitlab.build_enabled_toolchains[0]) }}"
       "{{ test_yaml_filename|default(settings.gitlab.test_pipeline.yaml_filename) }}"
 
+all_build_succeeded{{ settings.gitlab.build_pipeline.job_name_suffix }}:
+  stage: ".post"
+  image: "{{ settings.gitlab.build_pipeline.job_image }}"
+  tags: {{ settings.gitlab.build_pipeline.job_tags }}
+  # No needs: stage ordering waits for every build shard, and on_success
+  # skips this gate if an earlier stage failed. The test generator only
+  # waits for test-related builds; direct needs on all parallel shards
+  # can exceed GitLab's needs limit.
+  when: "on_success"
+  before_script: []
+  dependencies: []
+  script:
+    - echo "all build jobs succeeded"
+
 test-child-pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
   stage: ".post"
   needs:
     - "generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}"
+    - job: "all_build_succeeded{{ settings.gitlab.build_pipeline.job_name_suffix }}"
+      artifacts: false
   variables:
     PARENT_PIPELINE_ID: "{{ settings.gitlab.test_pipeline.parent_pipeline_id }}"
   # Re-evaluate shared defaults (notably CI_REGISTRY-based images) in the test
