@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import yaml
 from conftest import create_project
-from idf_build_apps import CMakeApp
+from idf_build_apps import App, CMakeApp
 from idf_build_apps.manifest import DEFAULT_BUILD_TARGETS
 from pydantic import ValidationError
 
@@ -59,6 +59,8 @@ def test_one_command_generates_isolated_build_yamls_and_app_lists(monkeypatch, t
     assert 'generate_test_child_pipeline' not in clang
     assert 'test-child-pipeline' not in clang
     assert gcc['test-child-pipeline']['trigger']['include'][0]['artifact'] == 'test_child_pipeline.yml'
+    assert gcc['test-child-pipeline']['inherit'] == {'variables': False}
+    assert gcc['test-child-pipeline']['variables'] == {'PARENT_PIPELINE_ID': '$CI_PIPELINE_ID'}
     assert (tmp_path / 'build_clang.yml').is_file()
     assert (tmp_path / 'build.yml').is_file()
     # App lists are written in the command's working directory, not next to the YAML output.
@@ -101,7 +103,10 @@ def test_test_enabled_clang_uses_matching_artifact_and_namespace(monkeypatch, tm
             'gitlab': {
                 'build_enabled_toolchains': ['gcc', 'clang'],
                 'test_enabled_toolchains': ['clang'],
-                'test_pipeline': {'yaml_filename': 'target.yml'},
+                'build_pipeline': {
+                    'additional_include_yaml_files': ['common.yml', 'additional_jobs.yml'],
+                },
+                'test_pipeline': {'yaml_filename': 'target.yml', 'parent_pipeline_id': '$PARENT_PIPELINE_ID'},
             }
         }
     )
@@ -113,8 +118,12 @@ def test_test_enabled_clang_uses_matching_artifact_and_namespace(monkeypatch, tm
     build_child_pipeline(yaml_output=str(tmp_path / 'build.yml'))
     gcc = yaml.safe_load((tmp_path / 'build.yml').read_text())
     clang = yaml.safe_load((tmp_path / 'build_clang.yml').read_text())
+    assert gcc['include'] == ['common.yml', 'additional_jobs.yml']
+    assert clang['include'] == ['common.yml', 'additional_jobs.yml']
     assert 'test-child-pipeline' not in gcc
     assert clang['test-child-pipeline']['trigger']['include'][0]['artifact'] == 'target_clang.yml'
+    assert clang['test-child-pipeline']['inherit'] == {'variables': False}
+    assert clang['test-child-pipeline']['variables'] == {'PARENT_PIPELINE_ID': '$PARENT_PIPELINE_ID'}
     assert 'gitlab test-child-pipeline --toolchain "clang"' in '\n'.join(
         clang['generate_test_child_pipeline']['script']
     )
@@ -210,35 +219,33 @@ def test_manifest_is_evaluated_again_for_each_toolchain(monkeypatch, tmp_path, r
     assert 'fake_pass' in yaml.safe_load((tmp_path / 'build_child_pipeline_clang.yml').read_text())
 
 
-@pytest.mark.parametrize('apply_rules', [None, '0', '1'])
-def test_full_test_pipeline_manifest_filter_is_opt_in(monkeypatch, tmp_path, apply_rules):
+def test_full_test_pipeline_respects_toolchain_manifest_rules(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv('IDF_TOOLCHAIN', raising=False)
-    monkeypatch.delenv('IDF_CI_FILTER_PYTEST_CASES_BY_MANIFEST_TEST_TARGETS', raising=False)
-    if apply_rules is not None:
-        monkeypatch.setenv('IDF_CI_FILTER_PYTEST_CASES_BY_MANIFEST_TEST_TARGETS', apply_rules)
     monkeypatch.setenv('IDF_CI_SELECT_ALL_PYTEST_CASES', '1')
-    if apply_rules == '1':
-        monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'nonexistent_case')
+    monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'nothing_matches')
     (tmp_path / '.idf_build_apps.toml').write_text('manifest_filepatterns = ["**/.build-test-rules.yml"]\n')
     # Toolchain admission is separate from the per-toolchain disable/disable_test rules.
     (tmp_path / '.build-test-rules.yml').write_text(
-        'unsupported:\n  supported_toolchains: [gcc, clang]\n  disable_test:\n    - if: IDF_TOOLCHAIN == "clang"\n'
-        'unsupported_build:\n  supported_toolchains: [gcc, clang]\n  disable:\n    - if: IDF_TOOLCHAIN == "clang"\n'
+        'test_disabled:\n  supported_toolchains: [gcc, clang]\n'
+        '  disable_test:\n    - if: IDF_TOOLCHAIN == "clang"\n'
+        'unsupported_build:\n  supported_toolchains: [gcc, clang]\n'
+        '  disable:\n    - if: IDF_TOOLCHAIN == "clang"\n'
         'supported:\n  supported_toolchains: [gcc, clang]\n'
     )
-    for name in ('unsupported', 'unsupported_build', 'supported'):
+    for name in ('unsupported', 'test_disabled', 'unsupported_build', 'supported'):
         create_project(name, tmp_path)
-    (tmp_path / f'test_toolchains_{apply_rules if apply_rules is not None else "unset"}.py').write_text(
+    (tmp_path / 'test_toolchains.py').write_text(
         'import pytest\n'
         '@pytest.mark.parametrize("target, app_path", [\n'
         '    ("esp32", "unsupported"),\n'
+        '    ("esp32", "test_disabled"),\n'
         '    ("esp32", "unsupported_build"),\n'
         '    ("esp32", "supported"),\n'
         '], indirect=True)\n'
         'def test_single(dut): pass\n'
         '@pytest.mark.parametrize("count, target, app_path", [\n'
-        '    (2, "esp32|esp32", "unsupported|supported"),\n'
+        '    (2, "esp32|esp32", "test_disabled|supported"),\n'
         '], indirect=True)\n'
         'def test_multi(dut): pass\n'
     )
@@ -249,12 +256,32 @@ def test_full_test_pipeline_manifest_filter_is_opt_in(monkeypatch, tmp_path, app
 
     gcc = (tmp_path / 'gcc.yml').read_text()
     clang = (tmp_path / 'clang.yml').read_text()
-    assert gcc.count('test_single[') == 3 and gcc.count('test_multi[') == 1
-    assert clang.count('test_single[') == (1 if apply_rules == '1' else 3)
-    assert ('test_multi[' in clang) is (apply_rules != '1')
-    assert 'supported' in clang
-    assert ('unsupported' in clang) is (apply_rules != '1')
+    assert gcc.count('test_single[') == 4 and gcc.count('test_multi[') == 1
+    assert clang.count('test_single[') == 1 and 'test_multi[' not in clang
+    assert 'supported' in clang and 'unsupported' not in clang and 'test_disabled' not in clang
     assert 'IDF_TOOLCHAIN' not in os.environ
+
+
+def test_no_manifest_rejects_clang_cases_and_restores_global_state(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv('IDF_TOOLCHAIN', raising=False)
+    create_project('hello', tmp_path)
+    (tmp_path / 'test_hello.py').write_text(
+        'import pytest\n'
+        '@pytest.mark.parametrize("target, app_path", [("esp32", "hello")], indirect=True)\n'
+        'def test_hello(dut): pass\n'
+    )
+    _refresh_ci_settings()
+    previous_manifest = App.MANIFEST
+    try:
+        generate_test_child_pipeline(str(tmp_path / 'gcc.yml'), toolchain='gcc')
+        generate_test_child_pipeline(str(tmp_path / 'clang.yml'), toolchain='clang')
+        assert 'test_hello[' in (tmp_path / 'gcc.yml').read_text()
+        assert 'fake_pass' in yaml.safe_load((tmp_path / 'clang.yml').read_text())
+        assert App.MANIFEST is previous_manifest
+        assert 'IDF_TOOLCHAIN' not in os.environ
+    finally:
+        App.MANIFEST = previous_manifest
 
 
 def test_toolchain_config_rejects_invalid_or_unbuilt_test_variants():

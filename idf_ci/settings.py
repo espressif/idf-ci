@@ -367,9 +367,16 @@ build_non_test_related_apps{{ settings.gitlab.build_pipeline.job_name_suffix }}:
     pre_yaml_jinja: str = ''
     """yaml content to be injected before the yaml template."""
 
+    additional_include_yaml_files: t.List[str] = []
+    """Local GitLab CI files to include in the generated build pipeline."""
+
     yaml_jinja: str = """
 {{ settings.gitlab.build_pipeline.pre_yaml_jinja }}
-
+{% if settings.gitlab.build_pipeline.additional_include_yaml_files %}include:
+{%- for path in settings.gitlab.build_pipeline.additional_include_yaml_files %}
+  - "{{ path }}"
+{%- endfor %}
+{% endif %}
 workflow:
   name: "{{ settings.gitlab.build_pipeline.workflow_name }}"
   rules:
@@ -416,7 +423,11 @@ test-child-pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
   needs:
     - "generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}"
   variables:
-    PARENT_PIPELINE_ID: "$CI_PIPELINE_ID"
+    PARENT_PIPELINE_ID: "{{ settings.gitlab.test_pipeline.parent_pipeline_id }}"
+  # Re-evaluate shared defaults (notably CI_REGISTRY-based images) in the test
+  # pipeline instead of forwarding their expanded values from this pipeline.
+  inherit:
+    variables: false
   trigger:
     include:
       - artifact: "{{ test_yaml_filename|default(settings.gitlab.test_pipeline.yaml_filename) }}"
@@ -433,6 +444,9 @@ test-child-pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}:
 class TestPipelineSettings(BuildPipelineSettings):
     workflow_name: str = 'Test Child Pipeline'
     """Name for the GitLab CI workflow."""
+
+    parent_pipeline_id: str = '$CI_PIPELINE_ID'
+    """Pipeline ID forwarded to target tests; projects can retain an upstream parent ID."""
 
     job_template_name: str = '.default_test_settings'
     """Default template name for CI test jobs."""

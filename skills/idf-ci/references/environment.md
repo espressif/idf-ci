@@ -11,8 +11,7 @@ These are **environment variables**, not CLI flags. Names, types, and defaults c
 | `CHANGED_FILES_SEMICOLON_SEPARATED` | semicolon-separated paths | Changed files from the pipeline. |
 | `IDF_CI_SELECT_BY_TARGETS` | comma-separated chip targets, e.g. `esp32,esp32c3` | Restrict build/test targets. |
 | `IDF_CI_SELECT_BY_FILTER_EXPR` | pytest `-k`-style expression | Select cases using a filter expression. Ignored with a warning when `IDF_CI_SELECT_ALL_PYTEST_CASES=1`. |
-| `IDF_CI_SELECT_ALL_PYTEST_CASES` | boolean | Select all pytest cases, ignoring modified-file dependency selection and `IDF_CI_SELECT_BY_FILTER_EXPR`. Does not bypass manifest test-target filtering when that filter is enabled. |
-| `IDF_CI_FILTER_PYTEST_CASES_BY_MANIFEST_TEST_TARGETS` | boolean; default `false` | Opt in to excluding generated pytest cases if any DUT app is disabled by manifest `enable`, `disable`, or `disable_test` rules for the selected toolchain. Does not evaluate `depends_*` or filter explicitly supplied cases. |
+| `IDF_CI_SELECT_ALL_PYTEST_CASES` | boolean | Ignore modified-file/component dependencies and quick-filter expressions, but retain manifest test eligibility and other case filters. |
 | `IDF_CI_BUILD_ONLY_TEST_RELATED_APPS` | boolean | Build only test-related apps. |
 | `IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS` | boolean | Build only non-test-related apps. **Do not enable both** build-only variables; idf-ci rejects that combination. |
 | `IDF_CI_ARTIFACT_NAMESPACE` | letters, digits, `_` or `-` only | Separate S3 artifacts for build variants of the same commit. |
