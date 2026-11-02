@@ -116,9 +116,11 @@ All S3 object keys begin with this prefix:
 
     <gitlab.project>/<commit_sha>/
 
-Set ``IDF_CI_ARTIFACT_NAMESPACE`` to separate build variants under the same commit without changing ``PIPELINE_COMMIT_SHA``. For example, ``IDF_CI_ARTIFACT_NAMESPACE=buildv2`` stores and retrieves artifacts under ``<gitlab.project>/<commit_sha>_buildv2/``. The namespace may contain only letters, digits, ``_``, and ``-``, and cannot be empty. When unset, the original prefix above is unchanged.
+Set ``IDF_CI_ARTIFACT_NAMESPACE`` to separate build variants under the same commit without changing ``PIPELINE_COMMIT_SHA``. For example, ``IDF_CI_ARTIFACT_NAMESPACE=buildv2`` stores and retrieves GCC artifacts under ``<gitlab.project>/<commit_sha>_buildv2/``. The namespace may contain only letters, digits, ``_``, and ``-``, and cannot be empty. When unset, the original GCC prefix above is unchanged.
 
-Set the namespace on the trigger job that starts the build child pipeline, not just on its sibling YAML-generator job. GitLab passes that trigger variable to build, presigned-URL, and test-generator jobs. The test generator writes it into generated target-test jobs so it survives a nested trigger. For standalone artifact commands, set the same namespace in their environment.
+When generating build child pipelines, set ``IDF_CI_ARTIFACT_NAMESPACE`` on the **YAML-generator job** to the raw variant (``buildv2``). The generator writes the effective value into each build YAML: ``buildv2`` for GCC and ``buildv2_clang`` for Clang. Build app-list files, S3 uploads, presigned-URL generation, and test jobs for Clang must all use ``buildv2_clang``; GCC uses ``buildv2``. Without a raw variant, Clang uses ``clang`` and GCC uses no namespace. The generator does this composition **once**; standalone S3 commands and directly invoked test generation require the already-composed value in their environment.
+
+Do not pass the *raw* variant through both parent trigger jobs. A trigger variable with the raw value can override the per-toolchain value in the generated YAML and cause builds to read the wrong app list or S3 prefix. Do not forward a parent pipeline variable of that name with ``forward: pipeline_variables: true`` either. If explicit trigger variables are required, use the effective namespace for that particular toolchain. The test generator writes its effective namespace into generated target-test jobs so it survives the nested test trigger. See :doc:`dynamic-gitlab-pipeline` for the four combinations, generated filenames, and parent-job example.
 
 The remainder of the object key is derived from the artifact path relative to the effective project root:
 
@@ -152,7 +154,7 @@ This layout is important because downloads, presigned URL generation, and pipeli
 Direct S3 download
 ==================
 
-When no presigned JSON input is provided, the command lists objects directly from S3 under:
+When neither ``--presigned-json`` nor ``--pipeline-id`` is provided, the command lists objects directly from S3 under:
 
 .. code-block:: text
 
@@ -191,10 +193,12 @@ For zipped types, the command selects keys whose filename is ``<artifact_type>.z
 1. use the GitLab API to find the configured build child pipeline
 2. download ``presigned.json`` from the configured job artifact
 
-The lookup uses two configuration keys from ``gitlab.build_pipeline``:
+The current lookup uses two configuration keys from ``gitlab.build_pipeline``:
 
-- ``workflow_name`` identifies the downstream build child pipeline
+- ``workflow_name`` is compared with the **parent bridge/trigger job name** (``bridge.name``), not the downstream pipeline's displayed ``workflow:name``. If they differ, the lookup finds no pipeline. A display-name change alone does not select a different trigger.
 - ``presigned_json_job_name`` identifies the job that published ``presigned.json``
+
+If the parent has several build triggers, this lookup takes the first matching bridge and cannot distinguish them by ``IDF_CI_ARTIFACT_NAMESPACE`` or toolchain. The downloaded file is cached by the supplied parent pipeline ID and JSON filename, **not** by variant. Do not use ``--pipeline-id`` to choose between GCC and Clang or between two namespaced variants of the same parent pipeline. Use a variant-specific ``--presigned-json`` file, or direct S3 access with the corresponding effective namespace and commit SHA, instead. Job-name suffixes and toolchain YAML filenames do not change this API lookup.
 
 The downloaded file is cached locally under the system temporary directory:
 
