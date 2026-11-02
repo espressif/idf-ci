@@ -43,6 +43,13 @@ def suffix_filename(filename: str, suffix: str) -> str:
     return str(path.with_name(f'{path.stem}_{suffix}{path.suffix}'))
 
 
+def artifact_namespace(toolchain: str, variant: t.Optional[str]) -> str:
+    """Keep the GCC layout; distinguish other toolchains within a build variant."""
+    if toolchain == IDF_CI_DEFAULT_TOOLCHAIN:
+        return variant or ''
+    return f'{variant}_{toolchain}' if variant else toolchain
+
+
 LEGACY_ARTIFACT_NATIVE_FIELD_ALIASES = [
     'build_job_filepatterns',
     'test_job_filepatterns',
@@ -384,8 +391,8 @@ workflow:
 {% if toolchain is defined %}
 variables:
   IDF_TOOLCHAIN: "{{ toolchain }}"
-{%- if toolchain != default_toolchain %}
-  IDF_CI_ARTIFACT_NAMESPACE: "{{ toolchain }}"
+{%- if artifact_namespace %}
+  IDF_CI_ARTIFACT_NAMESPACE: "{{ artifact_namespace }}"
 {%- endif %}
 {% endif %}
 
@@ -550,8 +557,8 @@ workflow:
 {% if toolchain is defined %}
 variables:
   IDF_TOOLCHAIN: "{{ toolchain }}"
-{%- if toolchain != default_toolchain %}
-  IDF_CI_ARTIFACT_NAMESPACE: "{{ toolchain }}"
+{%- if artifact_namespace %}
+  IDF_CI_ARTIFACT_NAMESPACE: "{{ artifact_namespace }}"
 {%- endif %}
 {% endif %}
 

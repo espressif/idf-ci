@@ -17,15 +17,25 @@ from jinja2 import Environment
 from idf_ci.envs import get_env_vars
 from idf_ci.idf_pytest import GroupedPytestCases, get_pytest_cases
 from idf_ci.scripts import get_all_apps
-from idf_ci.settings import IDF_CI_DEFAULT_TOOLCHAIN, CiSettings, get_ci_settings, suffix_filename, toolchain_filename
+from idf_ci.settings import (
+    IDF_CI_DEFAULT_TOOLCHAIN,
+    CiSettings,
+    artifact_namespace,
+    get_ci_settings,
+    suffix_filename,
+    toolchain_filename,
+)
 
 logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def set_env(key: str, value: str) -> t.Iterator[None]:
+def set_env(key: str, value: t.Optional[str]) -> t.Iterator[None]:
     original = os.environ.get(key)
-    os.environ[key] = value
+    if value is None:
+        os.environ.pop(key, None)
+    else:
+        os.environ[key] = value
     try:
         yield
     finally:
@@ -127,8 +137,11 @@ def build_child_pipeline(
         yaml_output = settings.gitlab.build_pipeline.yaml_filename
 
     for toolchain in settings.gitlab.build_enabled_toolchains:
+        app_list_suffix = artifact_namespace(toolchain, envs.IDF_CI_ARTIFACT_NAMESPACE)
         # Manifest conditions are evaluated during discovery, not at build time.
-        with set_env('IDF_TOOLCHAIN', toolchain):
+        # Also isolate the list lookup: the second toolchain must not reuse the
+        # first toolchain's freshly written app list in the generator job.
+        with set_env('IDF_TOOLCHAIN', toolchain), set_env('IDF_CI_ARTIFACT_NAMESPACE', app_list_suffix or None):
             if envs.select_by_filter_expr:
                 test_related_apps, _ = get_all_apps(
                     paths=paths, marker_expr='not host_test', filter_expr=envs.select_by_filter_expr
@@ -142,7 +155,6 @@ def build_child_pipeline(
                     compare_manifest_sha_filepath=compare_manifest_sha_filepath,
                 )
 
-        app_list_suffix = envs.IDF_CI_ARTIFACT_NAMESPACE or ('' if toolchain == IDF_CI_DEFAULT_TOOLCHAIN else toolchain)
         dump_apps_to_txt(
             test_related_apps,
             suffix_filename(settings.collected_test_related_apps_filepath, app_list_suffix),
@@ -188,6 +200,7 @@ def build_child_pipeline(
                     settings=settings,
                     toolchain=toolchain,
                     default_toolchain=IDF_CI_DEFAULT_TOOLCHAIN,
+                    artifact_namespace=app_list_suffix,
                     test_yaml_filename=toolchain_filename(settings.gitlab.test_pipeline.yaml_filename, toolchain),
                     generate_tests=toolchain in settings.gitlab.test_enabled_toolchains,
                     test_related_apps_count=len(test_related_apps),
@@ -367,6 +380,8 @@ def test_child_pipeline(
                 settings=settings,
                 toolchain=toolchain,
                 default_toolchain=IDF_CI_DEFAULT_TOOLCHAIN,
+                artifact_namespace=envs.IDF_CI_ARTIFACT_NAMESPACE
+                or ('' if toolchain == IDF_CI_DEFAULT_TOOLCHAIN else toolchain),
             )
         )
 

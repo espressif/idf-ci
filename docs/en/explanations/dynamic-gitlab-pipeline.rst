@@ -119,7 +119,52 @@ Create one parent trigger job for each desired build YAML, each with an ``includ
             job: generate_build_child_pipeline
         strategy: depend
 
-The generated build jobs set ``IDF_TOOLCHAIN`` and read only their toolchain's app lists. Non-GCC jobs also use the toolchain as their ``IDF_CI_ARTIFACT_NAMESPACE`` to keep S3 artifacts separate; GCC retains the existing artifact namespace behavior (unnamespaced by default). A caller can set ``IDF_CI_ARTIFACT_NAMESPACE`` for another build variant of the same toolchain: its app lists then use that namespace as their filename suffix (for example, ``test_related_apps_buildv2.txt``), and build jobs with the same namespace read those lists. Without a namespace, default GCC lists have no suffix and other toolchains use their toolchain name; an explicit namespace takes precedence even when its value is ``gcc``. Keep the namespace consistent between generation, the build trigger, and test jobs. Only toolchains in ``test_enabled_toolchains`` create a test generation/trigger pair. When Clang tests are enabled, the Clang build pipeline generates and triggers ``test_child_pipeline_clang.yml``. The test-generation command can also be called directly with ``idf-ci gitlab test-child-pipeline --toolchain clang``.
+The generated build jobs set ``IDF_TOOLCHAIN`` and use separate app lists for each toolchain. ``IDF_CI_ARTIFACT_NAMESPACE`` supplied to the **build-YAML generator** names a build variant; the generator combines it with each non-GCC toolchain to make an *effective namespace*. App discovery also uses that effective value, so a later toolchain cannot accidentally reuse an earlier toolchain's freshly written list. The same value is written into that toolchain's build YAML, used as its app-list filename suffix, and used by S3 commands in its build jobs. No explicit namespace is needed for ordinary GCC/Clang builds:
+
+.. list-table:: Effective namespace and generated app lists
+    :header-rows: 1
+
+    - - Toolchain
+      - Namespace on generator
+      - Namespace in build YAML
+      - Test-related app list
+    - - ``gcc``
+      - unset
+      - unset (legacy S3 prefix)
+      - ``test_related_apps.txt``
+    - - ``clang``
+      - unset
+      - ``clang``
+      - ``test_related_apps_clang.txt``
+    - - ``gcc``
+      - ``buildv2``
+      - ``buildv2``
+      - ``test_related_apps_buildv2.txt``
+    - - ``clang``
+      - ``buildv2``
+      - ``buildv2_clang``
+      - ``test_related_apps_buildv2_clang.txt``
+
+``non_test_related_apps`` uses the same suffixes. The GCC name stays unchanged when the variant is unset; an explicit value of ``gcc`` is **not** treated as unset and produces ``test_related_apps_gcc.txt``. The two toolchains in one generation have separate S3 prefixes (for example, ``<gitlab.project>/<commit_sha>_buildv2_clang/``). Across *different* pipeline generations, choose raw variant names that do not collide with another effective namespace: a GCC variant named ``clang`` would reuse the default Clang namespace and S3 prefix. The build YAML filename still depends only on the toolchain: ``build_child_pipeline.yml`` and ``build_child_pipeline_clang.yml`` in this example.
+
+To generate this two-toolchain variant, set the **raw variant** only on the generation job, and upload all four lists along with the two YAML files:
+
+.. code-block:: yaml
+
+    generate_build_child_pipeline:
+      variables:
+        IDF_CI_ARTIFACT_NAMESPACE: "buildv2"
+      script: idf-ci gitlab build-child-pipeline
+      artifacts:
+        paths:
+          - build_child_pipeline.yml
+          - build_child_pipeline_clang.yml
+          - test_related_apps_buildv2.txt
+          - test_related_apps_buildv2_clang.txt
+          - non_test_related_apps_buildv2.txt
+          - non_test_related_apps_buildv2_clang.txt
+
+Use the parent trigger jobs shown above for each toolchain, but **do not forward the raw** ``buildv2`` namespace from the parent into both child pipelines: GitLab trigger/pipeline variables can override the generated YAML's per-toolchain value. In particular, do not set it as a variable on those triggers or enable ``forward: pipeline_variables: true`` for a parent pipeline variable of that name. If your project must explicitly pass the namespace, pass ``buildv2`` on the GCC trigger and ``buildv2_clang`` on the Clang trigger instead. The build jobs, test-YAML generator, generated test jobs, and S3 upload/download commands must all see the **effective** namespace for their toolchain, not the raw variant. A standalone artifact command or ``idf-ci gitlab test-child-pipeline --toolchain clang`` likewise needs ``IDF_CI_ARTIFACT_NAMESPACE=buildv2_clang`` for this variant; do not append ``_clang`` a second time. When the test generator runs within the generated build pipeline, it receives the effective value automatically. Only toolchains in ``test_enabled_toolchains`` create a test generation/trigger pair. When Clang tests are enabled, the Clang build pipeline generates and triggers ``test_child_pipeline_clang.yml``.
 
 Use ``gitlab.build_pipeline.additional_include_yaml_files`` (also available via CLI ``--config`` overrides) to include local GitLab CI files in a generated build pipeline. Invoke the generator separately per toolchain if their includes differ: both need common templates, but only GCC might need extra reporting jobs. Do not also set a top-level ``include`` in ``pre_yaml_jinja``, which would duplicate the YAML key. Generated test jobs and their trigger belong to ``idf-ci``; project includes should supply only additional jobs and templates.
 

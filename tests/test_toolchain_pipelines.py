@@ -11,6 +11,7 @@ from idf_build_apps.manifest import DEFAULT_BUILD_TARGETS
 from pydantic import ValidationError
 
 from idf_ci.cli import click_cli
+from idf_ci.idf_gitlab.api import ArtifactManager
 from idf_ci.idf_gitlab.pipeline import build_child_pipeline
 from idf_ci.idf_gitlab.pipeline import test_child_pipeline as generate_test_child_pipeline
 from idf_ci.scripts import preprocess_args
@@ -191,6 +192,62 @@ def test_namespace_keeps_gcc_variant_app_lists_separate(monkeypatch, tmp_path, r
     monkeypatch.delenv('IDF_CI_ARTIFACT_NAMESPACE')
     apps = preprocess_args().test_related_apps
     assert apps and apps[0].app_dir == 'examples/gcc'
+
+
+def test_variant_and_toolchain_keep_app_lists_and_artifacts_separate(monkeypatch, tmp_path, runner):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / '.idf_ci.toml').write_text('')
+    monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', 'buildv2')
+
+    def collect(**kwargs):
+        toolchain = os.environ['IDF_TOOLCHAIN']
+        assert os.environ['IDF_CI_ARTIFACT_NAMESPACE'] == ('buildv2' if toolchain == 'gcc' else 'buildv2_clang')
+        if toolchain == 'clang':
+            # CI discovery must not read the GCC list written earlier in this invocation.
+            with monkeypatch.context() as patch:
+                patch.setenv('CI', 'true')
+                assert preprocess_args().test_related_apps is None
+        return [CMakeApp(app_dir=f'examples/{toolchain}', target='esp32')], []
+
+    monkeypatch.setattr(
+        'idf_ci.idf_gitlab.pipeline.get_all_apps',
+        collect,
+    )
+    result = runner.invoke(
+        click_cli,
+        [
+            '--config',
+            "gitlab.build_enabled_toolchains=['gcc','clang']",
+            '--config',
+            "gitlab.test_enabled_toolchains=['gcc','clang']",
+            'gitlab',
+            'build-child-pipeline',
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+    for toolchain, namespace in (('gcc', 'buildv2'), ('clang', 'buildv2_clang')):
+        pipeline = yaml.safe_load((tmp_path / toolchain_filename('build_child_pipeline.yml', toolchain)).read_text())
+        assert pipeline['variables'] == {
+            'IDF_TOOLCHAIN': toolchain,
+            'IDF_CI_ARTIFACT_NAMESPACE': namespace,
+        }
+        assert (tmp_path / f'test_related_apps_{namespace}.txt').is_file()
+        assert (tmp_path / f'non_test_related_apps_{namespace}.txt').is_file()
+
+        # The build job receives the generated namespace, not the raw variant.
+        monkeypatch.setenv('CI', 'true')
+        monkeypatch.setenv('IDF_TOOLCHAIN', toolchain)
+        monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', namespace)
+        _refresh_ci_settings()
+        apps = preprocess_args().test_related_apps
+        assert apps and apps[0].app_dir == f'examples/{toolchain}'
+        manager = object.__new__(ArtifactManager)
+        manager.settings = CiSettings()
+        assert manager._build_s3_prefix('abc123') == f'espressif/esp-idf/abc123_{namespace}/'
+        monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', 'buildv2')
+
+    assert not (tmp_path / 'test_related_apps_clang.txt').exists()
 
 
 def test_manifest_is_evaluated_again_for_each_toolchain(monkeypatch, tmp_path, runner):
