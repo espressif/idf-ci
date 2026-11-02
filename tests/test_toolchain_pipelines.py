@@ -56,7 +56,14 @@ def test_one_command_generates_isolated_build_yamls_and_app_lists(monkeypatch, t
     }
     assert 'generate_test_child_pipeline' in gcc
     assert 'test-child-pipeline' in gcc
+    assert gcc['all_build_succeeded']['when'] == 'on_success'
+    assert 'needs' not in gcc['all_build_succeeded']
+    assert gcc['test-child-pipeline']['needs'] == [
+        'generate_test_child_pipeline',
+        {'job': 'all_build_succeeded', 'artifacts': False},
+    ]
     assert 'generate_test_child_pipeline' not in clang
+    assert 'all_build_succeeded' not in clang
     assert 'test-child-pipeline' not in clang
     assert gcc['test-child-pipeline']['trigger']['include'][0]['artifact'] == 'test_child_pipeline.yml'
     assert gcc['test-child-pipeline']['inherit'] == {'variables': False}

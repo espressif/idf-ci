@@ -206,7 +206,14 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
         *settings.gitlab.artifacts.native.build_job_filepatterns,
         settings.gitlab.test_pipeline.yaml_filename,
     ]
-    assert trigger_test_pipeline_job['needs'] == ['generate_test_child_pipeline:build-sfx']
+    gate = build_pipeline['all_build_succeeded:build-sfx']
+    assert gate['stage'] == '.post'
+    assert gate['when'] == 'on_success'
+    assert 'needs' not in gate
+    assert trigger_test_pipeline_job['needs'] == [
+        'generate_test_child_pipeline:build-sfx',
+        {'job': 'all_build_succeeded:build-sfx', 'artifacts': False},
+    ]
     assert trigger_test_pipeline_job['trigger']['include'] == [
         {
             'artifact': settings.gitlab.test_pipeline.yaml_filename,
