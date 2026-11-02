@@ -154,7 +154,7 @@ This layout is important because downloads, presigned URL generation, and pipeli
 Direct S3 download
 ==================
 
-When no presigned JSON input is provided, the command lists objects directly from S3 under:
+When neither ``--presigned-json`` nor ``--pipeline-id`` is provided, the command lists objects directly from S3 under:
 
 .. code-block:: text
 
@@ -193,10 +193,12 @@ For zipped types, the command selects keys whose filename is ``<artifact_type>.z
 1. use the GitLab API to find the configured build child pipeline
 2. download ``presigned.json`` from the configured job artifact
 
-The lookup uses two configuration keys from ``gitlab.build_pipeline``:
+The current lookup uses two configuration keys from ``gitlab.build_pipeline``:
 
-- ``workflow_name`` identifies the downstream build child pipeline
+- ``workflow_name`` is compared with the **parent bridge/trigger job name** (``bridge.name``), not the downstream pipeline's displayed ``workflow:name``. If they differ, the lookup finds no pipeline. A display-name change alone does not select a different trigger.
 - ``presigned_json_job_name`` identifies the job that published ``presigned.json``
+
+If the parent has several build triggers, this lookup takes the first matching bridge and cannot distinguish them by ``IDF_CI_ARTIFACT_NAMESPACE`` or toolchain. The downloaded file is cached by the supplied parent pipeline ID and JSON filename, **not** by variant. Do not use ``--pipeline-id`` to choose between GCC and Clang or between two namespaced variants of the same parent pipeline. Use a variant-specific ``--presigned-json`` file, or direct S3 access with the corresponding effective namespace and commit SHA, instead. Job-name suffixes and toolchain YAML filenames do not change this API lookup.
 
 The downloaded file is cached locally under the system temporary directory:
 
