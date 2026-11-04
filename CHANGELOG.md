@@ -20,6 +20,51 @@
 </div>
 <hr>
 
+## v1.4.0 (2026-11-04)
+
+### ✨ New Features
+
+- **gitlab**: allow forwarding upstream pipeline ID to tests *(Fu Hanxi - 7fa4a23)*
+- **gitlab**: support additional build pipeline includes *(Fu Hanxi - 1caf1d8)*
+- **pipeline**: enforce manifest eligibility for collected tests *(Fu Hanxi - ef3af7b)*
+- **gitlab**: isolate variant app lists by artifact namespace *(Fu Hanxi - e7798f1)*
+- **gitlab**: generate per-toolchain child pipelines in one job *(Fu Hanxi - 38a80a3)*
+- **gitlab**: namespace S3 artifacts by build variant *(Fu Hanxi - b7fb72a)*
+- **gitlab**: apply extra templates by test environment marker *(Fu Hanxi - d3d4691)*
+- **gitlab**: filter target test groups by runner tags *(Fu Hanxi - 5da04af)*
+- **gitlab**: skip target tests for configured MR labels *(Fu Hanxi - 4d5a716)*
+
+### 🐛 Bug Fixes
+
+- **gitlab**: isolate variant artifacts by toolchain *(Fu Hanxi - e544040)*
+- **gitlab**: gate target tests on all build jobs succeeding *(Fu Hanxi - 754e8ac)*
+- **gitlab**: avoid forwarding image defaults to target tests *(Fu Hanxi - 6823c93)*
+- **ci**: select mypy build-apps version by Python runtime *(Fu Hanxi - e0fe32a)*
+- **ci**: clarify manifest filtering and prioritize select-all *(Fu Hanxi - a79e059)*
+- **ci**: make pytest build-test rule filtering opt-in *(Fu Hanxi - 76c4673)*
+- **ci**: respect build-test rules when generating test jobs *(Fu Hanxi - 06e09e9)*
+- **gitlab**: fetch parent variables when generating target tests *(Fu Hanxi - 28a465c)*
+- **config**: use typing extensions on Python 3.7 *(Fu Hanxi - 57a09d7)*
+
+### ⚡ Performance Improvements
+
+- **hooks**: validate sdkconfig references via finder API *(Fu Hanxi - 0b173b1)*
+
+### 📖 Documentation
+
+- **gitlab**: explain pipeline names, job suffixes and artifact scopes *(Fu Hanxi - 5ec1e85)*
+- **gitlab**: explain parent variable dependency for test generation *(Fu Hanxi - 40be92d)*
+- **test**: cover environment and config use cases *(Fu Hanxi - 966a417)*
+- add idf-ci usage skill for AI agents *(Fu Hanxi - fbc210f)*
+- small improvements by llm *(Fu Hanxi - 0d23999)*
+- update version *(Fu Hanxi - 5d354bd)*
+
+### 🔧 Code Refactoring
+
+- **env**: reuse loaded environment snapshots *(Fu Hanxi - bdc84a5)*
+- **env**: centralize supported environment reads *(Fu Hanxi - 32f15a5)*
+
+
 ## v1.3.0 (2026-09-07)
 
 ### ✨ New Features
