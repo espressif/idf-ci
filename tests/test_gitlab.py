@@ -600,6 +600,33 @@ def test_configured_mr_label_skips_test_collection(monkeypatch, tmp_path, runner
     assert 'fake_pass' in yaml.safe_load(output.read_text())
 
 
+def test_skip_target_test_jobs_generates_only_fake_pass_without_collection(monkeypatch, tmp_path, runner):
+    monkeypatch.setenv('IDF_CI_SKIP_TARGET_TEST_JOBS', '1')
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_pytest_cases', lambda: pytest.fail('collected tests'))
+    output = tmp_path / 'test_child_pipeline.yml'
+
+    result = runner.invoke(click_cli, ['gitlab', 'test-child-pipeline', str(output)])
+
+    assert result.exit_code == 0, result.output
+    pipeline = yaml.safe_load(output.read_text())
+    assert set(pipeline) == {'fake_pass', 'workflow'}
+    assert pipeline['fake_pass']['script'] == ['echo "skip the entire child pipeline"']
+    assert pipeline['workflow']['rules'] == [{'when': 'always'}]
+
+
+def test_skip_target_test_jobs_zero_keeps_test_jobs(monkeypatch, tmp_path):
+    monkeypatch.setenv('IDF_CI_SKIP_TARGET_TEST_JOBS', '0')
+    pipeline = _write_test_pipeline(
+        monkeypatch,
+        CiSettings(),
+        tmp_path,
+        _grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')),
+    )
+
+    assert 'esp32 - generic' in pipeline
+    assert 'fake_pass' not in pipeline
+
+
 def test_exclude_exact_and_wildcard_runner_tags(monkeypatch, tmp_path):
     monkeypatch.setenv('EXCLUDE_RUNNER_TAGS', 'esp32,jtag')
     settings = CiSettings.model_validate(

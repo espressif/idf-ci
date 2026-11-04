@@ -258,4 +258,6 @@ Each test job depends on ``generate_test_child_pipeline`` so it can download the
 
 If no test cases are selected, the generated test child pipeline also falls back to ``fake_pass``.
 
+Set ``IDF_CI_SKIP_TARGET_TEST_JOBS=1`` on the test-child-pipeline generator to skip target-test collection and produce only the passing ``fake_pass`` job. An unset value or ``0`` leaves normal test generation unchanged. This affects the test child pipeline, not the build child pipeline.
+
 The default toolchain is GCC; a manifest must explicitly declare ``supported_toolchains: [gcc, clang]`` (or ``[clang]``) for Clang. An ``enable`` condition cannot override toolchain admission; ``disable`` rejects both builds and tests, while ``disable_test`` rejects only tests. The default GCC-only rule applies even when no manifest is found. ``IDF_CI_SELECT_ALL_PYTEST_CASES`` does not bypass manifest eligibility, runner tags, nightly settings, or markers. This changes the output of pipelines that previously did not opt into manifest test filtering, and unlisted apps no longer enter Clang pipelines.
