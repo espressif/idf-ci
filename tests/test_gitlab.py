@@ -83,6 +83,54 @@ class TestPipelineVariables:
     def test_no_env_vars(self):
         assert pipeline_variables() == {'IDF_CI_SELECT_ALL_PYTEST_CASES': '1'}
 
+    def test_explicit_selection_controls_are_forwarded_to_dotenv(self, monkeypatch, runner):
+        monkeypatch.setenv('CI_MERGE_REQUEST_IID', '123')
+        monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'wifi or ethernet')
+        monkeypatch.setenv('IDF_CI_SELECT_ALL_PYTEST_CASES', '0')
+        monkeypatch.setenv('IDF_CI_SKIP_TARGET_TEST_JOBS', '1')
+        monkeypatch.setenv('IDF_CI_SELECT_BY_TARGETS', 'esp32,esp32s3')
+
+        result = runner.invoke(click_cli, ['gitlab', 'pipeline-variables'])
+
+        assert result.exit_code == 0, result.output
+        assert set(result.output.splitlines()) == {
+            'IDF_CI_SELECT_BY_FILTER_EXPR=wifi or ethernet',
+            'IDF_CI_SELECT_ALL_PYTEST_CASES=0',
+            'IDF_CI_SKIP_TARGET_TEST_JOBS=1',
+            'IDF_CI_SELECT_BY_TARGETS=esp32,esp32s3',
+        }
+
+    def test_non_mr_default_overrides_forwarded_selection(self, monkeypatch):
+        monkeypatch.delenv('CI_MERGE_REQUEST_IID', False)
+        monkeypatch.setenv('IDF_CI_SELECT_ALL_PYTEST_CASES', '0')
+        monkeypatch.setenv('IDF_CI_SKIP_TARGET_TEST_JOBS', '0')
+
+        assert pipeline_variables() == {
+            'IDF_CI_SELECT_ALL_PYTEST_CASES': '1',  # since it's non-MR pipeline
+            'IDF_CI_SKIP_TARGET_TEST_JOBS': '0',
+        }
+
+    def test_mr_description_overrides_forwarded_filters(self, monkeypatch):
+        monkeypatch.setenv('CI_MERGE_REQUEST_IID', '123')
+        monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'old_filter')
+        monkeypatch.setenv('IDF_CI_SELECT_BY_TARGETS', 'esp32')
+        monkeypatch.setenv(
+            'CI_MERGE_REQUEST_DESCRIPTION',
+            '## Dynamic Pipeline Configuration\n\n'
+            '```yaml\n'
+            'Test Case Filters:\n'
+            '  - new_filter\n'
+            'Select by Targets:\n'
+            '  - esp32s3\n'
+            '```',
+        )
+
+        assert pipeline_variables() == {
+            'IDF_CI_SELECT_BY_FILTER_EXPR': 'new_filter',
+            'IDF_CI_SELECT_BY_TARGETS': 'esp32s3',
+            'IDF_CI_IS_DEBUG_PIPELINE': '1',
+        }
+
 
 def test_get_s3_path_preserves_nested_relative_path_from_config_root(tmp_path, monkeypatch):
     repo_root = tmp_path

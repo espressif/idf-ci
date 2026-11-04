@@ -28,6 +28,13 @@ def pipeline_variables() -> t.Dict[str, str]:
 
       Build and test only the test cases that match the filter expression (pytest -k)
 
+    - IDF_CI_SELECT_BY_TARGETS, IDF_CI_SKIP_TARGET_TEST_JOBS
+
+      Re-export explicitly configured target selection and test-job skip controls.
+
+    Values computed from pipeline type or MR metadata take precedence over forwarded
+    environment values in the dotenv output for downstream jobs.
+
     - PIPELINE_COMMIT_SHA
 
       Real commit SHA, instead of the merged result commit SHA
@@ -43,6 +50,19 @@ def pipeline_variables() -> t.Dict[str, str]:
     """
     res: t.Dict[str, str] = {}
     envs = get_env_vars()
+    # GitLab trigger jobs can disable variable inheritance. Re-export explicit
+    # selection controls in the pipeline_variables dotenv artifact for jobs
+    # that fetch it through needs, without inventing values for unset fields.
+    forwarded = {}
+    for key in (
+        'IDF_CI_SELECT_BY_FILTER_EXPR',
+        'IDF_CI_SELECT_ALL_PYTEST_CASES',
+        'IDF_CI_SKIP_TARGET_TEST_JOBS',
+        'IDF_CI_SELECT_BY_TARGETS',
+    ):
+        value = getattr(envs, key)
+        if value is not None:
+            forwarded[key] = str(int(value)) if isinstance(value, bool) else value
 
     # non-MR pipelines
     if envs.CI_MERGE_REQUEST_IID is None:
@@ -52,7 +72,7 @@ def pipeline_variables() -> t.Dict[str, str]:
         if envs.CI_COMMIT_SHA:
             res['PIPELINE_COMMIT_SHA'] = envs.CI_COMMIT_SHA
             logger.info('Setting `PIPELINE_COMMIT_SHA` to `CI_COMMIT_SHA` since running in a non-MR pipeline')
-        return res
+        return {**forwarded, **res}
 
     if envs.CI_MERGE_REQUEST_SOURCE_BRANCH_SHA:
         res['PIPELINE_COMMIT_SHA'] = envs.CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
@@ -100,4 +120,4 @@ def pipeline_variables() -> t.Dict[str, str]:
                             f'based on MR description "Select by Targets"'
                         )
 
-    return res
+    return {**forwarded, **res}
