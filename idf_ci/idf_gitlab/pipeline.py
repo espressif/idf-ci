@@ -265,6 +265,12 @@ def test_child_pipeline(
     if yaml_output is None:
         yaml_output = toolchain_filename(settings.gitlab.test_pipeline.yaml_filename, toolchain)
 
+    if get_env_vars().IDF_CI_SKIP_TARGET_TEST_JOBS:
+        logger.info('Skipping target-test jobs because IDF_CI_SKIP_TARGET_TEST_JOBS is set')
+        with open(yaml_output, 'w') as fw:
+            yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.test_pipeline.workflow_name), fw)
+        return
+
     if set(settings.gitlab.test_pipeline.skip_mr_labels) & {
         label.strip() for label in (get_env_vars().CI_MERGE_REQUEST_LABELS or '').split(',')
     }:

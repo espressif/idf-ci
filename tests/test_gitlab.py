@@ -83,6 +83,54 @@ class TestPipelineVariables:
     def test_no_env_vars(self):
         assert pipeline_variables() == {'IDF_CI_SELECT_ALL_PYTEST_CASES': '1'}
 
+    def test_explicit_selection_controls_are_forwarded_to_dotenv(self, monkeypatch, runner):
+        monkeypatch.setenv('CI_MERGE_REQUEST_IID', '123')
+        monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'wifi or ethernet')
+        monkeypatch.setenv('IDF_CI_SELECT_ALL_PYTEST_CASES', '0')
+        monkeypatch.setenv('IDF_CI_SKIP_TARGET_TEST_JOBS', '1')
+        monkeypatch.setenv('IDF_CI_SELECT_BY_TARGETS', 'esp32,esp32s3')
+
+        result = runner.invoke(click_cli, ['gitlab', 'pipeline-variables'])
+
+        assert result.exit_code == 0, result.output
+        assert set(result.output.splitlines()) == {
+            'IDF_CI_SELECT_BY_FILTER_EXPR=wifi or ethernet',
+            'IDF_CI_SELECT_ALL_PYTEST_CASES=0',
+            'IDF_CI_SKIP_TARGET_TEST_JOBS=1',
+            'IDF_CI_SELECT_BY_TARGETS=esp32,esp32s3',
+        }
+
+    def test_non_mr_default_overrides_forwarded_selection(self, monkeypatch):
+        monkeypatch.delenv('CI_MERGE_REQUEST_IID', False)
+        monkeypatch.setenv('IDF_CI_SELECT_ALL_PYTEST_CASES', '0')
+        monkeypatch.setenv('IDF_CI_SKIP_TARGET_TEST_JOBS', '0')
+
+        assert pipeline_variables() == {
+            'IDF_CI_SELECT_ALL_PYTEST_CASES': '1',  # since it's non-MR pipeline
+            'IDF_CI_SKIP_TARGET_TEST_JOBS': '0',
+        }
+
+    def test_mr_description_overrides_forwarded_filters(self, monkeypatch):
+        monkeypatch.setenv('CI_MERGE_REQUEST_IID', '123')
+        monkeypatch.setenv('IDF_CI_SELECT_BY_FILTER_EXPR', 'old_filter')
+        monkeypatch.setenv('IDF_CI_SELECT_BY_TARGETS', 'esp32')
+        monkeypatch.setenv(
+            'CI_MERGE_REQUEST_DESCRIPTION',
+            '## Dynamic Pipeline Configuration\n\n'
+            '```yaml\n'
+            'Test Case Filters:\n'
+            '  - new_filter\n'
+            'Select by Targets:\n'
+            '  - esp32s3\n'
+            '```',
+        )
+
+        assert pipeline_variables() == {
+            'IDF_CI_SELECT_BY_FILTER_EXPR': 'new_filter',
+            'IDF_CI_SELECT_BY_TARGETS': 'esp32s3',
+            'IDF_CI_IS_DEBUG_PIPELINE': '1',
+        }
+
 
 def test_get_s3_path_preserves_nested_relative_path_from_config_root(tmp_path, monkeypatch):
     repo_root = tmp_path
@@ -598,6 +646,33 @@ def test_configured_mr_label_skips_test_collection(monkeypatch, tmp_path, runner
     )
     assert result.exit_code == 0, result.output
     assert 'fake_pass' in yaml.safe_load(output.read_text())
+
+
+def test_skip_target_test_jobs_generates_only_fake_pass_without_collection(monkeypatch, tmp_path, runner):
+    monkeypatch.setenv('IDF_CI_SKIP_TARGET_TEST_JOBS', '1')
+    monkeypatch.setattr('idf_ci.idf_gitlab.pipeline.get_pytest_cases', lambda: pytest.fail('collected tests'))
+    output = tmp_path / 'test_child_pipeline.yml'
+
+    result = runner.invoke(click_cli, ['gitlab', 'test-child-pipeline', str(output)])
+
+    assert result.exit_code == 0, result.output
+    pipeline = yaml.safe_load(output.read_text())
+    assert set(pipeline) == {'fake_pass', 'workflow'}
+    assert pipeline['fake_pass']['script'] == ['echo "skip the entire child pipeline"']
+    assert pipeline['workflow']['rules'] == [{'when': 'always'}]
+
+
+def test_skip_target_test_jobs_zero_keeps_test_jobs(monkeypatch, tmp_path):
+    monkeypatch.setenv('IDF_CI_SKIP_TARGET_TEST_JOBS', '0')
+    pipeline = _write_test_pipeline(
+        monkeypatch,
+        CiSettings(),
+        tmp_path,
+        _grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')),
+    )
+
+    assert 'esp32 - generic' in pipeline
+    assert 'fake_pass' not in pipeline
 
 
 def test_exclude_exact_and_wildcard_runner_tags(monkeypatch, tmp_path):
