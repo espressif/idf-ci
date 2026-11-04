@@ -20,6 +20,17 @@
 </div>
 <hr>
 
+## v1.4.1 (2026-11-04)
+
+### ✨ New Features
+
+- **gitlab**: skip target-test jobs with placeholder pipeline *(Fu Hanxi - 4bbcfbe)*
+
+### 🐛 Bug Fixes
+
+- **gitlab**: carry explicit test controls in pipeline dotenv *(Fu Hanxi - ac65463)*
+
+
 ## v1.4.0 (2026-11-04)
 
 ### ✨ New Features
