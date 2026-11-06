@@ -14,6 +14,7 @@ from idf_ci.cli import click_cli
 from idf_ci.idf_gitlab.api import ArtifactManager
 from idf_ci.idf_gitlab.pipeline import build_child_pipeline
 from idf_ci.idf_gitlab.pipeline import test_child_pipeline as generate_test_child_pipeline
+from idf_ci.idf_pytest.models import GroupedPytestCases
 from idf_ci.scripts import preprocess_args
 from idf_ci.settings import CiSettings, _refresh_ci_settings, toolchain_filename
 
@@ -50,6 +51,8 @@ def test_one_command_generates_isolated_build_yamls_and_app_lists(monkeypatch, t
 
     gcc = yaml.safe_load((tmp_path / 'build.yml').read_text())
     clang = yaml.safe_load((tmp_path / 'build_clang.yml').read_text())
+    assert gcc['workflow']['name'] == 'Build Child Pipeline'
+    assert clang['workflow']['name'] == 'Build Child Pipeline (clang)'
     assert gcc['variables'] == {'IDF_TOOLCHAIN': 'gcc'}
     assert clang['variables'] == {
         'IDF_TOOLCHAIN': 'clang',
@@ -138,12 +141,12 @@ def test_test_enabled_clang_uses_matching_artifact_and_namespace(monkeypatch, tm
     assert '"target_clang.yml"' in '\n'.join(clang['generate_test_child_pipeline']['script'])
     assert clang['generate_test_child_pipeline']['artifacts']['paths'][-1] == 'target_clang.yml'
 
-    from idf_ci.idf_pytest.models import GroupedPytestCases
-
     generate_test_child_pipeline(
         cases=GroupedPytestCases([]), toolchain='clang', yaml_output=str(tmp_path / 'test.yml')
     )
-    assert 'fake_pass' in yaml.safe_load((tmp_path / 'test.yml').read_text())
+    test_pipeline = yaml.safe_load((tmp_path / 'test.yml').read_text())
+    assert 'fake_pass' in test_pipeline
+    assert test_pipeline['workflow']['name'] == 'Test Child Pipeline (clang)'
 
 
 def test_build_reads_only_selected_toolchain_lists(monkeypatch, tmp_path):
@@ -186,6 +189,15 @@ def test_namespace_keeps_gcc_variant_app_lists_separate(monkeypatch, tmp_path, r
     monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', 'gcc')
     result = runner.invoke(click_cli, ['gitlab', 'build-child-pipeline', 'explicit_gcc.yml'])
     assert result.exit_code == 0, result.output
+    assert (
+        yaml.safe_load((tmp_path / 'explicit_gcc.yml').read_text())['workflow']['name'] == 'Build Child Pipeline (gcc)'
+    )
+    generate_test_child_pipeline(
+        cases=GroupedPytestCases([]), toolchain='gcc', yaml_output=str(tmp_path / 'explicit_gcc_test.yml')
+    )
+    assert yaml.safe_load((tmp_path / 'explicit_gcc_test.yml').read_text())['workflow']['name'] == (
+        'Test Child Pipeline (gcc)'
+    )
     assert (tmp_path / 'test_related_apps_gcc.txt').is_file()
     assert (tmp_path / 'non_test_related_apps_gcc.txt').is_file()
     monkeypatch.setenv('CI', 'true')
@@ -235,6 +247,7 @@ def test_variant_and_toolchain_keep_app_lists_and_artifacts_separate(monkeypatch
 
     for toolchain, namespace in (('gcc', 'buildv2'), ('clang', 'buildv2_clang')):
         pipeline = yaml.safe_load((tmp_path / toolchain_filename('build_child_pipeline.yml', toolchain)).read_text())
+        assert pipeline['workflow']['name'] == f'Build Child Pipeline ({toolchain} / {namespace})'
         assert pipeline['variables'] == {
             'IDF_TOOLCHAIN': toolchain,
             'IDF_CI_ARTIFACT_NAMESPACE': namespace,
@@ -280,7 +293,9 @@ def test_manifest_is_evaluated_again_for_each_toolchain(monkeypatch, tmp_path, r
     clang = CiSettings.read_apps_from_files(['non_test_related_apps_clang.txt'])
     assert gcc and gcc[0].target == 'esp32'
     assert clang == []
-    assert 'fake_pass' in yaml.safe_load((tmp_path / 'build_child_pipeline_clang.yml').read_text())
+    skipped = yaml.safe_load((tmp_path / 'build_child_pipeline_clang.yml').read_text())
+    assert 'fake_pass' in skipped
+    assert skipped['workflow']['name'] == 'Build Child Pipeline (clang)'
 
 
 def test_full_test_pipeline_respects_toolchain_manifest_rules(monkeypatch, tmp_path):

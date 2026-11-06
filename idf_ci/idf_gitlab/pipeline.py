@@ -112,6 +112,15 @@ def _get_fake_pass_job(settings: CiSettings, workflow_name: str) -> t.Dict[str, 
     }
 
 
+def _workflow_name(name: str, toolchain: str, namespace: str) -> str:
+    """Format the display name from an already-effective artifact namespace."""
+    if not namespace:
+        return name
+    if namespace == toolchain:
+        return f'{name} ({toolchain})'
+    return f'{name} ({toolchain} / {namespace})'
+
+
 def dump_apps_to_txt(apps: t.List[App], output_file: str) -> None:
     """Dump a list of apps to a text file, one app per line."""
     with open(output_file, 'w') as fw:
@@ -138,6 +147,7 @@ def build_child_pipeline(
 
     for toolchain in settings.gitlab.build_enabled_toolchains:
         app_list_suffix = artifact_namespace(toolchain, envs.IDF_CI_ARTIFACT_NAMESPACE)
+        workflow_name = _workflow_name(settings.gitlab.build_pipeline.workflow_name, toolchain, app_list_suffix)
         # Manifest conditions are evaluated during discovery, not at build time.
         # Also isolate the list lookup: the second toolchain must not reuse the
         # first toolchain's freshly written app list in the generator job.
@@ -168,7 +178,7 @@ def build_child_pipeline(
         if not test_related_apps and not non_test_related_apps:
             logger.info('No apps found for %s, generating fake_pass job', toolchain)
             with open(output, 'w') as fw:
-                yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.build_pipeline.workflow_name), fw)
+                yaml.safe_dump(_get_fake_pass_job(settings, workflow_name), fw)
             continue
 
         logger.info(
@@ -198,6 +208,7 @@ def build_child_pipeline(
                         ),
                     ),
                     settings=settings,
+                    workflow_name=workflow_name,
                     toolchain=toolchain,
                     default_toolchain=IDF_CI_DEFAULT_TOOLCHAIN,
                     artifact_namespace=app_list_suffix,
@@ -265,14 +276,18 @@ def test_child_pipeline(
     if yaml_output is None:
         yaml_output = toolchain_filename(settings.gitlab.test_pipeline.yaml_filename, toolchain)
 
-    if get_env_vars().IDF_CI_SKIP_TARGET_TEST_JOBS:
+    envs = get_env_vars()
+    namespace = envs.IDF_CI_ARTIFACT_NAMESPACE or artifact_namespace(toolchain, None)
+    workflow_name = _workflow_name(settings.gitlab.test_pipeline.workflow_name, toolchain, namespace)
+
+    if envs.IDF_CI_SKIP_TARGET_TEST_JOBS:
         logger.info('Skipping target-test jobs because IDF_CI_SKIP_TARGET_TEST_JOBS is set')
         with open(yaml_output, 'w') as fw:
-            yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.test_pipeline.workflow_name), fw)
+            yaml.safe_dump(_get_fake_pass_job(settings, workflow_name), fw)
         return
 
     if set(settings.gitlab.test_pipeline.skip_mr_labels) & {
-        label.strip() for label in (get_env_vars().CI_MERGE_REQUEST_LABELS or '').split(',')
+        label.strip() for label in (envs.CI_MERGE_REQUEST_LABELS or '').split(',')
     }:
         logger.info('Skipping target tests because a configured MR label is present')
         cases = GroupedPytestCases([])
@@ -297,7 +312,6 @@ def test_child_pipeline(
             finally:
                 App.MANIFEST = previous_manifest
 
-    envs = get_env_vars()
     exact_exclusions = set()
     wildcard_exclusions = []
     for rule in settings.gitlab.test_pipeline.exclude_runner_tags + (
@@ -332,7 +346,7 @@ def test_child_pipeline(
     if not cases.grouped_cases:
         logger.info('No test cases found, generating fake_pass job to skip the entire test child pipeline')
         with open(yaml_output, 'w') as fw:
-            yaml.safe_dump(_get_fake_pass_job(settings, settings.gitlab.test_pipeline.workflow_name), fw)
+            yaml.safe_dump(_get_fake_pass_job(settings, workflow_name), fw)
         return
 
     env = Environment()
@@ -384,10 +398,10 @@ def test_child_pipeline(
                 ),
                 extra_jobs=extra_jobs,
                 settings=settings,
+                workflow_name=workflow_name,
                 toolchain=toolchain,
                 default_toolchain=IDF_CI_DEFAULT_TOOLCHAIN,
-                artifact_namespace=envs.IDF_CI_ARTIFACT_NAMESPACE
-                or ('' if toolchain == IDF_CI_DEFAULT_TOOLCHAIN else toolchain),
+                artifact_namespace=namespace,
             )
         )
 

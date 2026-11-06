@@ -385,7 +385,7 @@ build_non_test_related_apps{{ settings.gitlab.build_pipeline.job_name_suffix }}:
 {%- endfor %}
 {% endif %}
 workflow:
-  name: "{{ settings.gitlab.build_pipeline.workflow_name }}"
+  name: "{{ workflow_name | default(settings.gitlab.build_pipeline.workflow_name) }}"
   rules:
     - when: "always"
 {% if toolchain is defined %}
@@ -567,7 +567,7 @@ class TestPipelineSettings(BuildPipelineSettings):
 {{ settings.gitlab.test_pipeline.pre_yaml_jinja }}
 
 workflow:
-  name: "{{ settings.gitlab.test_pipeline.workflow_name }}"
+  name: "{{ workflow_name | default(settings.gitlab.test_pipeline.workflow_name) }}"
   rules:
     - when: "always"
 {% if toolchain is defined %}
