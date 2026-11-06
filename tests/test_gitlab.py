@@ -228,6 +228,7 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
         test_related_apps_count=1,
     )
     build_pipeline = yaml.safe_load(build_rendered)
+    assert build_pipeline['workflow']['name'] == settings.gitlab.build_pipeline.workflow_name
 
     build_test_job = build_pipeline['build_test_related_apps:build-sfx']
     build_non_test_job = build_pipeline['build_non_test_related_apps:build-sfx']
@@ -292,6 +293,7 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
         extra_jobs='',
     )
     test_pipeline = yaml.safe_load(test_rendered)
+    assert test_pipeline['workflow']['name'] == settings.gitlab.test_pipeline.workflow_name
 
     default_test_template = test_pipeline[settings.gitlab.test_pipeline.job_template_name]
     test_job = test_pipeline['esp32 - generic:test-sfx']
@@ -369,6 +371,7 @@ def test_clang_test_jobs_use_matching_toolchain_and_artifact_namespace(monkeypat
         cases=_grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')),
     )
     pipeline = yaml.safe_load(output.read_text())
+    assert pipeline['workflow']['name'] == 'Test Child Pipeline (clang)'
     assert pipeline['variables'] == {'IDF_TOOLCHAIN': 'clang', 'IDF_CI_ARTIFACT_NAMESPACE': 'clang'}
     assert pipeline['esp32 - generic']['variables']['nodes'] == "'tests/test_example.py::test_case'"
 
@@ -382,6 +385,7 @@ def test_clang_test_jobs_keep_effective_variant_namespace(monkeypatch, tmp_path)
         cases=_grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')),
     )
     pipeline = yaml.safe_load(output.read_text())
+    assert pipeline['workflow']['name'] == 'Test Child Pipeline (clang / buildv2_clang)'
     assert pipeline['variables'] == {'IDF_TOOLCHAIN': 'clang', 'IDF_CI_ARTIFACT_NAMESPACE': 'buildv2_clang'}
     assert pipeline['esp32 - generic']['variables']['IDF_CI_ARTIFACT_NAMESPACE'] == 'buildv2_clang'
 
