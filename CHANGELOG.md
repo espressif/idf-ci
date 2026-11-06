@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v1.4.2 (2026-11-06)
+
+### ✨ New Features
+
+- **gitlab**: distinguish child pipelines by toolchain and namespace *(Fu Hanxi - 01db903)*
+
+
 ## v1.4.1 (2026-11-04)
 
 ### ✨ New Features
