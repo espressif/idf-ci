@@ -256,8 +256,13 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
         settings.gitlab.test_pipeline.yaml_filename,
     ]
     gate = build_pipeline['all_build_succeeded:build-sfx']
+    assert gate['extends'] == settings.gitlab.build_pipeline.job_template_name
     assert gate['stage'] == '.post'
     assert gate['when'] == 'on_success'
+    assert gate['dependencies'] == []
+    assert gate['artifacts'] is None
+    assert gate['before_script'] == []
+    assert gate['script'] == ['echo "all build jobs succeeded"']
     assert 'needs' not in gate
     assert trigger_test_pipeline_job['needs'] == [
         'generate_test_child_pipeline:build-sfx',

@@ -426,9 +426,9 @@ generate_test_child_pipeline{{ settings.gitlab.build_pipeline.job_name_suffix }}
       "{{ test_yaml_filename|default(settings.gitlab.test_pipeline.yaml_filename) }}"
 
 all_build_succeeded{{ settings.gitlab.build_pipeline.job_name_suffix }}:
+  extends: "{{ settings.gitlab.build_pipeline.job_template_name }}"
   stage: ".post"
-  image: "{{ settings.gitlab.build_pipeline.job_image }}"
-  tags: {{ settings.gitlab.build_pipeline.job_tags }}
+  artifacts: null
   # No needs: stage ordering waits for every build shard, and on_success
   # skips this gate if an earlier stage failed. The test generator only
   # waits for test-related builds; direct needs on all parallel shards
