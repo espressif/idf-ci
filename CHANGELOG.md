@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v1.4.3 (2026-11-12)
+
+### 🐛 Bug Fixes
+
+- **gitlab**: inherit build template for success gate *(Fu Hanxi - 35a8669)*
+
+
 ## v1.4.2 (2026-11-06)
 
 ### ✨ New Features
