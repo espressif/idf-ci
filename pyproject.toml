@@ -100,6 +100,11 @@ idf_ci = [
     "build_collect/template.html",
 ]
 
+[tool.black]
+# stop docstrfmt from normalizing quotes in python code blocks inside docstrings,
+# otherwise it fights with `ruff format`, which keeps them single-quoted
+string-normalization = false
+
 [tool.isort]
 profile = 'black'
 force_grid_wrap = 1
@@ -146,6 +151,11 @@ filterwarnings = [
 ]
 
 junit_family = "xunit1"
+
+markers = [
+    "nightly_run: this test case is a nightly run",
+    'disable_test(expression, targets=None, configs=None, reason=""): disable this test case when the esp-bool-parser expression evaluates to true, and/or when the test case runs on one of the given targets or sdkconfig names. At least one of expression, targets, configs must be provided',
+]
 
 [tool.coverage.run]
 omit = [

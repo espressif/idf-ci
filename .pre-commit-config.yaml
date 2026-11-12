@@ -56,4 +56,4 @@ repos:
     hooks:
       - id: docstrfmt
         types: [python]
-        args: ['--no-docstring-trailing-line']
+        args: ['--no-docstring-trailing-line', '-p', 'pyproject.toml']
