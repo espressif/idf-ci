@@ -406,6 +406,77 @@ class TestBuildCollect:
         assert test_case.disabled_by_marker
         assert test_case.skip_reason == 'Temporary skip for CI'
 
+    def test_build_collect_disable_test_marker(self, tmp_path) -> None:
+        with open(tmp_path / 'foo' / 'test_foo9_disable.py', 'w') as fw:
+            fw.write(
+                textwrap.dedent("""
+            import pytest
+
+            @pytest.mark.parametrize('target', ['esp32', 'esp32c3'], indirect=True)
+            @pytest.mark.disable_test(targets=['esp32c3'], reason='IDF-1234')
+            def test_foo1(dut):
+                pass
+
+            @pytest.mark.parametrize('target', ['esp32', 'esp32c3'], indirect=True)
+            @pytest.mark.disable_test('IDF_TARGET == "esp32c3"', reason='IDF-5678')
+            def test_foo2(dut):
+                pass
+
+            @pytest.mark.parametrize('target', ['esp32', 'esp32c3'], indirect=True)
+            @pytest.mark.disable_test(targets=['esp32c3'])
+            def test_foo3(dut):
+                pass
+            """)
+            )
+
+        result = collect_apps()
+        assert result.summary.total_test_cases == 6
+        assert result.summary.total_test_cases_used == 3
+        assert result.summary.total_test_cases_disabled == 3
+
+        for case_name, reason in (
+            ('test_foo1', 'IDF-1234'),
+            ('test_foo2', 'IDF-5678'),
+            ('test_foo3', 'disabled by the `disable_test` marker'),
+        ):
+            enabled = find_test_case(result, Path('foo'), 'esp32', 'default', f'esp32.default.{case_name}')
+            assert enabled is not None
+            assert not enabled.disabled
+
+            disabled = find_test_case(result, Path('foo'), 'esp32c3', 'default', f'esp32c3.default.{case_name}')
+            assert disabled is not None
+            assert disabled.disabled_by_marker
+            assert disabled.skip_reason == reason
+
+    def test_build_collect_disable_test_marker_by_config(self, tmp_path) -> None:
+        for config_name in ('cfg1', 'cfg2'):
+            with open(tmp_path / 'foo' / f'sdkconfig.ci.{config_name}', 'w') as fw:
+                fw.write('CONFIG_EXAMPLE_OPTION=y\n')
+
+        with open(tmp_path / 'foo' / 'test_foo9_disable_config.py', 'w') as fw:
+            fw.write(
+                textwrap.dedent("""
+            import pytest
+
+            @pytest.mark.parametrize('target', ['esp32'], indirect=True)
+            @pytest.mark.parametrize('config', ['cfg1', 'cfg2'], indirect=True)
+            @pytest.mark.disable_test(configs=['cfg2'], reason='IDF-1234')
+            def test_foo(dut):
+                pass
+            """)
+            )
+
+        result = collect_apps()
+
+        enabled = find_test_case(result, Path('foo'), 'esp32', 'cfg1', 'esp32.cfg1.test_foo')
+        assert enabled is not None
+        assert not enabled.disabled
+
+        disabled = find_test_case(result, Path('foo'), 'esp32', 'cfg2', 'esp32.cfg2.test_foo')
+        assert disabled is not None
+        assert disabled.disabled_by_marker
+        assert disabled.skip_reason == 'IDF-1234'
+
     def test_build_collect_test_on_both_target_and_qemu(self, tmp_path) -> None:
         with open(tmp_path / 'foo' / 'test_foo10.py', 'w') as fw:
             fw.write(
