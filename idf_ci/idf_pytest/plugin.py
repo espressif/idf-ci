@@ -258,6 +258,25 @@ class IdfPytestPlugin:
 
         deselected_items: t.List[pytest.Function] = []
 
+        # Filter by `disable_test` marker
+        # While collecting (`--collect-only`), the disabled items are kept.
+        collect_only = bool(config.getoption('collectonly', False))
+        filtered_items = []
+        for item in items:
+            case = self.get_case_by_item(item)
+            if case is None:
+                continue
+
+            is_disabled = case.is_disabled
+            if is_disabled is None or collect_only:
+                filtered_items.append(item)
+                continue
+
+            logger.info('Deselecting %s: %s', item.nodeid, is_disabled)
+            item.stash[IDF_CI_PYTEST_DEBUG_INFO_KEY]['skip_reason'] = is_disabled
+            deselected_items.append(item)
+        items[:] = filtered_items
+
         # Filter by nightly_run marker
         envs = get_env_vars()
         if envs.INCLUDE_NIGHTLY_RUN == '1':
@@ -388,6 +407,13 @@ def pytest_configure(config: pytest.Config):
     # Add markers definitions
     config.addinivalue_line('markers', 'host_test: this test case runs on host machines')
     config.addinivalue_line('markers', 'nightly_run: this test case is a nightly run')
+    config.addinivalue_line(
+        'markers',
+        'disable_test(expression, targets=None, configs=None, reason=""): '
+        'disable this test case when the esp-bool-parser expression evaluates to true, '
+        'and/or when the test case runs on one of the given targets or sdkconfig names. '
+        'At least one of expression, targets, configs must be provided',
+    )
 
 
 def pytest_unconfigure(config: pytest.Config):

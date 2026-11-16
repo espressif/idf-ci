@@ -142,13 +142,16 @@ def create_test_case_info(test_case: PytestCase, app: App):
     :returns: CaseInfo instance.
     """
     enabled_targets = enabled_test_targets(app)
-    skipped_targets = test_case.skipped_targets()
+
+    # `disable_test` disables the whole test case, the deprecated `temp_skip` markers
+    # are matched per target
+    marker_reason = test_case.is_disabled or test_case.skipped_targets().get(app.target)
 
     disabled_by_manifest = app.target not in enabled_targets
-    disabled_by_marker = app.target in skipped_targets
+    disabled_by_marker = marker_reason is not None
     disabled = disabled_by_manifest or disabled_by_marker
 
-    skip_reason = skipped_targets.get(app.target, '')
+    skip_reason = marker_reason or ''
     test_comment = app.test_comment or ''
 
     return CaseInfo(
@@ -173,12 +176,12 @@ def create_test_case_missing_app_info(
 
     :returns: CaseInfo instance.
     """
-    skipped_targets = test_case.skipped_targets()
+    marker_reason = test_case.is_disabled or test_case.skipped_targets().get(target)
 
-    disabled_by_marker = target in skipped_targets
+    disabled_by_marker = marker_reason is not None
     disabled = disabled_by_marker
 
-    skip_reason = skipped_targets.get(target, '')
+    skip_reason = marker_reason or ''
 
     return CaseInfo(
         name=test_case.name,

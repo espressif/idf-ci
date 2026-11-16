@@ -13,6 +13,8 @@ from pytest_embedded.plugin import parse_multi_dut_args
 
 from idf_ci.utils import to_list
 
+from .markers import DisableTestError, DisableTestRule, parse_disable_test_marker
+
 logger = logging.getLogger(__name__)
 
 #: Markers of test cases that run the firmware on a host emulator instead of
@@ -82,6 +84,10 @@ class PytestCase:
     def __init__(self, apps: t.List[PytestApp], item: pytest.Function) -> None:
         self.apps = apps
         self.item = item
+
+        # `None` is a valid parse result, so a separate flag identifies whether disable rule has been parsed
+        self._disable_rule: t.Optional[DisableTestRule] = None
+        self._disable_rule_parsed = False
 
     @classmethod
     def get_param(cls, item: pytest.Function, key: str, default: t.Any = None) -> t.Any:
@@ -208,6 +214,45 @@ class PytestCase:
     @property
     def all_markers(self) -> t.Set[str]:
         return {marker.name for marker in self.item.iter_markers()}
+
+    @property
+    def disable_rule(self) -> t.Optional[DisableTestRule]:
+        """The closest ``disable_test`` marker of this test case, validated and parsed.
+
+        :returns: The rule, or None if the test case has no ``disable_test`` marker
+
+        :raises pytest.UsageError: If the ``disable_test`` marker is invalid
+        """
+        if not self._disable_rule_parsed:
+            self._disable_rule = parse_disable_test_marker(self.item)
+            self._disable_rule_parsed = True
+
+        return self._disable_rule
+
+    @property
+    def is_disabled(self) -> t.Optional[str]:
+        """Get the reason why this test case is disabled.
+
+        A test case is already fully parametrized, so this covers all its apps. A
+        multi-DUT test case cannot run partially, so it is disabled as a whole as soon
+        as the ``disable_test`` marker matches.
+
+        :returns: Reason of the matching ``disable_test`` marker, or None if the test
+            case is not disabled
+
+        :raises pytest.UsageError: If the ``disable_test`` marker is invalid or cannot
+            be evaluated
+        """
+        rule = self.disable_rule
+        if rule is None:
+            return None
+
+        try:
+            matched = rule.matches(self.targets, self.configs)
+        except DisableTestError as e:
+            raise pytest.UsageError(f'{self.item.nodeid}: `disable_test` marker is invalid, {e}') from e
+
+        return rule.report_reason if matched else None
 
     def skipped_targets(self) -> t.Dict[str, str]:
         """Get targets that are marked with skip markers for current test case.
