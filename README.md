@@ -11,6 +11,8 @@ A tool designed to streamline CI/CD for ESP-IDF projects, with support for both 
 pip install -U idf-ci
 ```
 
+To run tests with esp-emu, install `idf-ci[espemu]` (Python 3.10+ and esptool 5). It is no longer installed by default.
+
 ## Key Features
 
 - **Sensible Defaults**
