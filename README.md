@@ -13,6 +13,8 @@ pip install -U idf-ci
 
 To run tests with esp-emu, install `idf-ci[espemu]` (Python 3.10+ and esptool 5). It is no longer installed by default.
 
+On Python 3.10+, idf-ci requires pytest-embedded-idf 2.10.1 or later and esptool 5.2 or later for root-relative JUnit `app_path`. Python 3.7–3.9 continues to use pytest-embedded 1.x and esptool 4; the JUnit setting in the generated `pytest.ini` is not supported there.
+
 ## Key Features
 
 - **Sensible Defaults**
