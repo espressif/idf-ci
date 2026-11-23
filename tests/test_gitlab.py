@@ -236,6 +236,7 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
     trigger_test_pipeline_job = build_pipeline['test-child-pipeline:build-sfx']
 
     assert build_test_job['extends'] == settings.gitlab.build_pipeline.job_template_name
+    assert 'after_script' not in build_test_job
     assert build_test_job['needs'] == [
         {
             'pipeline': '$PARENT_PIPELINE_ID',
@@ -247,6 +248,7 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
         },
     ]
     assert build_non_test_job['extends'] == settings.gitlab.build_pipeline.job_template_name
+    assert 'after_script' not in build_non_test_job
     assert generate_test_pipeline_job['needs'] == [
         'build_test_related_apps:build-sfx',
         {'pipeline': '$PARENT_PIPELINE_ID', 'job': 'pipeline_variables'},
@@ -262,12 +264,14 @@ def test_rendered_gitlab_pipelines_include_job_name_suffixes_and_artifacts():
     assert gate['dependencies'] == []
     assert gate['artifacts'] is None
     assert gate['before_script'] == []
+    assert gate['after_script'] == []
     assert gate['script'] == ['echo "all build jobs succeeded"']
     assert 'needs' not in gate
     assert trigger_test_pipeline_job['needs'] == [
         'generate_test_child_pipeline:build-sfx',
         {'job': 'all_build_succeeded:build-sfx', 'artifacts': False},
     ]
+    assert 'after_script' not in trigger_test_pipeline_job
     assert trigger_test_pipeline_job['trigger']['include'] == [
         {
             'artifact': settings.gitlab.test_pipeline.yaml_filename,

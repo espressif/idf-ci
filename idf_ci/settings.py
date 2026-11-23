@@ -435,6 +435,7 @@ all_build_succeeded{{ settings.gitlab.build_pipeline.job_name_suffix }}:
   # can exceed GitLab's needs limit.
   when: "on_success"
   before_script: []
+  after_script: []
   dependencies: []
   script:
     - echo "all build jobs succeeded"
