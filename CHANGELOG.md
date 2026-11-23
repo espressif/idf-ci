@@ -20,6 +20,21 @@
 </div>
 <hr>
 
+## v1.5.0 (2026-11-23)
+
+### ✨ New Features
+
+- add disable_test marker *(Evgeny Torbin - 4cdeeee)*
+
+### 🐛 Bug Fixes
+
+- **gitlab**: skip build after_script on success gate *(Fu Hanxi - 8eefe30)*
+
+### 🏗️ Changes
+
+- make esp-emu an optional dependency; install `idf-ci[espemu]` to enable it *(Fu Hanxi - a11f915)*
+
+
 ## v1.4.3 (2026-11-12)
 
 ### 🐛 Bug Fixes
