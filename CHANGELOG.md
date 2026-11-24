@@ -20,6 +20,13 @@
 </div>
 <hr>
 
+## v1.5.1 (2026-11-24)
+
+### 🏗️ Changes
+
+- **pytest**: enable root-relative JUnit app_path by default *(Fu Hanxi - 3b80367)*
+
+
 ## v1.5.0 (2026-11-23)
 
 ### ✨ New Features
