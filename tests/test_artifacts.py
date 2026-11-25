@@ -17,8 +17,32 @@ from idf_ci.idf_gitlab.api import S3Error
 from idf_ci.settings import _refresh_ci_settings
 
 
+@pytest.fixture(scope='session', autouse=True)
+def setup_s3_buckets():
+    client = minio.Minio('localhost:9100', access_key='rustfsadmin', secret_key='rustfsadmin', secure=False)
+    for bucket in ['private', 'public']:
+        if not client.bucket_exists(bucket):
+            client.make_bucket(bucket)
+    client.set_bucket_policy(
+        'public',
+        json.dumps(
+            {
+                'Version': '2012-10-17',
+                'Statement': [
+                    {
+                        'Effect': 'Allow',
+                        'Principal': '*',
+                        'Action': ['s3:ListBucket', 's3:GetObject'],
+                        'Resource': ['arn:aws:s3:::public', 'arn:aws:s3:::public/*'],
+                    }
+                ],
+            }
+        ),
+    )
+
+
 # to run this test, don't forget to run "docker compose up -d" in the root directory of the project
-@pytest.mark.skipif(sys.platform == 'win32', reason='minio service not available on Windows')
+@pytest.mark.skipif(sys.platform == 'win32', reason='RustFS service not available on Windows')
 class TestUploadDownloadArtifacts:
     @pytest.fixture
     def sample_artifacts_dir(self, tmp_path):
@@ -79,8 +103,8 @@ class TestUploadDownloadArtifacts:
         _refresh_ci_settings()
 
         monkeypatch.setenv('IDF_S3_SERVER', 'http://localhost:9100')
-        monkeypatch.setenv('IDF_S3_ACCESS_KEY', 'minioadmin')
-        monkeypatch.setenv('IDF_S3_SECRET_KEY', 'minioadmin')
+        monkeypatch.setenv('IDF_S3_ACCESS_KEY', 'rustfsadmin')
+        monkeypatch.setenv('IDF_S3_SECRET_KEY', 'rustfsadmin')
 
         monkeypatch.setenv('IDF_PATH', tmp_dir)
 

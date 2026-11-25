@@ -2,7 +2,7 @@ name: report
 on:
   workflow_run:
     workflows:
-      - Test Linux (py3.14)
+      - Tests
     types:
       - completed
 
@@ -15,24 +15,41 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - name: Download Test Report
+      - name: Download test results
         uses: dawidd6/action-download-artifact@v21
         with:
-          name: test-results
           workflow: ${{ github.event.workflow_run.workflow_id }}
           run_id: ${{ github.event.workflow_run.id }}
+          name_is_regexp: true
+          name: test-results-.*
+          path: test-results
+          if_no_artifact_found: ignore
       - name: Parse PR number
         run: |
-          if [ -f pr_number.txt ]; then
-            echo "PR_NUMBER=$(cat pr_number.txt)" >> $GITHUB_ENV
+          if [ -f test-results/test-results-linux/pr_number.txt ]; then
+            echo "PR_NUMBER=$(cat test-results/test-results-linux/pr_number.txt)" >> "$GITHUB_ENV"
           else
             echo "pr_number.txt file not found, skipping PR comment."
             exit 0
           fi
-      - name: Upload coverage report to PR
-        if: ${{ github.event.workflow_run.event == 'pull_request' }}
+      - name: Prepare coverage table
+        if: github.event.workflow_run.event == 'pull_request' && env.PR_NUMBER != ''
+        id: files
+        run: |
+          {
+            echo 'FILES<<EOF'
+            for platform in windows linux; do
+              dir="test-results/test-results-$platform"
+              if [ -f "$dir/pytest-$platform.xml" ] && [ -f "$dir/coverage-$platform.xml" ]; then
+                if [ "$platform" = windows ]; then title='Windows 3.7'; else title='Linux 3.14'; fi
+                echo "$title, $dir/coverage-$platform.xml, $dir/pytest-$platform.xml"
+              fi
+            done
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+      - name: Comment coverage table on PR
+        if: github.event.workflow_run.event == 'pull_request' && env.PR_NUMBER != '' && steps.files.outputs.FILES != ''
         uses: MishaKav/pytest-coverage-comment@v1
         with:
-          pytest-coverage-path: ./pytest-coverage.txt
-          junitxml-path: ./pytest.xml
           issue-number: ${{ env.PR_NUMBER }}
+          multiple-files: ${{ steps.files.outputs.FILES }}
