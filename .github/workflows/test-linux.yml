@@ -8,26 +8,25 @@ on:
       - "**.py"
       - .github/workflows/test-linux.yml
       - .github/workflows/report.yml
+      - docker-compose.yml
 
 jobs:
   linux:
     runs-on: ubuntu-latest
 
     services:
-      minio:
-        image: bitnamilegacy/minio:latest
+      rustfs:
+        image: rustfs/rustfs:1.0.6
         ports:
           - 9100:9000
-          - 9101:9001
         env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-          MINIO_DEFAULT_BUCKETS: private,public:public
+          RUSTFS_ACCESS_KEY: rustfsadmin
+          RUSTFS_SECRET_KEY: rustfsadmin
         options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
-          --health-interval 10s
+          --health-cmd "curl -f http://localhost:9000/health || exit 1"
+          --health-interval 5s
           --health-timeout 5s
-          --health-retries 3
+          --health-retries 12
 
     steps:
       - uses: actions/checkout@v6
