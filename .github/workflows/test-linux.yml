@@ -1,4 +1,4 @@
-name: Test Linux (py3.14)
+name: Tests
 
 on:
   push:
@@ -6,9 +6,11 @@ on:
   pull_request:
     paths:
       - "**.py"
+      - .github/workflows/test-linux.yml
+      - .github/workflows/report.yml
 
 jobs:
-  test:
+  linux:
     runs-on: ubuntu-latest
 
     services:
@@ -44,7 +46,7 @@ jobs:
           echo "SUPPORTED_TARGETS = ['esp32', 'esp32s2', 'esp32c3', 'esp32s3', 'esp32c2', 'esp32c6', 'esp32h2', 'esp32p4']" >> constants.py
           echo "PREVIEW_TARGETS = ['linux', 'esp32c5', 'esp32c61', 'esp32h21']" >> constants.py
           popd
-          pytest --junitxml pytest.xml tests/ | tee pytest-coverage.txt
+          pytest --junitxml pytest-linux.xml --cov-report=xml:coverage-linux.xml tests/
       - name: Save PR number
         if: ${{ github.event_name == 'pull_request' }}
         run: |
@@ -53,9 +55,40 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always() # always run even if the previous step fails
         with:
-          name: test-results
+          name: test-results-linux
           path: |
             pr_number.txt
-            pytest-coverage.txt
-            pytest.xml
+            pytest-linux.xml
+            coverage-linux.xml
+          retention-days: 1
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python "3.7"
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.7"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[test]'
+      - name: Fake IDF and Run Test
+        run: |
+          $env:IDF_PATH="D:\tmp\esp-idf"
+          mkdir -p $env:IDF_PATH\tools\idf_py_actions
+          pushd $env:IDF_PATH\tools\idf_py_actions\
+          echo "SUPPORTED_TARGETS = ['esp32', 'esp32s2', 'esp32c3', 'esp32s3', 'esp32c2', 'esp32c6', 'esp32h2', 'esp32p4']" >> constants.py
+          echo "PREVIEW_TARGETS = ['linux', 'esp32c5', 'esp32c61', 'esp32h21']" >> constants.py
+          popd
+          pytest --junitxml pytest-windows.xml --cov-report=xml:coverage-windows.xml tests/
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-results-windows
+          path: |
+            pytest-windows.xml
+            coverage-windows.xml
           retention-days: 1
