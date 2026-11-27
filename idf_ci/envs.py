@@ -21,6 +21,7 @@ class GitlabEnvVars(BaseSettings):
     CI_MERGE_REQUEST_LABELS: t.Optional[str] = None
     CI_MERGE_REQUEST_DESCRIPTION: t.Optional[str] = None
     CI_PYTHON_CONSTRAINT_BRANCH: t.Optional[str] = None
+    CI_PIPELINE_SOURCE: t.Optional[str] = None
 
     # Pipeline Control Variables
     CHANGED_FILES_SEMICOLON_SEPARATED: t.Optional[str] = None
@@ -31,6 +32,9 @@ class GitlabEnvVars(BaseSettings):
 
     IDF_CI_ARTIFACT_NAMESPACE: t.Optional[str] = Field(default=None, pattern=r'^[A-Za-z0-9_-]+$')
     """Optional S3 namespace for a build variant of the same commit."""
+
+    IDF_CI_ARTIFACT_PIPELINE_SOURCE: t.Optional[str] = Field(default=None, pattern=r'^[A-Za-z0-9_-]+$')
+    """Pipeline source used to separate artifacts of the same commit (passed to child pipelines)."""
 
     IDF_TOOLCHAIN: t.Optional[str] = None
     """Toolchain used by build manifests and for selecting collected app lists."""
@@ -95,6 +99,37 @@ class GitlabEnvVars(BaseSettings):
             raise SystemExit(
                 'Cannot set both `IDF_CI_BUILD_ONLY_TEST_RELATED_APPS` and `IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS`'
             )
+
+    @property
+    def artifact_pipeline_source(self) -> t.Optional[str]:
+        """Pipeline source to pass to child pipelines
+
+        Returns None when it is unknown, i.e. in a child pipeline without
+        ``IDF_CI_ARTIFACT_PIPELINE_SOURCE``.
+        """
+        source = self.IDF_CI_ARTIFACT_PIPELINE_SOURCE or self.CI_PIPELINE_SOURCE
+        if not source or source == 'parent_pipeline':
+            return None
+        return source
+
+    @property
+    def s3_prefix_pipeline_source(self) -> t.Optional[str]:
+        """Pipeline source part of the S3 artifact prefix.
+
+        ``merge_request_event`` maps to None to keep the original prefix. In child
+        pipelines ``CI_PIPELINE_SOURCE`` is ``parent_pipeline``, so the real source must
+        be passed down via ``IDF_CI_ARTIFACT_PIPELINE_SOURCE``.
+        """
+        source = self.IDF_CI_ARTIFACT_PIPELINE_SOURCE or self.CI_PIPELINE_SOURCE
+        if source == 'parent_pipeline':
+            logger.warning(
+                '`IDF_CI_ARTIFACT_PIPELINE_SOURCE` is not set in a child pipeline. '
+                'Artifacts use the prefix of `merge_request_event` pipelines'
+            )
+            return None
+        if not source or source == 'merge_request_event':
+            return None
+        return source
 
     @property
     def select_all_pytest_cases(self) -> bool:

@@ -399,6 +399,30 @@ def test_clang_test_jobs_keep_effective_variant_namespace(monkeypatch, tmp_path)
     assert pipeline['esp32 - generic']['variables']['IDF_CI_ARTIFACT_NAMESPACE'] == 'buildv2_clang'
 
 
+@pytest.mark.parametrize(
+    'ci_source, passed_source, expected',
+    [
+        ('parent_pipeline', 'schedule', 'schedule'),
+        # no suffix in the S3 prefix, but must still be passed down
+        ('merge_request_event', None, 'merge_request_event'),
+    ],
+)
+def test_test_child_pipeline_passes_pipeline_source(monkeypatch, tmp_path, ci_source, passed_source, expected):
+    monkeypatch.setenv('CI_PIPELINE_SOURCE', ci_source)
+    if passed_source:
+        monkeypatch.setenv('IDF_CI_ARTIFACT_PIPELINE_SOURCE', passed_source)
+    else:
+        monkeypatch.delenv('IDF_CI_ARTIFACT_PIPELINE_SOURCE', raising=False)
+    output = tmp_path / 'test_child_pipeline.yml'
+    generate_test_child_pipeline(
+        str(output),
+        cases=_grouped_cases(_FakeCase('esp32', 'generic', ['esp32', 'generic'], 'tests/test_example.py::test_case')),
+    )
+    pipeline = yaml.safe_load(output.read_text())
+    assert pipeline['variables']['IDF_CI_ARTIFACT_PIPELINE_SOURCE'] == expected
+    assert pipeline['esp32 - generic']['variables']['IDF_CI_ARTIFACT_PIPELINE_SOURCE'] == expected
+
+
 def test_test_jobs_extend_templates_for_environment_markers(monkeypatch, tmp_path):
     settings = CiSettings.model_validate(
         {'gitlab': {'test_pipeline': {'extra_extends_by_env_marker': {'ethernet_stress': ['.timeout_4h_template']}}}}

@@ -35,6 +35,71 @@ def test_artifact_namespace_must_be_nonempty_when_set(monkeypatch):
         get_env_vars()
 
 
+@pytest.mark.parametrize(
+    'ci_source, passed_source, expected',
+    [
+        (None, None, None),
+        ('merge_request_event', None, None),
+        ('schedule', None, 'schedule'),
+        ('parent_pipeline', 'schedule', 'schedule'),
+        ('parent_pipeline', 'merge_request_event', None),
+        ('parent_pipeline', None, None),
+    ],
+)
+def test_s3_prefix_pipeline_source(monkeypatch, ci_source, passed_source, expected):
+    for name, value in (('CI_PIPELINE_SOURCE', ci_source), ('IDF_CI_ARTIFACT_PIPELINE_SOURCE', passed_source)):
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    assert get_env_vars().s3_prefix_pipeline_source == expected
+
+
+@pytest.mark.parametrize(
+    'ci_source, passed_source, expected',
+    [
+        (None, None, None),
+        ('merge_request_event', None, 'merge_request_event'),
+        ('schedule', None, 'schedule'),
+        ('parent_pipeline', 'schedule', 'schedule'),
+        ('parent_pipeline', 'merge_request_event', 'merge_request_event'),
+        ('parent_pipeline', None, None),
+    ],
+)
+def test_artifact_pipeline_source(monkeypatch, ci_source, passed_source, expected):
+    for name, value in (('CI_PIPELINE_SOURCE', ci_source), ('IDF_CI_ARTIFACT_PIPELINE_SOURCE', passed_source)):
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    assert get_env_vars().artifact_pipeline_source == expected
+
+
+@pytest.mark.parametrize(
+    'source, namespace, expected',
+    [
+        (None, None, 'espressif/esp-idf/abc/'),
+        ('merge_request_event', 'buildv2', 'espressif/esp-idf/abc_buildv2/'),
+        ('push', 'buildv2', 'espressif/esp-idf/abc_push_buildv2/'),
+        ('schedule', None, 'espressif/esp-idf/abc_schedule/'),
+        ('web', 'clang', 'espressif/esp-idf/abc_web_clang/'),
+        ('parent_pipeline', 'clang', 'espressif/esp-idf/abc_clang/'),
+    ],
+)
+def test_s3_prefix_includes_pipeline_source(monkeypatch, source, namespace, expected):
+    from idf_ci.idf_gitlab.api import ArtifactManager
+
+    if source:
+        monkeypatch.setenv('CI_PIPELINE_SOURCE', source)
+    if namespace:
+        monkeypatch.setenv('IDF_CI_ARTIFACT_NAMESPACE', namespace)
+    else:
+        monkeypatch.delenv('IDF_CI_ARTIFACT_NAMESPACE', raising=False)
+    manager = ArtifactManager.__new__(ArtifactManager)
+    manager.settings = CiSettings()
+    assert manager._build_s3_prefix('abc') == expected
+
+
 def test_cli_uses_each_config_file_without_leaking_previous_values(runner, tmp_path):
     first = tmp_path / 'first.toml'
     second = tmp_path / 'second.toml'

@@ -15,6 +15,7 @@ These are **environment variables**, not CLI flags. Names, types, and defaults c
 | `IDF_CI_BUILD_ONLY_TEST_RELATED_APPS` | boolean | Build only test-related apps. |
 | `IDF_CI_BUILD_ONLY_NON_TEST_RELATED_APPS` | boolean | Build only non-test-related apps. **Do not enable both** build-only variables; idf-ci rejects that combination. |
 | `IDF_CI_ARTIFACT_NAMESPACE` | letters, digits, `_` or `-` only | Separate S3 artifacts for build variants of the same commit. |
+| `IDF_CI_ARTIFACT_PIPELINE_SOURCE` | letters, digits, `_` or `-` only | Pipeline source used to separate artifacts of the same commit. |
 
 ## GitLab pipeline context
 

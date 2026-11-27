@@ -114,13 +114,91 @@ All S3 object keys begin with this prefix:
 
 .. code-block:: text
 
-    <gitlab.project>/<commit_sha>/
+    <gitlab.project>/<commit_sha>[_<pipeline_source>][_<namespace>]/
+
+The optional parts are described below. Without them, the prefix is ``<gitlab.project>/<commit_sha>/``.
+
+Namespace
+=========
 
 Set ``IDF_CI_ARTIFACT_NAMESPACE`` to separate build variants under the same commit without changing ``PIPELINE_COMMIT_SHA``. For example, ``IDF_CI_ARTIFACT_NAMESPACE=buildv2`` stores and retrieves GCC artifacts under ``<gitlab.project>/<commit_sha>_buildv2/``. The namespace may contain only letters, digits, ``_``, and ``-``, and cannot be empty. When unset, the original GCC prefix above is unchanged.
+
+Pipeline source
+===============
+
+Pipelines of different sources for the same commit (for example, a merge request pipeline and a scheduled pipeline) are separated automatically, so they do not overwrite each other's artifacts. The pipeline source is inserted after the commit SHA and before the namespace:
+
+.. list-table:: Examples for commit ``abc123``
+    :header-rows: 1
+
+    - - Pipeline source
+      - Namespace
+      - S3 prefix
+    - - ``merge_request_event``
+      - unset
+      - ``<gitlab.project>/abc123/``
+    - - ``merge_request_event``
+      - ``buildv2``
+      - ``<gitlab.project>/abc123_buildv2/``
+    - - ``push``
+      - unset
+      - ``<gitlab.project>/abc123_push/``
+    - - ``schedule``
+      - ``buildv2``
+      - ``<gitlab.project>/abc123_schedule_buildv2/``
+
+``merge_request_event`` adds no suffix, so merge request pipelines keep the original prefix.
+
+The source is taken from:
+
+1. ``IDF_CI_ARTIFACT_PIPELINE_SOURCE``, if set.
+2. Otherwise, GitLab's ``CI_PIPELINE_SOURCE``.
+
+Child pipelines
+---------------
+
+In a child pipeline, GitLab always sets ``CI_PIPELINE_SOURCE`` to ``parent_pipeline``, so the real source has to be passed down. The build and test child pipeline generators do this automatically by writing ``IDF_CI_ARTIFACT_PIPELINE_SOURCE`` into the generated YAML:
+
+.. code-block:: text
+
+    parent pipeline        CI_PIPELINE_SOURCE=schedule
+      └─ build child       IDF_CI_ARTIFACT_PIPELINE_SOURCE=schedule   (written by the generator)
+           └─ test child   IDF_CI_ARTIFACT_PIPELINE_SOURCE=schedule   (written by the generator)
+
+    all levels use <gitlab.project>/<commit_sha>_schedule/
+
+Child pipelines triggered by your **own** jobs must pass the source on the trigger:
+
+.. code-block:: yaml
+
+    my_child_pipeline:
+      variables:
+        IDF_CI_ARTIFACT_PIPELINE_SOURCE: $CI_PIPELINE_SOURCE
+      trigger:
+        include: child.yml
+
+Without it, the child pipeline may not have the correct pipeline source and will fall back to the ``merge_request_event`` prefix.
+
+Download artifacts for specific source
+--------------------------------------
+
+To download artifacts of a specific source, for example locally, set the variable explicitly:
+
+.. code-block:: bash
+
+    IDF_CI_ARTIFACT_PIPELINE_SOURCE=schedule idf-ci gitlab download-artifacts --commit-sha abc123
+
+Downloads with ``--presigned-json`` or ``--pipeline-id`` do not need it, because the presigned URLs already contain the prefix.
+
+Build variants and toolchains
+=============================
 
 When generating build child pipelines, set ``IDF_CI_ARTIFACT_NAMESPACE`` on the **YAML-generator job** to the raw variant (``buildv2``). The generator writes the effective value into each build YAML: ``buildv2`` for GCC and ``buildv2_clang`` for Clang. Build app-list files, S3 uploads, presigned-URL generation, and test jobs for Clang must all use ``buildv2_clang``; GCC uses ``buildv2``. Without a raw variant, Clang uses ``clang`` and GCC uses no namespace. The generator does this composition **once**; standalone S3 commands and directly invoked test generation require the already-composed value in their environment.
 
 Do not pass the *raw* variant through both parent trigger jobs. A trigger variable with the raw value can override the per-toolchain value in the generated YAML and cause builds to read the wrong app list or S3 prefix. Do not forward a parent pipeline variable of that name with ``forward: pipeline_variables: true`` either. If explicit trigger variables are required, use the effective namespace for that particular toolchain. The test generator writes its effective namespace into generated target-test jobs so it survives the nested test trigger. See :doc:`dynamic-gitlab-pipeline` for the four combinations, generated filenames, and parent-job example.
+
+Object key
+==========
 
 The remainder of the object key is derived from the artifact path relative to the effective project root:
 
@@ -158,7 +236,9 @@ When neither ``--presigned-json`` nor ``--pipeline-id`` is provided, the command
 
 .. code-block:: text
 
-    <gitlab.project>/<commit_sha>/<from_path>
+    <gitlab.project>/<commit_sha>[_<pipeline_source>][_<namespace>]/<from_path>
+
+The prefix is described in `S3 object layout`_.
 
 If ``--build-dir`` is provided, downloads are limited to that build directory only. A relative ``--build-dir`` is interpreted relative to ``from_path``. An absolute ``--build-dir`` is used as-is.
 

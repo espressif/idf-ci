@@ -278,10 +278,18 @@ class ArtifactManager:
         return self.project_root / object_name.replace(prefix, '', 1)
 
     def _build_s3_prefix(self, commit_sha: str) -> str:
-        namespace = get_env_vars().IDF_CI_ARTIFACT_NAMESPACE
-        if namespace:
-            return f'{self.settings.gitlab.project}/{commit_sha}_{namespace}/'
-        return f'{self.settings.gitlab.project}/{commit_sha}/'
+        envs = get_env_vars()
+        parts = [commit_sha, envs.s3_prefix_pipeline_source, envs.IDF_CI_ARTIFACT_NAMESPACE]
+        return f'{self.settings.gitlab.project}/{"_".join(p for p in parts if p)}/'
+
+    def _describe_s3_location(self, commit_sha: str, prefix: str) -> str:
+        envs = get_env_vars()
+        return (
+            f'commit sha: {commit_sha}, '
+            f'pipeline source: {envs.s3_prefix_pipeline_source or "<none>"}, '
+            f'namespace: {envs.IDF_CI_ARTIFACT_NAMESPACE or "<none>"}, '
+            f'prefix: {prefix}'
+        )
 
     def _relative_to_project_root(self, path: Path) -> Path:
         resolved_path = self._resolve_local_path(path)
@@ -636,19 +644,23 @@ class ArtifactManager:
 
         if not presigned_json:
             # download from s3 directly
-            logger.info(f'Downloading artifacts under {from_path} from s3 (commit sha: {params.commit_sha})')
+            prefix = self._build_s3_prefix(params.commit_sha)
+            logger.info(
+                f'Downloading artifacts under {from_path} from s3 '
+                f'({self._describe_s3_location(params.commit_sha, prefix)})'
+            )
 
             for art_type in self._get_artifact_types(artifact_type):
                 config = self.settings.gitlab.artifacts.s3.configs[art_type]
                 if config.zip_first:
                     downloaded_count += self._download_zip_from_s3(
-                        prefix=self._build_s3_prefix(params.commit_sha),
+                        prefix=prefix,
                         from_path=from_path,
                         artifact_type=art_type,
                     )
                 else:
                     downloaded_count += self._download_files_from_s3(
-                        prefix=self._build_s3_prefix(params.commit_sha),
+                        prefix=prefix,
                         from_path=from_path,
                         artifact_type=art_type,
                     )
@@ -711,7 +723,11 @@ class ArtifactManager:
         if not self.s3_client:
             raise S3Error('Configure S3 storage to upload artifacts')
 
-        logger.info(f'Uploading artifacts under {params.from_path} to s3 (commit sha: {params.commit_sha})')
+        prefix = self._build_s3_prefix(params.commit_sha)
+        logger.info(
+            f'Uploading artifacts under {params.from_path} to s3 '
+            f'({self._describe_s3_location(params.commit_sha, prefix)})'
+        )
 
         start_time = time.time()
         uploaded_count = 0
@@ -720,14 +736,14 @@ class ArtifactManager:
             config = self.settings.gitlab.artifacts.s3.configs[art_type]
             if config.zip_first:
                 uploaded_count += self._upload_zip_to_s3(
-                    prefix=self._build_s3_prefix(params.commit_sha),
+                    prefix=prefix,
                     from_path=params.from_path,
                     artifact_type=art_type,
                     build_dir=build_dir,
                 )
             else:
                 uploaded_count += self._upload_files_to_s3(
-                    prefix=self._build_s3_prefix(params.commit_sha),
+                    prefix=prefix,
                     from_path=params.from_path,
                     artifact_type=art_type,
                     build_dir=build_dir,
