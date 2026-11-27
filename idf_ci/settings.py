@@ -394,6 +394,9 @@ variables:
 {%- if artifact_namespace %}
   IDF_CI_ARTIFACT_NAMESPACE: "{{ artifact_namespace }}"
 {%- endif %}
+{%- if artifact_pipeline_source %}
+  IDF_CI_ARTIFACT_PIPELINE_SOURCE: "{{ artifact_pipeline_source }}"
+{%- endif %}
 {% endif %}
 
 {% if settings.gitlab.build_pipeline.job_template_jinja %}
@@ -576,6 +579,9 @@ variables:
   IDF_TOOLCHAIN: "{{ toolchain }}"
 {%- if artifact_namespace %}
   IDF_CI_ARTIFACT_NAMESPACE: "{{ artifact_namespace }}"
+{%- endif %}
+{%- if artifact_pipeline_source %}
+  IDF_CI_ARTIFACT_PIPELINE_SOURCE: "{{ artifact_pipeline_source }}"
 {%- endif %}
 {% endif %}
 

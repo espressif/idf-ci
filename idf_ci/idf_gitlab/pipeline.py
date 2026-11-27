@@ -212,6 +212,7 @@ def build_child_pipeline(
                     toolchain=toolchain,
                     default_toolchain=IDF_CI_DEFAULT_TOOLCHAIN,
                     artifact_namespace=app_list_suffix,
+                    artifact_pipeline_source=envs.artifact_pipeline_source,
                     test_yaml_filename=toolchain_filename(settings.gitlab.test_pipeline.yaml_filename, toolchain),
                     generate_tests=toolchain in settings.gitlab.test_enabled_toolchains,
                     test_related_apps_count=len(test_related_apps),
@@ -376,6 +377,8 @@ def test_child_pipeline(
         job['extra_variables'] = _extra_variables_for_job(settings, job, env)
         if envs.IDF_CI_ARTIFACT_NAMESPACE:
             job['extra_variables']['IDF_CI_ARTIFACT_NAMESPACE'] = _yaml_flow(envs.IDF_CI_ARTIFACT_NAMESPACE)
+        if envs.artifact_pipeline_source:
+            job['extra_variables']['IDF_CI_ARTIFACT_PIPELINE_SOURCE'] = _yaml_flow(envs.artifact_pipeline_source)
         jobs.append(job)
 
     extra_jobs = env.from_string(settings.gitlab.test_pipeline.extra_jobs_jinja).render(
@@ -402,6 +405,7 @@ def test_child_pipeline(
                 toolchain=toolchain,
                 default_toolchain=IDF_CI_DEFAULT_TOOLCHAIN,
                 artifact_namespace=namespace,
+                artifact_pipeline_source=envs.artifact_pipeline_source,
             )
         )
 
